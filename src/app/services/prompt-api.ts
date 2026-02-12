@@ -94,6 +94,14 @@ export class PromptAPIService {
     }
   }
 
+  getContextUsage(): { used: number; total: number } | null {
+    if (!this.session) return null;
+    return {
+      used: this.session.inputUsage,
+      total: this.session.inputQuota,
+    };
+  }
+
   destroySession(): void {
     if (this.session) {
       this.session.destroy();

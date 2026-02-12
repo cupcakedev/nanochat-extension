@@ -49,15 +49,23 @@ function calculateTokenStats(tokenCount: number, startTime: number): TokenStats 
   };
 }
 
+export interface ContextUsage {
+  used: number;
+  total: number;
+  percent: number;
+}
+
 export function useChat(
   serviceRef: RefObject<PromptAPIService>,
   chatId: string | null,
   initialMessages: ChatMessage[],
-  onMessagesChange?: (messages: ChatMessage[]) => void,
+  initialContextUsage?: { used: number; total: number } | null,
+  onMessagesChange?: (messages: ChatMessage[], contextUsage?: { used: number; total: number }) => void,
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [streaming, setStreaming] = useState(false);
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
+  const [contextUsage, setContextUsage] = useState<ContextUsage | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -67,6 +75,14 @@ export function useChat(
     setMessages(initialMessages);
     setStreaming(false);
     setTokenStats(null);
+    if (initialContextUsage) {
+      setContextUsage({
+        ...initialContextUsage,
+        percent: Math.round((initialContextUsage.used / initialContextUsage.total) * 100),
+      });
+    } else {
+      setContextUsage(null);
+    }
   }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = useCallback(
@@ -108,7 +124,17 @@ export function useChat(
           setTokenStats(calculateTokenStats(tokenCount, startTime));
         }
 
-        onMessagesChange?.(trimmed);
+        const usage = serviceRef.current.getContextUsage();
+        const ctxUsage = usage ? { used: usage.used, total: usage.total } : undefined;
+
+        if (ctxUsage) {
+          setContextUsage({
+            ...ctxUsage,
+            percent: Math.round((ctxUsage.used / ctxUsage.total) * 100),
+          });
+        }
+
+        onMessagesChange?.(trimmed, ctxUsage);
       }
     },
     [serviceRef, onMessagesChange],
@@ -123,8 +149,9 @@ export function useChat(
     setMessages([]);
     setStreaming(false);
     setTokenStats(null);
+    setContextUsage(null);
     onMessagesChange?.([]);
   }, [onMessagesChange]);
 
-  return { messages, streaming, tokenStats, send, stop, clear };
+  return { messages, streaming, tokenStats, contextUsage, send, stop, clear };
 }

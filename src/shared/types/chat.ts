@@ -25,6 +25,7 @@ export interface Chat {
   createdAt: number;
   updatedAt: number;
   messages: ChatMessage[];
+  contextUsage?: { used: number; total: number };
 }
 
 export interface ChatSummary {

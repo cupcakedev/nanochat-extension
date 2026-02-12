@@ -72,7 +72,7 @@ export function useChatHistory() {
   );
 
   const updateActiveChat = useCallback(
-    (messages: ChatMessage[]) => {
+    (messages: ChatMessage[], contextUsage?: { used: number; total: number }) => {
       if (!activeChatId) return;
       const existing = chatsRef.current.get(activeChatId);
       if (!existing) return;
@@ -82,6 +82,7 @@ export function useChatHistory() {
         messages,
         title: deriveChatTitle(messages),
         updatedAt: Date.now(),
+        ...(contextUsage ? { contextUsage } : {}),
       };
 
       chatsRef.current.set(activeChatId, updated);
