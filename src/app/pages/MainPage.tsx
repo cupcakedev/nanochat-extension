@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Sidebar } from '@app/components/sidebar/Sidebar';
+import { MenuIcon } from '@app/components/icons/MenuIcon';
 import { EmptyState } from '@app/components/ui/EmptyState';
 import { ChatInput } from '@app/components/ui/ChatInput';
 import { MessageList } from '@app/components/chat/MessageList';
@@ -91,20 +92,7 @@ export const MainPage = () => {
             onClick={toggleSidebar}
             className="p-2 rounded-lg bg-neutral-100/50 hover:bg-neutral-100/80 text-neutral-400 hover:text-white transition-colors border border-white/5 backdrop-blur-md"
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
+            <MenuIcon />
           </button>
         </div>
 
