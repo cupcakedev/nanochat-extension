@@ -22,11 +22,16 @@ function trimLastMessageTrailingWhitespace(prev: ChatMessage[]): ChatMessage[] {
   return replaceLastMessageContent(prev, trimmed);
 }
 
-function createChatMessage(role: 'user' | 'assistant', content: string): ChatMessage {
+function createChatMessage(
+  role: 'user' | 'assistant',
+  content: string,
+  images?: string[],
+): ChatMessage {
   return {
     id: crypto.randomUUID(),
     role,
     content,
+    ...(images?.length ? { images } : {}),
     timestamp: Date.now(),
   };
 }
@@ -65,8 +70,8 @@ export function useChat(
   }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = useCallback(
-    async (text: string) => {
-      const userMessage = createChatMessage('user', text);
+    async (text: string, images?: string[]) => {
+      const userMessage = createChatMessage('user', text, images);
       const assistantMessage = createChatMessage('assistant', '');
 
       setMessages((prev) => [...prev, userMessage, assistantMessage]);

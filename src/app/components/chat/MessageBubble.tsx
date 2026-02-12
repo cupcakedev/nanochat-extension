@@ -16,7 +16,21 @@ export const MessageBubble = memo(({ message, streaming = false }: MessageBubble
     return (
       <div className="flex justify-end">
         <div className="max-w-[85%] rounded-2xl bg-brand-500 text-white px-3.5 py-2 text-sm leading-relaxed">
-          <span className="whitespace-pre-wrap break-words">{message.content}</span>
+          {message.images?.length ? (
+            <div className="flex gap-1.5 mb-2 flex-wrap">
+              {message.images.map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt={`Attachment ${i + 1}`}
+                  className="max-w-[200px] max-h-[200px] rounded-lg object-cover"
+                />
+              ))}
+            </div>
+          ) : null}
+          {message.content && (
+            <span className="whitespace-pre-wrap break-words">{message.content}</span>
+          )}
         </div>
       </div>
     );

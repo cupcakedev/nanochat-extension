@@ -4,20 +4,38 @@ import type { ChatMessage, LoadingProgress } from '@shared/types';
 const logger = createLogger('prompt-api');
 
 const LANGUAGE_OPTIONS = {
-  expectedInputs: [{ type: 'text' as const, languages: ['en'] }],
+  expectedInputs: [{ type: 'text' as const, languages: ['en'] }, { type: 'image' as const }],
   expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
 };
 
+type LanguageModelContent =
+  | { type: 'text'; value: string }
+  | { type: 'image'; value: Blob };
+
 type LanguageModelMessage = {
   role: 'user' | 'assistant';
-  content: [{ type: 'text'; value: string }];
+  content: LanguageModelContent[];
 };
 
-function toLanguageModelMessage(message: ChatMessage): LanguageModelMessage {
-  return {
-    role: message.role,
-    content: [{ type: 'text' as const, value: message.content }],
-  };
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const res = await fetch(dataUrl);
+  return res.blob();
+}
+
+async function toLanguageModelMessage(message: ChatMessage): Promise<LanguageModelMessage> {
+  const content: LanguageModelContent[] = [];
+
+  if (message.images?.length) {
+    for (const dataUrl of message.images) {
+      content.push({ type: 'image', value: await dataUrlToBlob(dataUrl) });
+    }
+  }
+
+  if (message.content) {
+    content.push({ type: 'text', value: message.content });
+  }
+
+  return { role: message.role, content };
 }
 
 export class PromptAPIService {
@@ -61,7 +79,7 @@ export class PromptAPIService {
       throw new Error('Session not initialized');
     }
 
-    const prompt = messages.map(toLanguageModelMessage);
+    const prompt = await Promise.all(messages.map(toLanguageModelMessage));
     const stream = this.session.promptStreaming(prompt, { signal });
 
     const reader = stream.getReader();

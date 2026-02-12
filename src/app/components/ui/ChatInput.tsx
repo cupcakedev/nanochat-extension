@@ -1,19 +1,29 @@
-import { memo, useCallback, useState, type KeyboardEvent } from 'react';
+import { memo, useCallback, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { SendIcon } from '@app/components/icons/SendIcon';
 import { StopIcon } from '@app/components/icons/StopIcon';
+import { AttachIcon } from '@app/components/icons/AttachIcon';
 import { ModeTab } from './ModeTab';
 import { ActionButton } from './ActionButton';
+import { ImagePreviewList } from './ImagePreviewList';
 
 type Mode = 'chat' | 'agent';
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, images?: string[]) => void;
   onStop?: () => void;
   disabled?: boolean;
   streaming?: boolean;
   placeholder?: string;
   mode: Mode;
   onModeChange: (mode: Mode) => void;
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(file);
+  });
 }
 
 export const ChatInput = memo(
@@ -27,13 +37,27 @@ export const ChatInput = memo(
     onModeChange,
   }: ChatInputProps) => {
     const [value, setValue] = useState('');
+    const [images, setImages] = useState<string[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const addImages = useCallback(async (files: File[]) => {
+      const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+      if (!imageFiles.length) return;
+      const dataUrls = await Promise.all(imageFiles.map(fileToDataUrl));
+      setImages((prev) => [...prev, ...dataUrls]);
+    }, []);
+
+    const removeImage = useCallback((index: number) => {
+      setImages((prev) => prev.filter((_, i) => i !== index));
+    }, []);
 
     const handleSend = useCallback(() => {
       const trimmed = value.trim();
-      if (!trimmed) return;
-      onSend(trimmed);
+      if (!trimmed && !images.length) return;
+      onSend(trimmed, images.length ? images : undefined);
       setValue('');
-    }, [value, onSend]);
+      setImages([]);
+    }, [value, images, onSend]);
 
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -43,6 +67,25 @@ export const ChatInput = memo(
       },
       [handleSend],
     );
+
+    const handlePaste = useCallback(
+      (e: ClipboardEvent<HTMLTextAreaElement>) => {
+        const files = Array.from(e.clipboardData.files);
+        if (files.length) addImages(files);
+      },
+      [addImages],
+    );
+
+    const handleFileChange = useCallback(
+      (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files ?? []);
+        if (files.length) addImages(files);
+        e.target.value = '';
+      },
+      [addImages],
+    );
+
+    const canSend = value.trim() || images.length;
 
     return (
       <div className="w-full max-w-3xl mx-auto">
@@ -60,11 +103,32 @@ export const ChatInput = memo(
           </div>
         </div>
         <div className="rounded-2xl bg-neutral-100/80 backdrop-blur-xl border border-white/5 transition-all duration-300">
+          {images.length > 0 && (
+            <ImagePreviewList images={images} onRemove={removeImage} />
+          )}
           <div className="flex items-end gap-2 px-3 py-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || streaming}
+              className="flex items-center justify-center w-10 h-10 rounded-xl
+                text-neutral-400 hover:text-neutral-700 transition-colors
+                disabled:opacity-50 disabled:cursor-not-allowed mb-1"
+            >
+              <AttachIcon />
+            </button>
             <textarea
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               disabled={disabled || streaming}
               placeholder={placeholder}
               rows={1}
@@ -80,7 +144,7 @@ export const ChatInput = memo(
             ) : (
               <ActionButton
                 onClick={handleSend}
-                disabled={disabled || !value.trim()}
+                disabled={disabled || !canSend}
                 variant="send"
               >
                 <SendIcon />
