@@ -17,3 +17,18 @@ export interface TokenStats {
   duration: number;
   tokensPerSecond: number;
 }
+
+export interface Chat {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: ChatMessage[];
+}
+
+export interface ChatSummary {
+  id: string;
+  title: string;
+  updatedAt: number;
+  preview: string;
+}
