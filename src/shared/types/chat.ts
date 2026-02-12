@@ -10,7 +10,7 @@ export interface LoadingProgress {
 	text: string;
 }
 
-export type SessionStatus = 'idle' | 'loading' | 'ready' | 'error';
+export type SessionStatus = 'idle' | 'needs-download' | 'loading' | 'ready' | 'error';
 
 export interface TokenStats {
 	tokenCount: number;
