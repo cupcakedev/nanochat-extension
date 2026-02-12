@@ -53,9 +53,7 @@ export function useChatHistory() {
       chatsRef.current.delete(id);
       deleteChatFromStorage(id);
 
-      const remaining = [...chatsRef.current.values()].sort(
-        (a, b) => b.updatedAt - a.updatedAt,
-      );
+      const remaining = [...chatsRef.current.values()].sort((a, b) => b.updatedAt - a.updatedAt);
 
       if (remaining.length === 0) {
         const chat = createNewChat();

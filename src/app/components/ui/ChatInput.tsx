@@ -6,6 +6,8 @@ interface ChatInputProps {
   disabled?: boolean;
   streaming?: boolean;
   placeholder?: string;
+  mode: 'chat' | 'agent';
+  onModeChange: (mode: 'chat' | 'agent') => void;
 }
 
 export const ChatInput = memo(
@@ -15,6 +17,8 @@ export const ChatInput = memo(
     disabled = false,
     streaming = false,
     placeholder = 'Type a message...',
+    mode,
+    onModeChange,
   }: ChatInputProps) => {
     const [value, setValue] = useState('');
 
@@ -35,42 +39,60 @@ export const ChatInput = memo(
     );
 
     return (
-      <div
-        className="absolute bottom-0 left-0 right-0 z-20 m-4 rounded-2xl
-          bg-neutral-100/80 backdrop-blur-xl border border-white/5 transition-all duration-300"
-      >
-        <div className="flex items-end gap-2 px-3 py-2.5">
-          <textarea
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={disabled || streaming}
-            placeholder={placeholder}
-            rows={1}
-            className="flex-1 resize-none rounded-xl border-none bg-transparent px-3 py-2 text-sm
-						text-neutral-800 placeholder-neutral-500 outline-none focus:ring-0
-						disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-          />
-          {streaming ? (
+      <div className="w-full max-w-3xl mx-auto">
+        <div className="flex justify-center mb-4">
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-neutral-100/50 backdrop-blur-md border border-white/5">
             <button
-              onClick={onStop}
-              className="group flex items-center justify-center w-10 h-10 rounded-xl
-							bg-red-500/10 text-red-500 transition-all duration-200
-							hover:bg-red-500 hover:text-white"
+              onClick={() => onModeChange('chat')}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-all duration-200 ${mode === 'chat' ? 'bg-white/10 text-white shadow-sm border border-white/5' : 'text-neutral-400 hover:text-white'}`}
             >
-              <StopIcon />
+              Chat
             </button>
-          ) : (
             <button
-              onClick={handleSend}
-              disabled={disabled || !value.trim()}
-              className="group flex items-center justify-center w-10 h-10 rounded-xl
-							bg-brand-500 text-white transition-all duration-200 shadow-lg shadow-brand-500/20
-							hover:bg-brand-600 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
+              onClick={() => onModeChange('agent')}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all duration-200 ${mode === 'agent' ? 'bg-white/10 text-white shadow-sm border border-white/5' : 'text-neutral-400 hover:text-white'}`}
             >
-              <SendIcon />
+              Agent
+              <span className="px-1 py-0.5 rounded text-[10px] leading-none bg-brand-500/20 text-brand-300 border border-brand-500/20">
+                Beta
+              </span>
             </button>
-          )}
+          </div>
+        </div>
+        <div className="rounded-2xl bg-neutral-100/80 backdrop-blur-xl border border-white/5 transition-all duration-300">
+          <div className="flex items-end gap-2 px-3 py-3">
+            <textarea
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={disabled || streaming}
+              placeholder={placeholder}
+              rows={1}
+              className="flex-1 resize-none rounded-xl border-none bg-transparent px-3 py-2 text-base
+                            text-neutral-200 placeholder-neutral-500 outline-none focus:ring-0
+                            disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 min-h-[44px] max-h-[200px]"
+            />
+            {streaming ? (
+              <button
+                onClick={onStop}
+                className="group flex items-center justify-center w-10 h-10 rounded-xl
+                                bg-red-500/10 text-red-500 transition-all duration-200
+                                hover:bg-red-500 hover:text-white mb-1"
+              >
+                <StopIcon />
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                disabled={disabled || !value.trim()}
+                className="group flex items-center justify-center w-10 h-10 rounded-xl
+                                bg-brand-500 text-white transition-all duration-200 shadow-lg shadow-brand-500/20
+                                hover:bg-brand-600 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none mb-1"
+              >
+                <SendIcon />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
