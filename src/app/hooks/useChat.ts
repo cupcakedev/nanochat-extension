@@ -61,6 +61,15 @@ export function useChat(serviceRef: RefObject<PromptAPIService>) {
 					return updated;
 				});
 			} finally {
+				setMessages((prev) => {
+					const updated = [...prev];
+					const last = updated[updated.length - 1];
+					const trimmed = last.content.trimEnd();
+					if (trimmed !== last.content) {
+						updated[updated.length - 1] = { ...last, content: trimmed };
+					}
+					return trimmed !== last.content ? updated : prev;
+				});
 				setStreaming(false);
 				abortRef.current = null;
 
