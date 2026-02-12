@@ -20,7 +20,7 @@ export const MainPage = () => {
 			{hasMessages ? (
 				<>
 					<MessageList messages={messages} streaming={streaming} />
-					{tokenStats && !streaming && <TokenStats stats={tokenStats} />}
+					{import.meta.env.DEV && tokenStats && !streaming && <TokenStats stats={tokenStats} />}
 				</>
 			) : (
 				<EmptyState
