@@ -3,6 +3,47 @@ import type { RefObject } from 'react';
 import type { PromptAPIService } from '@app/services/prompt-api';
 import type { ChatMessage, TokenStats } from '@shared/types';
 
+function replaceLastMessageContent(prev: ChatMessage[], content: string): ChatMessage[] {
+	const updated = [...prev];
+	const last = updated[updated.length - 1];
+	updated[updated.length - 1] = { ...last, content };
+	return updated;
+}
+
+function appendTokenToLastMessage(prev: ChatMessage[], token: string): ChatMessage[] {
+	const last = prev[prev.length - 1];
+	return replaceLastMessageContent(prev, last.content + token);
+}
+
+function trimLastMessageTrailingWhitespace(prev: ChatMessage[]): ChatMessage[] {
+	const last = prev[prev.length - 1];
+	const trimmed = last.content.trimEnd();
+	if (trimmed === last.content) return prev;
+	return replaceLastMessageContent(prev, trimmed);
+}
+
+function createChatMessage(role: 'user' | 'assistant', content: string): ChatMessage {
+	return {
+		id: crypto.randomUUID(),
+		role,
+		content,
+		timestamp: Date.now(),
+	};
+}
+
+function extractErrorMessage(err: unknown): string {
+	return err instanceof Error ? err.message : 'An error occurred during generation';
+}
+
+function calculateTokenStats(tokenCount: number, startTime: number): TokenStats {
+	const duration = (performance.now() - startTime) / 1000;
+	return {
+		tokenCount,
+		duration,
+		tokensPerSecond: tokenCount / duration,
+	};
+}
+
 export function useChat(serviceRef: RefObject<PromptAPIService>) {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [streaming, setStreaming] = useState(false);
@@ -11,19 +52,8 @@ export function useChat(serviceRef: RefObject<PromptAPIService>) {
 
 	const send = useCallback(
 		async (text: string) => {
-			const userMessage: ChatMessage = {
-				id: crypto.randomUUID(),
-				role: 'user',
-				content: text,
-				timestamp: Date.now(),
-			};
-
-			const assistantMessage: ChatMessage = {
-				id: crypto.randomUUID(),
-				role: 'assistant',
-				content: '',
-				timestamp: Date.now(),
-			};
+			const userMessage = createChatMessage('user', text);
+			const assistantMessage = createChatMessage('assistant', '');
 
 			setMessages((prev) => [...prev, userMessage, assistantMessage]);
 			setStreaming(true);
@@ -41,45 +71,21 @@ export function useChat(serviceRef: RefObject<PromptAPIService>) {
 					allMessages,
 					(token) => {
 						tokenCount++;
-						setMessages((prev) => {
-							const updated = [...prev];
-							const last = updated[updated.length - 1];
-							updated[updated.length - 1] = { ...last, content: last.content + token };
-							return updated;
-						});
+						setMessages((prev) => appendTokenToLastMessage(prev, token));
 					},
 					abortController.signal,
 				);
 			} catch (err) {
 				if (abortController.signal.aborted) return;
-				const errorText =
-					err instanceof Error ? err.message : 'An error occurred during generation';
-				setMessages((prev) => {
-					const updated = [...prev];
-					const last = updated[updated.length - 1];
-					updated[updated.length - 1] = { ...last, content: `Error: ${errorText}` };
-					return updated;
-				});
+				const errorContent = `Error: ${extractErrorMessage(err)}`;
+				setMessages((prev) => replaceLastMessageContent(prev, errorContent));
 			} finally {
-				setMessages((prev) => {
-					const updated = [...prev];
-					const last = updated[updated.length - 1];
-					const trimmed = last.content.trimEnd();
-					if (trimmed !== last.content) {
-						updated[updated.length - 1] = { ...last, content: trimmed };
-					}
-					return trimmed !== last.content ? updated : prev;
-				});
+				setMessages(trimLastMessageTrailingWhitespace);
 				setStreaming(false);
 				abortRef.current = null;
 
 				if (tokenCount > 0) {
-					const duration = (performance.now() - startTime) / 1000;
-					setTokenStats({
-						tokenCount,
-						duration,
-						tokensPerSecond: tokenCount / duration,
-					});
+					setTokenStats(calculateTokenStats(tokenCount, startTime));
 				}
 			}
 		},

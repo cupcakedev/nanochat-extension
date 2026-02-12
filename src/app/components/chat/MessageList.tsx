@@ -7,6 +7,15 @@ interface MessageListProps {
 	streaming: boolean;
 }
 
+function isActiveStreamingMessage(
+	message: ChatMessage,
+	index: number,
+	totalMessages: number,
+	streaming: boolean,
+): boolean {
+	return streaming && index === totalMessages - 1 && message.role === 'assistant';
+}
+
 export const MessageList = memo(({ messages, streaming }: MessageListProps) => {
 	const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -20,7 +29,7 @@ export const MessageList = memo(({ messages, streaming }: MessageListProps) => {
 				<MessageBubble
 					key={message.id}
 					message={message}
-					streaming={streaming && index === messages.length - 1 && message.role === 'assistant'}
+					streaming={isActiveStreamingMessage(message, index, messages.length, streaming)}
 				/>
 			))}
 			<div ref={bottomRef} />

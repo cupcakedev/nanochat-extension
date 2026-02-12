@@ -14,15 +14,18 @@ export const MainPage = () => {
 	const { messages, streaming, tokenStats, send, stop, clear } = useChat(serviceRef);
 
 	const hasMessages = messages.length > 0;
+	const isSessionLoading = status === 'loading';
+	const isShowingOnboardingFlow = status === 'needs-download' || (isSessionLoading && !hasMessages);
+	const shouldShowDevTokenStats = import.meta.env.DEV && tokenStats !== null && !streaming;
 
-	if (status === 'needs-download' || (status === 'loading' && !hasMessages)) {
+	if (isShowingOnboardingFlow) {
 		return (
 			<div className="flex flex-col h-screen">
 				<Header />
 				<OnboardingScreen
 					onDownload={download}
 					onCancel={cancelDownload}
-					loading={status === 'loading'}
+					loading={isSessionLoading}
 					progress={progress}
 				/>
 			</div>
@@ -36,7 +39,7 @@ export const MainPage = () => {
 			{hasMessages ? (
 				<>
 					<MessageList messages={messages} streaming={streaming} />
-					{import.meta.env.DEV && tokenStats && !streaming && <TokenStats stats={tokenStats} />}
+					{shouldShowDevTokenStats && <TokenStats stats={tokenStats!} />}
 				</>
 			) : (
 				<EmptyState
