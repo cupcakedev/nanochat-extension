@@ -20,6 +20,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
+    "types": ["vite/client", "chrome", "dom-chromium-ai"],
     "baseUrl": ".",
     "paths": {
       "@app/*": [
