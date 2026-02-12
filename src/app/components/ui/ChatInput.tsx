@@ -35,39 +35,43 @@ export const ChatInput = memo(
     );
 
     return (
-      <div className="flex items-end gap-2 px-4 py-3 border-t border-neutral-200">
-        <textarea
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={disabled || streaming}
-          placeholder={placeholder}
-          rows={1}
-          className="flex-1 resize-none rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-sm
-					text-neutral-800 placeholder-neutral-400 outline-none
-					focus:border-brand-500 focus:ring-1 focus:ring-brand-500
-					disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-        {streaming ? (
-          <button
-            onClick={onStop}
-            className="flex items-center justify-center w-9 h-9 rounded-lg
-						bg-red-500 text-white transition-colors
-						hover:bg-red-600"
-          >
-            <StopIcon />
-          </button>
-        ) : (
-          <button
-            onClick={handleSend}
-            disabled={disabled || !value.trim()}
-            className="flex items-center justify-center w-9 h-9 rounded-lg
-						bg-brand-500 text-white transition-colors
-						hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <SendIcon />
-          </button>
-        )}
+      <div
+        className="absolute bottom-0 left-0 right-0 z-20 m-4 rounded-xl
+          bg-neutral-100 shadow-md shadow-black/10"
+      >
+        <div className="flex items-end gap-2 px-3 py-2.5">
+          <textarea
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={disabled || streaming}
+            placeholder={placeholder}
+            rows={1}
+            className="flex-1 resize-none rounded-lg border-none bg-neutral-100 px-3 py-2 text-sm
+						text-neutral-800 placeholder-neutral-400 outline-none
+						disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          {streaming ? (
+            <button
+              onClick={onStop}
+              className="flex items-center justify-center w-9 h-9 rounded-lg
+							bg-red-500 text-white transition-colors
+							hover:bg-red-600"
+            >
+              <StopIcon />
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={disabled || !value.trim()}
+              className="flex items-center justify-center w-9 h-9 rounded-lg
+							bg-brand-500 text-white transition-colors
+							hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <SendIcon />
+            </button>
+          )}
+        </div>
       </div>
     );
   },

@@ -45,7 +45,10 @@ export const Header = memo(
     }, [onNewChat]);
 
     return (
-      <header className="border-b border-neutral-200 overflow-hidden">
+      <header
+        className="absolute top-0 left-0 right-0 z-20 m-4 rounded-xl
+          bg-neutral-100 shadow-md shadow-black/10 overflow-hidden"
+      >
         <div className="flex items-center gap-2.5 px-4 py-3">
           <Logo size={28} />
           <h1 className="flex-1 text-base font-semibold text-neutral-800">{EXTENSION_NAME}</h1>

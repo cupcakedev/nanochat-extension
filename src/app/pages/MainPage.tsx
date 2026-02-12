@@ -38,22 +38,24 @@ export const MainPage = () => {
 
   if (!loaded || isShowingOnboardingFlow) {
     return (
-      <div className="flex flex-col h-screen">
+      <div className="relative h-screen">
         <Header />
         {isShowingOnboardingFlow && (
-          <OnboardingScreen
-            onDownload={download}
-            onCancel={cancelDownload}
-            loading={isSessionLoading}
-            progress={progress}
-          />
+          <div className="pt-16">
+            <OnboardingScreen
+              onDownload={download}
+              onCancel={cancelDownload}
+              loading={isSessionLoading}
+              progress={progress}
+            />
+          </div>
         )}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="relative h-screen flex flex-col">
       <Header
         onClear={clear}
         showClear={hasMessages}
@@ -63,18 +65,20 @@ export const MainPage = () => {
         onDeleteChat={deleteChat}
         onNewChat={createChat}
       />
-      <ModelStatusBar status={status} progress={progress} error={error} onRetry={retry} />
-      {hasMessages ? (
-        <>
-          <MessageList messages={messages} streaming={streaming} />
-          {shouldShowDevTokenStats && <TokenStats stats={tokenStats!} />}
-        </>
-      ) : (
-        <EmptyState
-          title="Welcome to NanoChat"
-          description="Start a conversation by typing a message below"
-        />
-      )}
+      <div className="flex-1 flex flex-col pt-[4.5rem] pb-20 min-h-0">
+        <ModelStatusBar status={status} progress={progress} error={error} onRetry={retry} />
+        {hasMessages ? (
+          <>
+            <MessageList messages={messages} streaming={streaming} />
+            {shouldShowDevTokenStats && <TokenStats stats={tokenStats!} />}
+          </>
+        ) : (
+          <EmptyState
+            title="Welcome to NanoChat"
+            description="Start a conversation by typing a message below"
+          />
+        )}
+      </div>
       <ChatInput
         onSend={send}
         onStop={stop}
