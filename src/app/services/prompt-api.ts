@@ -1,11 +1,11 @@
-import {createLogger} from '@shared/utils';
-import type {ChatMessage, LoadingProgress} from '@shared/types';
+import { createLogger } from '@shared/utils';
+import type { ChatMessage, LoadingProgress } from '@shared/types';
 
 const logger = createLogger('prompt-api');
 
 const LANGUAGE_OPTIONS = {
-	expectedInputs: [{type: 'text' as const, languages: ['en']}],
-	expectedOutputs: [{type: 'text' as const, languages: ['en']}],
+	expectedInputs: [{ type: 'text' as const, languages: ['en'] }],
+	expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
 };
 
 export class PromptAPIService {
@@ -47,15 +47,15 @@ export class PromptAPIService {
 
 		const prompt = messages.map((m) => ({
 			role: m.role as 'user' | 'assistant',
-			content: [{type: 'text' as const, value: m.content}],
+			content: [{ type: 'text' as const, value: m.content }],
 		}));
 
-		const stream = this.session.promptStreaming(prompt, {signal});
+		const stream = this.session.promptStreaming(prompt, { signal });
 
 		const reader = stream.getReader();
 		try {
 			while (true) {
-				const {done, value} = await reader.read();
+				const { done, value } = await reader.read();
 				if (done || signal.aborted) break;
 				if (value) onToken(value);
 			}

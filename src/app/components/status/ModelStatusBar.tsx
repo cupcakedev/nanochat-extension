@@ -1,7 +1,7 @@
-import {memo} from 'react';
-import type {LoadingProgress, SessionStatus} from '@shared/types';
-import {LoadingBar} from '@app/components/ui/LoadingBar';
-import {ErrorBanner} from './ErrorBanner';
+import { memo } from 'react';
+import type { LoadingProgress, SessionStatus } from '@shared/types';
+import { LoadingBar } from '@app/components/ui/LoadingBar';
+import { ErrorBanner } from './ErrorBanner';
 
 interface ModelStatusBarProps {
 	status: SessionStatus;
@@ -10,7 +10,7 @@ interface ModelStatusBarProps {
 	onRetry: () => void;
 }
 
-export const ModelStatusBar = memo(({status, progress, error, onRetry}: ModelStatusBarProps) => {
+export const ModelStatusBar = memo(({ status, progress, error, onRetry }: ModelStatusBarProps) => {
 	if (status === 'ready' || status === 'idle') return null;
 
 	if (status === 'error' && error) {

@@ -1,6 +1,6 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
-import {PromptAPIService} from '@app/services/prompt-api';
-import type {LoadingProgress, SessionStatus} from '@shared/types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { PromptAPIService } from '@app/services/prompt-api';
+import type { LoadingProgress, SessionStatus } from '@shared/types';
 
 export function usePromptSession() {
 	const serviceRef = useRef<PromptAPIService>(new PromptAPIService());
@@ -46,5 +46,5 @@ export function usePromptSession() {
 		};
 	}, [initialize]);
 
-	return {status, progress, error, retry, serviceRef};
+	return { status, progress, error, retry, serviceRef };
 }

@@ -1,3 +1,3 @@
-import {MainPage} from '@app/pages/MainPage';
+import { MainPage } from '@app/pages/MainPage';
 
 export const App = () => <MainPage />;

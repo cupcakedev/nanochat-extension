@@ -1,1 +1,1 @@
-export {sendMessageToTab, sendMessageToBackground} from './sendMessage';
+export { sendMessageToTab, sendMessageToBackground } from './sendMessage';

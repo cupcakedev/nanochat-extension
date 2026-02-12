@@ -1,10 +1,10 @@
-import {memo} from 'react';
+import { memo } from 'react';
 
 interface LogoProps {
 	size?: number;
 }
 
-export const Logo = memo(({size = 32}: LogoProps) => (
+export const Logo = memo(({ size = 32 }: LogoProps) => (
 	<svg
 		width={size}
 		height={size}

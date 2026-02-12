@@ -1,11 +1,11 @@
-import {memo} from 'react';
+import { memo } from 'react';
 
 interface ErrorBannerProps {
 	message: string;
 	onRetry: () => void;
 }
 
-export const ErrorBanner = memo(({message, onRetry}: ErrorBannerProps) => (
+export const ErrorBanner = memo(({ message, onRetry }: ErrorBannerProps) => (
 	<div className="flex items-center gap-2 px-4 py-2 bg-red-50 border-b border-red-100">
 		<span className="flex-1 text-xs text-red-600 truncate">{message}</span>
 		<button

@@ -1,4 +1,4 @@
-import {memo, useCallback, useState, type KeyboardEvent} from 'react';
+import { memo, useCallback, useState, type KeyboardEvent } from 'react';
 
 interface ChatInputProps {
 	onSend: (message: string) => void;
@@ -8,62 +8,70 @@ interface ChatInputProps {
 	placeholder?: string;
 }
 
-export const ChatInput = memo(({onSend, onStop, disabled = false, streaming = false, placeholder = 'Type a message...'}: ChatInputProps) => {
-	const [value, setValue] = useState('');
+export const ChatInput = memo(
+	({
+		onSend,
+		onStop,
+		disabled = false,
+		streaming = false,
+		placeholder = 'Type a message...',
+	}: ChatInputProps) => {
+		const [value, setValue] = useState('');
 
-	const handleSend = useCallback(() => {
-		const trimmed = value.trim();
-		if (!trimmed) return;
-		onSend(trimmed);
-		setValue('');
-	}, [value, onSend]);
+		const handleSend = useCallback(() => {
+			const trimmed = value.trim();
+			if (!trimmed) return;
+			onSend(trimmed);
+			setValue('');
+		}, [value, onSend]);
 
-	const handleKeyDown = useCallback(
-		(e: KeyboardEvent<HTMLTextAreaElement>) => {
-			if (e.key !== 'Enter' || e.shiftKey) return;
-			e.preventDefault();
-			handleSend();
-		},
-		[handleSend],
-	);
+		const handleKeyDown = useCallback(
+			(e: KeyboardEvent<HTMLTextAreaElement>) => {
+				if (e.key !== 'Enter' || e.shiftKey) return;
+				e.preventDefault();
+				handleSend();
+			},
+			[handleSend],
+		);
 
-	return (
-		<div className="flex items-end gap-2 px-4 py-3 border-t border-gray-100">
-			<textarea
-				value={value}
-				onChange={(e) => setValue(e.target.value)}
-				onKeyDown={handleKeyDown}
-				disabled={disabled || streaming}
-				placeholder={placeholder}
-				rows={1}
-				className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm
+		return (
+			<div className="flex items-end gap-2 px-4 py-3 border-t border-gray-100">
+				<textarea
+					value={value}
+					onChange={(e) => setValue(e.target.value)}
+					onKeyDown={handleKeyDown}
+					disabled={disabled || streaming}
+					placeholder={placeholder}
+					rows={1}
+					className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm
 					text-gray-900 placeholder-gray-400 outline-none
 					focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
 					disabled:opacity-50 disabled:cursor-not-allowed"
-			/>
-			{streaming ? (
-				<button
-					onClick={onStop}
-					className="flex items-center justify-center w-9 h-9 rounded-lg
+				/>
+				{streaming ? (
+					<button
+						onClick={onStop}
+						className="flex items-center justify-center w-9 h-9 rounded-lg
 						bg-red-500 text-white transition-colors
 						hover:bg-red-600"
-				>
-					<StopIcon />
-				</button>
-			) : (
-				<button
-					onClick={handleSend}
-					disabled={disabled || !value.trim()}
-					className="flex items-center justify-center w-9 h-9 rounded-lg
+					>
+						<StopIcon />
+					</button>
+				) : (
+					<button
+						onClick={handleSend}
+						disabled={disabled || !value.trim()}
+						className="flex items-center justify-center w-9 h-9 rounded-lg
 						bg-indigo-500 text-white transition-colors
 						hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed"
-				>
-					<SendIcon />
-				</button>
-			)}
-		</div>
-	);
-});
+					>
+						<SendIcon />
+					</button>
+				)}
+			</div>
+		);
+	},
+);
 
 ChatInput.displayName = 'ChatInput';
 

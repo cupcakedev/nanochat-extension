@@ -1,4 +1,4 @@
-import {memo} from 'react';
+import { memo } from 'react';
 
 export const TypingIndicator = memo(() => (
 	<div className="flex items-center gap-1 px-1 py-0.5">

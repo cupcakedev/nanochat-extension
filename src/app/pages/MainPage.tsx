@@ -1,15 +1,15 @@
-import {Header} from '@app/components/ui/Header';
-import {EmptyState} from '@app/components/ui/EmptyState';
-import {ChatInput} from '@app/components/ui/ChatInput';
-import {MessageList} from '@app/components/chat/MessageList';
-import {TokenStats} from '@app/components/chat/TokenStats';
-import {ModelStatusBar} from '@app/components/status/ModelStatusBar';
-import {usePromptSession} from '@app/hooks/usePromptSession';
-import {useChat} from '@app/hooks/useChat';
+import { Header } from '@app/components/ui/Header';
+import { EmptyState } from '@app/components/ui/EmptyState';
+import { ChatInput } from '@app/components/ui/ChatInput';
+import { MessageList } from '@app/components/chat/MessageList';
+import { TokenStats } from '@app/components/chat/TokenStats';
+import { ModelStatusBar } from '@app/components/status/ModelStatusBar';
+import { usePromptSession } from '@app/hooks/usePromptSession';
+import { useChat } from '@app/hooks/useChat';
 
 export const MainPage = () => {
-	const {status, progress, error, retry, serviceRef} = usePromptSession();
-	const {messages, streaming, tokenStats, send, stop, clear} = useChat(serviceRef);
+	const { status, progress, error, retry, serviceRef } = usePromptSession();
+	const { messages, streaming, tokenStats, send, stop, clear } = useChat(serviceRef);
 
 	const hasMessages = messages.length > 0;
 

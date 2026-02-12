@@ -1,17 +1,17 @@
-import {memo, useEffect, useRef} from 'react';
-import type {ChatMessage} from '@shared/types';
-import {MessageBubble} from './MessageBubble';
+import { memo, useEffect, useRef } from 'react';
+import type { ChatMessage } from '@shared/types';
+import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
 	messages: ChatMessage[];
 	streaming: boolean;
 }
 
-export const MessageList = memo(({messages, streaming}: MessageListProps) => {
+export const MessageList = memo(({ messages, streaming }: MessageListProps) => {
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		bottomRef.current?.scrollIntoView({behavior: 'smooth'});
+		bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 	}, [messages]);
 
 	return (

@@ -1,7 +1,7 @@
-import {useCallback, useRef, useState} from 'react';
-import type {RefObject} from 'react';
-import type {PromptAPIService} from '@app/services/prompt-api';
-import type {ChatMessage, TokenStats} from '@shared/types';
+import { useCallback, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import type { PromptAPIService } from '@app/services/prompt-api';
+import type { ChatMessage, TokenStats } from '@shared/types';
 
 export function useChat(serviceRef: RefObject<PromptAPIService>) {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -44,7 +44,7 @@ export function useChat(serviceRef: RefObject<PromptAPIService>) {
 						setMessages((prev) => {
 							const updated = [...prev];
 							const last = updated[updated.length - 1];
-							updated[updated.length - 1] = {...last, content: token};
+							updated[updated.length - 1] = { ...last, content: token };
 							return updated;
 						});
 					},
@@ -57,7 +57,7 @@ export function useChat(serviceRef: RefObject<PromptAPIService>) {
 				setMessages((prev) => {
 					const updated = [...prev];
 					const last = updated[updated.length - 1];
-					updated[updated.length - 1] = {...last, content: `Error: ${errorText}`};
+					updated[updated.length - 1] = { ...last, content: `Error: ${errorText}` };
 					return updated;
 				});
 			} finally {
@@ -88,5 +88,5 @@ export function useChat(serviceRef: RefObject<PromptAPIService>) {
 		setTokenStats(null);
 	}, []);
 
-	return {messages, streaming, tokenStats, send, stop, clear};
+	return { messages, streaming, tokenStats, send, stop, clear };
 }

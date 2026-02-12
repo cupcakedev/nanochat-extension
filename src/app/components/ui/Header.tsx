@@ -1,13 +1,13 @@
-import {memo} from 'react';
-import {EXTENSION_NAME} from '@shared/constants';
-import {Logo} from './Logo';
+import { memo } from 'react';
+import { EXTENSION_NAME } from '@shared/constants';
+import { Logo } from './Logo';
 
 interface HeaderProps {
 	onClear?: () => void;
 	showClear?: boolean;
 }
 
-export const Header = memo(({onClear, showClear = false}: HeaderProps) => (
+export const Header = memo(({ onClear, showClear = false }: HeaderProps) => (
 	<header className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-100">
 		<Logo size={28} />
 		<h1 className="flex-1 text-base font-semibold text-gray-900">{EXTENSION_NAME}</h1>
