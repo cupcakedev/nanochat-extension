@@ -17,12 +17,16 @@ export class PromptAPIService {
 		return availability;
 	}
 
-	async createSession(onProgress?: (progress: LoadingProgress) => void): Promise<void> {
+	async createSession(
+		onProgress?: (progress: LoadingProgress) => void,
+		signal?: AbortSignal,
+	): Promise<void> {
 		this.destroySession();
 
 		logger.info('Creating LanguageModel session...');
 		this.session = await LanguageModel.create({
 			...LANGUAGE_OPTIONS,
+			signal,
 			monitor: (monitor) => {
 				monitor.addEventListener('downloadprogress', (e) => {
 					const progress = e.loaded / e.total;
