@@ -7,34 +7,62 @@ import { ModelStatusBar } from '@app/components/status/ModelStatusBar';
 import { OnboardingScreen } from '@app/components/status/OnboardingScreen';
 import { usePromptSession } from '@app/hooks/usePromptSession';
 import { useChat } from '@app/hooks/useChat';
+import { useChatHistory } from '@app/hooks/useChatHistory';
 
 export const MainPage = () => {
   const { status, progress, error, retry, download, cancelDownload, serviceRef } =
     usePromptSession();
-  const { messages, streaming, tokenStats, send, stop, clear } = useChat(serviceRef);
+
+  const {
+    chatSummaries,
+    activeChatId,
+    activeChat,
+    loaded,
+    createChat,
+    selectChat,
+    deleteChat,
+    updateActiveChat,
+  } = useChatHistory();
+
+  const { messages, streaming, tokenStats, send, stop, clear } = useChat(
+    serviceRef,
+    activeChatId,
+    activeChat?.messages ?? [],
+    updateActiveChat,
+  );
 
   const hasMessages = messages.length > 0;
   const isSessionLoading = status === 'loading';
   const isShowingOnboardingFlow = status === 'needs-download' || (isSessionLoading && !hasMessages);
   const shouldShowDevTokenStats = import.meta.env.DEV && tokenStats !== null && !streaming;
 
-  if (isShowingOnboardingFlow) {
+  if (!loaded || isShowingOnboardingFlow) {
     return (
       <div className="flex flex-col h-screen">
         <Header />
-        <OnboardingScreen
-          onDownload={download}
-          onCancel={cancelDownload}
-          loading={isSessionLoading}
-          progress={progress}
-        />
+        {isShowingOnboardingFlow && (
+          <OnboardingScreen
+            onDownload={download}
+            onCancel={cancelDownload}
+            loading={isSessionLoading}
+            progress={progress}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-screen">
-      <Header onClear={clear} showClear={hasMessages} />
+      <Header
+        onClear={clear}
+        showClear={hasMessages}
+        chatSummaries={chatSummaries}
+        activeChatId={activeChatId}
+        onSelectChat={selectChat}
+        onDeleteChat={deleteChat}
+        onNewChat={createChat}
+      />
       <ModelStatusBar status={status} progress={progress} error={error} onRetry={retry} />
       {hasMessages ? (
         <>
