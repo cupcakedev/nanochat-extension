@@ -8,6 +8,18 @@ const LANGUAGE_OPTIONS = {
 	expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
 };
 
+type LanguageModelMessage = {
+	role: 'user' | 'assistant';
+	content: [{ type: 'text'; value: string }];
+};
+
+function toLanguageModelMessage(message: ChatMessage): LanguageModelMessage {
+	return {
+		role: message.role,
+		content: [{ type: 'text' as const, value: message.content }],
+	};
+}
+
 export class PromptAPIService {
 	private session: LanguageModel | null = null;
 
@@ -49,11 +61,7 @@ export class PromptAPIService {
 			throw new Error('Session not initialized');
 		}
 
-		const prompt = messages.map((m) => ({
-			role: m.role as 'user' | 'assistant',
-			content: [{ type: 'text' as const, value: m.content }],
-		}));
-
+		const prompt = messages.map(toLanguageModelMessage);
 		const stream = this.session.promptStreaming(prompt, { signal });
 
 		const reader = stream.getReader();
