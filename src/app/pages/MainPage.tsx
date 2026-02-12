@@ -10,7 +10,7 @@ import { ModelStatusBar } from '@app/components/status/ModelStatusBar';
 import { OnboardingScreen } from '@app/components/status/OnboardingScreen';
 import { usePromptSession } from '@app/hooks/usePromptSession';
 import { useChat } from '@app/hooks/useChat';
-import { useChatHistory } from '@app/hooks/useChatHistory';
+import { useChatContext } from '@app/hooks/useChatContext';
 
 export const MainPage = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -28,7 +28,7 @@ export const MainPage = () => {
     selectChat,
     deleteChat,
     updateActiveChat,
-  } = useChatHistory();
+  } = useChatContext();
 
   const { messages, streaming, tokenStats, contextUsage, send, stop } = useChat(
     serviceRef,

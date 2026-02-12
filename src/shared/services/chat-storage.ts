@@ -1,18 +1,18 @@
 import type { Chat, ChatMessage, ChatSummary } from '@shared/types';
 
-const STORAGE_KEY = 'chats';
+export const CHATS_STORAGE_KEY = 'chats';
 
 interface ChatsMap {
   [id: string]: Chat;
 }
 
 async function readChatsMap(): Promise<ChatsMap> {
-  const result = await chrome.storage.local.get(STORAGE_KEY);
-  return (result[STORAGE_KEY] as ChatsMap) ?? {};
+  const result = await chrome.storage.local.get(CHATS_STORAGE_KEY);
+  return (result[CHATS_STORAGE_KEY] as ChatsMap) ?? {};
 }
 
 async function writeChatsMap(map: ChatsMap): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEY]: map });
+  await chrome.storage.local.set({ [CHATS_STORAGE_KEY]: map });
 }
 
 export async function loadAllChats(): Promise<Chat[]> {

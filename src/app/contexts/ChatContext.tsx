@@ -1,20 +1,42 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Chat, ChatMessage, ChatSummary } from '@shared/types';
 import {
+  CHATS_STORAGE_KEY,
   loadAllChats,
   saveChat,
   deleteChat as deleteChatFromStorage,
   createNewChat,
   deriveChatTitle,
   chatToSummary,
-} from '@app/services/chat-storage';
+} from '@shared/services/chat-storage';
 
-export function useChatHistory() {
+export interface ChatContextValue {
+  chatSummaries: ChatSummary[];
+  activeChatId: string | null;
+  activeChat: Chat | null;
+  loaded: boolean;
+  createChat: () => void;
+  selectChat: (id: string) => void;
+  deleteChat: (id: string) => void;
+  updateActiveChat: (messages: ChatMessage[], contextUsage?: { used: number; total: number }) => void;
+}
+
+export const ChatContext = createContext<ChatContextValue | null>(null);
+
+export function ChatProvider({ children }: { children: ReactNode }) {
   const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [loaded, setLoaded] = useState(false);
   const chatsRef = useRef<Map<string, Chat>>(new Map());
+  const skipNextChangeRef = useRef(false);
+
+  const rebuildSummaries = useCallback(() => {
+    const all = [...chatsRef.current.values()]
+      .filter((c) => c.messages.length > 0)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+    setChatSummaries(all.map(chatToSummary));
+  }, []);
 
   useEffect(() => {
     loadAllChats().then((chats) => {
@@ -32,9 +54,44 @@ export function useChatHistory() {
     });
   }, []);
 
+  // Reactive sync from external storage changes
+  useEffect(() => {
+    const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (!changes[CHATS_STORAGE_KEY]) return;
+      if (skipNextChangeRef.current) {
+        skipNextChangeRef.current = false;
+        return;
+      }
+
+      const newMap = (changes[CHATS_STORAGE_KEY].newValue ?? {}) as Record<string, Chat>;
+      chatsRef.current = new Map(Object.entries(newMap));
+
+      rebuildSummaries();
+
+      // Refresh active chat if it still exists
+      setActiveChatId((prevId) => {
+        if (prevId && newMap[prevId]) {
+          setActiveChat(newMap[prevId]);
+          return prevId;
+        }
+        // Active chat was deleted externally — pick first
+        const sorted = Object.values(newMap).sort((a, b) => b.updatedAt - a.updatedAt);
+        if (sorted.length > 0) {
+          setActiveChat(sorted[0]);
+          return sorted[0].id;
+        }
+        return null;
+      });
+    };
+
+    chrome.storage.onChanged.addListener(listener);
+    return () => chrome.storage.onChanged.removeListener(listener);
+  }, [rebuildSummaries]);
+
   const createChat = useCallback(() => {
     const chat = createNewChat();
     chatsRef.current.set(chat.id, chat);
+    skipNextChangeRef.current = true;
     saveChat(chat);
     setActiveChatId(chat.id);
     setActiveChat(chat);
@@ -50,6 +107,7 @@ export function useChatHistory() {
   const deleteChat = useCallback(
     (id: string) => {
       chatsRef.current.delete(id);
+      skipNextChangeRef.current = true;
       deleteChatFromStorage(id);
 
       const remaining = [...chatsRef.current.values()].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -57,6 +115,7 @@ export function useChatHistory() {
       if (remaining.length === 0) {
         const chat = createNewChat();
         chatsRef.current.set(chat.id, chat);
+        skipNextChangeRef.current = true;
         saveChat(chat);
         remaining.push(chat);
       }
@@ -87,26 +146,27 @@ export function useChatHistory() {
 
       chatsRef.current.set(activeChatId, updated);
       setActiveChat(updated);
+      skipNextChangeRef.current = true;
       saveChat(updated);
-
-      setChatSummaries(() => {
-        const all = [...chatsRef.current.values()]
-          .filter((c) => c.messages.length > 0)
-          .sort((a, b) => b.updatedAt - a.updatedAt);
-        return all.map(chatToSummary);
-      });
+      rebuildSummaries();
     },
-    [activeChatId],
+    [activeChatId, rebuildSummaries],
   );
 
-  return {
-    chatSummaries,
-    activeChatId,
-    activeChat,
-    loaded,
-    createChat,
-    selectChat,
-    deleteChat,
-    updateActiveChat,
-  };
+  return (
+    <ChatContext.Provider
+      value={{
+        chatSummaries,
+        activeChatId,
+        activeChat,
+        loaded,
+        createChat,
+        selectChat,
+        deleteChat,
+        updateActiveChat,
+      }}
+    >
+      {children}
+    </ChatContext.Provider>
+  );
 }
