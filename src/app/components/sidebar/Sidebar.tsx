@@ -60,7 +60,7 @@ export const Sidebar = memo(
           </div>
 
           <div className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin scrollbar-thumb-white/5 hover:scrollbar-thumb-white/10">
-            <div className="space-y-1">
+            <div className="space-y-2">
               <div className="px-3 py-2 text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Today
               </div>

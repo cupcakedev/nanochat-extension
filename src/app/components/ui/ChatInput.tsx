@@ -69,7 +69,7 @@ export const ChatInput = memo(
               placeholder={placeholder}
               rows={1}
               className="flex-1 resize-none rounded-xl border-none bg-transparent px-3 py-2 text-base
-                text-neutral-200 placeholder-neutral-500 outline-none focus:ring-0
+                text-neutral-800 placeholder-neutral-500 outline-none focus:ring-0
                 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200
                 min-h-[44px] max-h-[200px]"
             />
