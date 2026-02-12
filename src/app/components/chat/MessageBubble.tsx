@@ -37,7 +37,7 @@ export const MessageBubble = memo(({ message, streaming = false }: MessageBubble
   }
 
   return (
-    <div className="text-neutral-800 text-sm leading-relaxed">
+    <div className="text-neutral-700 text-sm leading-relaxed">
       {isEmpty && streaming ? <TypingIndicator /> : <MarkdownContent content={message.content} />}
     </div>
   );

@@ -29,7 +29,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [loaded, setLoaded] = useState(false);
   const chatsRef = useRef<Map<string, Chat>>(new Map());
-  const skipNextChangeRef = useRef(false);
+  const skipCountRef = useRef(0);
 
   const rebuildSummaries = useCallback(() => {
     const all = [...chatsRef.current.values()]
@@ -58,8 +58,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
       if (!changes[CHATS_STORAGE_KEY]) return;
-      if (skipNextChangeRef.current) {
-        skipNextChangeRef.current = false;
+      if (skipCountRef.current > 0) {
+        skipCountRef.current--;
         return;
       }
 
@@ -91,7 +91,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const createChat = useCallback(() => {
     const chat = createNewChat();
     chatsRef.current.set(chat.id, chat);
-    skipNextChangeRef.current = true;
+    skipCountRef.current++;
     saveChat(chat);
     setActiveChatId(chat.id);
     setActiveChat(chat);
@@ -107,7 +107,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const deleteChat = useCallback(
     (id: string) => {
       chatsRef.current.delete(id);
-      skipNextChangeRef.current = true;
+      skipCountRef.current++;
       deleteChatFromStorage(id);
 
       const remaining = [...chatsRef.current.values()].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -115,7 +115,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (remaining.length === 0) {
         const chat = createNewChat();
         chatsRef.current.set(chat.id, chat);
-        skipNextChangeRef.current = true;
+        skipCountRef.current++;
         saveChat(chat);
         remaining.push(chat);
       }
@@ -146,7 +146,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       chatsRef.current.set(activeChatId, updated);
       setActiveChat(updated);
-      skipNextChangeRef.current = true;
+      skipCountRef.current++;
       saveChat(updated);
       rebuildSummaries();
     },
