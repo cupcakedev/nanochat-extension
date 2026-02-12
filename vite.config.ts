@@ -6,7 +6,9 @@ import {resolve} from 'path';
 export default defineConfig({
 	plugins: [
 		react(),
-		webExtension(),
+		webExtension({
+			disableAutoLaunch: true,
+		}),
 	],
 	resolve: {
 		alias: {
