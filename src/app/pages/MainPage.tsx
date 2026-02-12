@@ -4,14 +4,30 @@ import { ChatInput } from '@app/components/ui/ChatInput';
 import { MessageList } from '@app/components/chat/MessageList';
 import { TokenStats } from '@app/components/chat/TokenStats';
 import { ModelStatusBar } from '@app/components/status/ModelStatusBar';
+import { OnboardingScreen } from '@app/components/status/OnboardingScreen';
 import { usePromptSession } from '@app/hooks/usePromptSession';
 import { useChat } from '@app/hooks/useChat';
 
 export const MainPage = () => {
-	const { status, progress, error, retry, serviceRef } = usePromptSession();
+	const { status, progress, error, retry, download, cancelDownload, serviceRef } =
+		usePromptSession();
 	const { messages, streaming, tokenStats, send, stop, clear } = useChat(serviceRef);
 
 	const hasMessages = messages.length > 0;
+
+	if (status === 'needs-download' || (status === 'loading' && !hasMessages)) {
+		return (
+			<div className="flex flex-col h-screen">
+				<Header />
+				<OnboardingScreen
+					onDownload={download}
+					onCancel={cancelDownload}
+					loading={status === 'loading'}
+					progress={progress}
+				/>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex flex-col h-screen">
