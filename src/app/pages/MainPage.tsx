@@ -100,12 +100,11 @@ export const MainPage = () => {
           <ModelStatusBar status={status} progress={progress} error={error} onRetry={retry} />
         </div>
 
-        <div className="flex-1 overflow-y-auto pb-4 scrollbar-thin scrollbar-thumb-white/5">
+        <div className="flex-1 overflow-y-auto pb-36">
           {hasMessages ? (
             <div className="max-w-3xl mx-auto w-full pt-10 px-4">
               <MessageList messages={messages} streaming={streaming} />
               {shouldShowDevTokenStats && <TokenStats stats={tokenStats!} />}
-              <div className="h-32" /> {/* Spacer for bottom input */}
             </div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center">
@@ -117,7 +116,7 @@ export const MainPage = () => {
           )}
         </div>
 
-        <div className="p-6 shrink-0 z-20">
+        <div className="absolute bottom-0 left-0 right-0 z-20 p-6">
           <ChatInput
             onSend={send}
             onStop={stop}
