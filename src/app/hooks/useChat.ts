@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { PromptAPIService } from '@app/services/prompt-api';
 import type { ChatMessage, TokenStats } from '@shared/types';
@@ -44,11 +44,25 @@ function calculateTokenStats(tokenCount: number, startTime: number): TokenStats 
   };
 }
 
-export function useChat(serviceRef: RefObject<PromptAPIService>) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+export function useChat(
+  serviceRef: RefObject<PromptAPIService>,
+  chatId: string | null,
+  initialMessages: ChatMessage[],
+  onMessagesChange?: (messages: ChatMessage[]) => void,
+) {
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [streaming, setStreaming] = useState(false);
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    setMessages(initialMessages);
+    setStreaming(false);
+    setTokenStats(null);
+  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = useCallback(
     async (text: string) => {
@@ -66,7 +80,7 @@ export function useChat(serviceRef: RefObject<PromptAPIService>) {
       let tokenCount = 0;
 
       try {
-        const allMessages = [...messages, userMessage];
+        const allMessages = [...messagesRef.current, userMessage];
         await serviceRef.current.streamChat(
           allMessages,
           (token) => {
@@ -87,9 +101,11 @@ export function useChat(serviceRef: RefObject<PromptAPIService>) {
         if (tokenCount > 0) {
           setTokenStats(calculateTokenStats(tokenCount, startTime));
         }
+
+        onMessagesChange?.(messagesRef.current);
       }
     },
-    [messages, serviceRef],
+    [serviceRef, onMessagesChange],
   );
 
   const stop = useCallback(() => {
@@ -101,7 +117,8 @@ export function useChat(serviceRef: RefObject<PromptAPIService>) {
     setMessages([]);
     setStreaming(false);
     setTokenStats(null);
-  }, []);
+    onMessagesChange?.([]);
+  }, [onMessagesChange]);
 
   return { messages, streaming, tokenStats, send, stop, clear };
 }
