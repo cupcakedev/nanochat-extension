@@ -2,16 +2,16 @@ import { memo } from 'react';
 import { Logo } from './Logo';
 
 interface EmptyStateProps {
-	title: string;
-	description: string;
+  title: string;
+  description: string;
 }
 
 export const EmptyState = memo(({ title, description }: EmptyStateProps) => (
-	<div className="flex flex-col items-center justify-center flex-1 px-6 text-center">
-		<Logo size={48} />
-		<h2 className="mt-4 text-lg font-semibold text-neutral-800">{title}</h2>
-		<p className="mt-1.5 text-sm text-neutral-400 max-w-[240px]">{description}</p>
-	</div>
+  <div className="flex flex-col items-center justify-center flex-1 px-6 text-center">
+    <Logo size={48} />
+    <h2 className="mt-4 text-lg font-semibold text-neutral-800">{title}</h2>
+    <p className="mt-1.5 text-sm text-neutral-400 max-w-[240px]">{description}</p>
+  </div>
 ));
 
 EmptyState.displayName = 'EmptyState';

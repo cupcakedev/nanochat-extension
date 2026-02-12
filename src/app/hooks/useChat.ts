@@ -4,104 +4,104 @@ import type { PromptAPIService } from '@app/services/prompt-api';
 import type { ChatMessage, TokenStats } from '@shared/types';
 
 function replaceLastMessageContent(prev: ChatMessage[], content: string): ChatMessage[] {
-	const updated = [...prev];
-	const last = updated[updated.length - 1];
-	updated[updated.length - 1] = { ...last, content };
-	return updated;
+  const updated = [...prev];
+  const last = updated[updated.length - 1];
+  updated[updated.length - 1] = { ...last, content };
+  return updated;
 }
 
 function appendTokenToLastMessage(prev: ChatMessage[], token: string): ChatMessage[] {
-	const last = prev[prev.length - 1];
-	return replaceLastMessageContent(prev, last.content + token);
+  const last = prev[prev.length - 1];
+  return replaceLastMessageContent(prev, last.content + token);
 }
 
 function trimLastMessageTrailingWhitespace(prev: ChatMessage[]): ChatMessage[] {
-	const last = prev[prev.length - 1];
-	const trimmed = last.content.trimEnd();
-	if (trimmed === last.content) return prev;
-	return replaceLastMessageContent(prev, trimmed);
+  const last = prev[prev.length - 1];
+  const trimmed = last.content.trimEnd();
+  if (trimmed === last.content) return prev;
+  return replaceLastMessageContent(prev, trimmed);
 }
 
 function createChatMessage(role: 'user' | 'assistant', content: string): ChatMessage {
-	return {
-		id: crypto.randomUUID(),
-		role,
-		content,
-		timestamp: Date.now(),
-	};
+  return {
+    id: crypto.randomUUID(),
+    role,
+    content,
+    timestamp: Date.now(),
+  };
 }
 
 function extractErrorMessage(err: unknown): string {
-	return err instanceof Error ? err.message : 'An error occurred during generation';
+  return err instanceof Error ? err.message : 'An error occurred during generation';
 }
 
 function calculateTokenStats(tokenCount: number, startTime: number): TokenStats {
-	const duration = (performance.now() - startTime) / 1000;
-	return {
-		tokenCount,
-		duration,
-		tokensPerSecond: tokenCount / duration,
-	};
+  const duration = (performance.now() - startTime) / 1000;
+  return {
+    tokenCount,
+    duration,
+    tokensPerSecond: tokenCount / duration,
+  };
 }
 
 export function useChat(serviceRef: RefObject<PromptAPIService>) {
-	const [messages, setMessages] = useState<ChatMessage[]>([]);
-	const [streaming, setStreaming] = useState(false);
-	const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
-	const abortRef = useRef<AbortController | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [streaming, setStreaming] = useState(false);
+  const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-	const send = useCallback(
-		async (text: string) => {
-			const userMessage = createChatMessage('user', text);
-			const assistantMessage = createChatMessage('assistant', '');
+  const send = useCallback(
+    async (text: string) => {
+      const userMessage = createChatMessage('user', text);
+      const assistantMessage = createChatMessage('assistant', '');
 
-			setMessages((prev) => [...prev, userMessage, assistantMessage]);
-			setStreaming(true);
-			setTokenStats(null);
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      setStreaming(true);
+      setTokenStats(null);
 
-			const abortController = new AbortController();
-			abortRef.current = abortController;
+      const abortController = new AbortController();
+      abortRef.current = abortController;
 
-			const startTime = performance.now();
-			let tokenCount = 0;
+      const startTime = performance.now();
+      let tokenCount = 0;
 
-			try {
-				const allMessages = [...messages, userMessage];
-				await serviceRef.current.streamChat(
-					allMessages,
-					(token) => {
-						tokenCount++;
-						setMessages((prev) => appendTokenToLastMessage(prev, token));
-					},
-					abortController.signal,
-				);
-			} catch (err) {
-				if (abortController.signal.aborted) return;
-				const errorContent = `Error: ${extractErrorMessage(err)}`;
-				setMessages((prev) => replaceLastMessageContent(prev, errorContent));
-			} finally {
-				setMessages(trimLastMessageTrailingWhitespace);
-				setStreaming(false);
-				abortRef.current = null;
+      try {
+        const allMessages = [...messages, userMessage];
+        await serviceRef.current.streamChat(
+          allMessages,
+          (token) => {
+            tokenCount++;
+            setMessages((prev) => appendTokenToLastMessage(prev, token));
+          },
+          abortController.signal,
+        );
+      } catch (err) {
+        if (abortController.signal.aborted) return;
+        const errorContent = `Error: ${extractErrorMessage(err)}`;
+        setMessages((prev) => replaceLastMessageContent(prev, errorContent));
+      } finally {
+        setMessages(trimLastMessageTrailingWhitespace);
+        setStreaming(false);
+        abortRef.current = null;
 
-				if (tokenCount > 0) {
-					setTokenStats(calculateTokenStats(tokenCount, startTime));
-				}
-			}
-		},
-		[messages, serviceRef],
-	);
+        if (tokenCount > 0) {
+          setTokenStats(calculateTokenStats(tokenCount, startTime));
+        }
+      }
+    },
+    [messages, serviceRef],
+  );
 
-	const stop = useCallback(() => {
-		abortRef.current?.abort();
-	}, []);
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
-	const clear = useCallback(() => {
-		abortRef.current?.abort();
-		setMessages([]);
-		setStreaming(false);
-		setTokenStats(null);
-	}, []);
+  const clear = useCallback(() => {
+    abortRef.current?.abort();
+    setMessages([]);
+    setStreaming(false);
+    setTokenStats(null);
+  }, []);
 
-	return { messages, streaming, tokenStats, send, stop, clear };
+  return { messages, streaming, tokenStats, send, stop, clear };
 }
