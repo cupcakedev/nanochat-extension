@@ -2,11 +2,13 @@ import {memo, useCallback, useState, type KeyboardEvent} from 'react';
 
 interface ChatInputProps {
 	onSend: (message: string) => void;
+	onStop?: () => void;
 	disabled?: boolean;
+	streaming?: boolean;
 	placeholder?: string;
 }
 
-export const ChatInput = memo(({onSend, disabled = false, placeholder = 'Type a message...'}: ChatInputProps) => {
+export const ChatInput = memo(({onSend, onStop, disabled = false, streaming = false, placeholder = 'Type a message...'}: ChatInputProps) => {
 	const [value, setValue] = useState('');
 
 	const handleSend = useCallback(() => {
@@ -31,7 +33,7 @@ export const ChatInput = memo(({onSend, disabled = false, placeholder = 'Type a 
 				value={value}
 				onChange={(e) => setValue(e.target.value)}
 				onKeyDown={handleKeyDown}
-				disabled={disabled}
+				disabled={disabled || streaming}
 				placeholder={placeholder}
 				rows={1}
 				className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm
@@ -39,15 +41,26 @@ export const ChatInput = memo(({onSend, disabled = false, placeholder = 'Type a 
 					focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
 					disabled:opacity-50 disabled:cursor-not-allowed"
 			/>
-			<button
-				onClick={handleSend}
-				disabled={disabled || !value.trim()}
-				className="flex items-center justify-center w-9 h-9 rounded-lg
-					bg-indigo-500 text-white transition-colors
-					hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed"
-			>
-				<SendIcon />
-			</button>
+			{streaming ? (
+				<button
+					onClick={onStop}
+					className="flex items-center justify-center w-9 h-9 rounded-lg
+						bg-red-500 text-white transition-colors
+						hover:bg-red-600"
+				>
+					<StopIcon />
+				</button>
+			) : (
+				<button
+					onClick={handleSend}
+					disabled={disabled || !value.trim()}
+					className="flex items-center justify-center w-9 h-9 rounded-lg
+						bg-indigo-500 text-white transition-colors
+						hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed"
+				>
+					<SendIcon />
+				</button>
+			)}
 		</div>
 	);
 });
@@ -67,3 +80,11 @@ const SendIcon = memo(() => (
 ));
 
 SendIcon.displayName = 'SendIcon';
+
+const StopIcon = memo(() => (
+	<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+		<rect x="2" y="2" width="10" height="10" rx="1.5" fill="currentColor" />
+	</svg>
+));
+
+StopIcon.displayName = 'StopIcon';
