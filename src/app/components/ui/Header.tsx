@@ -8,14 +8,14 @@ interface HeaderProps {
 }
 
 export const Header = memo(({ onClear, showClear = false }: HeaderProps) => (
-	<header className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-100">
+	<header className="flex items-center gap-2.5 px-4 py-3 border-b border-neutral-200">
 		<Logo size={28} />
-		<h1 className="flex-1 text-base font-semibold text-gray-900">{EXTENSION_NAME}</h1>
+		<h1 className="flex-1 text-base font-semibold text-neutral-800">{EXTENSION_NAME}</h1>
 		{showClear && onClear && (
 			<button
 				onClick={onClear}
 				className="flex items-center justify-center w-7 h-7 rounded-md
-					text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+					text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200 transition-colors"
 				title="Clear chat"
 			>
 				<TrashIcon />

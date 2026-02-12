@@ -15,7 +15,7 @@ export const MessageBubble = memo(({ message, streaming = false }: MessageBubble
 		<div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
 			<div
 				className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
-					isUser ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-900'
+					isUser ? 'bg-brand-500 text-white' : 'bg-neutral-100 text-neutral-800'
 				}`}
 			>
 				{isEmpty && streaming ? (

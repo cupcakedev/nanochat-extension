@@ -7,7 +7,7 @@ interface TokenStatsProps {
 
 export const TokenStats = memo(({ stats }: TokenStatsProps) => (
 	<div className="flex items-center gap-2 px-4 pb-1">
-		<span className="text-[11px] text-gray-400">
+		<span className="text-[11px] text-neutral-400">
 			{stats.tokenCount} chunks &middot; {stats.duration.toFixed(1)}s &middot;{' '}
 			{stats.tokensPerSecond.toFixed(1)} chunks/s
 		</span>

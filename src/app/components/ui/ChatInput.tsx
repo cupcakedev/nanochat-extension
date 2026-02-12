@@ -35,7 +35,7 @@ export const ChatInput = memo(
 		);
 
 		return (
-			<div className="flex items-end gap-2 px-4 py-3 border-t border-gray-100">
+			<div className="flex items-end gap-2 px-4 py-3 border-t border-neutral-200">
 				<textarea
 					value={value}
 					onChange={(e) => setValue(e.target.value)}
@@ -43,9 +43,9 @@ export const ChatInput = memo(
 					disabled={disabled || streaming}
 					placeholder={placeholder}
 					rows={1}
-					className="flex-1 resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm
-					text-gray-900 placeholder-gray-400 outline-none
-					focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500
+					className="flex-1 resize-none rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-sm
+					text-neutral-800 placeholder-neutral-400 outline-none
+					focus:border-brand-500 focus:ring-1 focus:ring-brand-500
 					disabled:opacity-50 disabled:cursor-not-allowed"
 				/>
 				{streaming ? (
@@ -62,8 +62,8 @@ export const ChatInput = memo(
 						onClick={handleSend}
 						disabled={disabled || !value.trim()}
 						className="flex items-center justify-center w-9 h-9 rounded-lg
-						bg-indigo-500 text-white transition-colors
-						hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed"
+						bg-brand-500 text-white transition-colors
+						hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed"
 					>
 						<SendIcon />
 					</button>
