@@ -36,8 +36,8 @@ export const ChatInput = memo(
 
     return (
       <div
-        className="absolute bottom-0 left-0 right-0 z-20 m-4 rounded-xl
-          bg-neutral-100 shadow-md shadow-black/10"
+        className="absolute bottom-0 left-0 right-0 z-20 m-4 rounded-2xl
+          bg-neutral-100/80 backdrop-blur-xl border border-white/5 transition-all duration-300"
       >
         <div className="flex items-end gap-2 px-3 py-2.5">
           <textarea
@@ -47,16 +47,16 @@ export const ChatInput = memo(
             disabled={disabled || streaming}
             placeholder={placeholder}
             rows={1}
-            className="flex-1 resize-none rounded-lg border-none bg-neutral-100 px-3 py-2 text-sm
-						text-neutral-800 placeholder-neutral-400 outline-none
-						disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 resize-none rounded-xl border-none bg-transparent px-3 py-2 text-sm
+						text-neutral-800 placeholder-neutral-500 outline-none focus:ring-0
+						disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           />
           {streaming ? (
             <button
               onClick={onStop}
-              className="flex items-center justify-center w-9 h-9 rounded-lg
-							bg-red-500 text-white transition-colors
-							hover:bg-red-600"
+              className="group flex items-center justify-center w-10 h-10 rounded-xl
+							bg-red-500/10 text-red-500 transition-all duration-200
+							hover:bg-red-500 hover:text-white"
             >
               <StopIcon />
             </button>
@@ -64,9 +64,9 @@ export const ChatInput = memo(
             <button
               onClick={handleSend}
               disabled={disabled || !value.trim()}
-              className="flex items-center justify-center w-9 h-9 rounded-lg
-							bg-brand-500 text-white transition-colors
-							hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="group flex items-center justify-center w-10 h-10 rounded-xl
+							bg-brand-500 text-white transition-all duration-200 shadow-lg shadow-brand-500/20
+							hover:bg-brand-600 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none"
             >
               <SendIcon />
             </button>

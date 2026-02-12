@@ -46,8 +46,8 @@ export const Header = memo(
 
     return (
       <header
-        className="absolute top-0 left-0 right-0 z-20 m-4 rounded-xl
-          bg-neutral-100 shadow-md shadow-black/10 overflow-hidden"
+        className="absolute top-0 left-0 right-0 z-20 m-4 rounded-2xl
+          bg-neutral-100/80 backdrop-blur-xl border border-white/5 overflow-hidden transition-all duration-300"
       >
         <div className="flex items-center gap-2.5 px-4 py-3">
           <Logo size={28} />
@@ -85,7 +85,7 @@ export const Header = memo(
         </div>
         <div
           ref={listRef}
-          className="transition-[max-height] duration-200 ease-in-out overflow-y-auto"
+          className="transition-[max-height] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-y-auto"
           style={{ maxHeight: historyOpen ? '60vh' : '0px' }}
         >
           <div className="px-2 pb-2 space-y-0.5">
