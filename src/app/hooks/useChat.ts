@@ -94,7 +94,8 @@ export function useChat(
         const errorContent = `Error: ${extractErrorMessage(err)}`;
         setMessages((prev) => replaceLastMessageContent(prev, errorContent));
       } finally {
-        setMessages(trimLastMessageTrailingWhitespace);
+        const trimmed = trimLastMessageTrailingWhitespace(messagesRef.current);
+        setMessages(trimmed);
         setStreaming(false);
         abortRef.current = null;
 
@@ -102,7 +103,7 @@ export function useChat(
           setTokenStats(calculateTokenStats(tokenCount, startTime));
         }
 
-        onMessagesChange?.(messagesRef.current);
+        onMessagesChange?.(trimmed);
       }
     },
     [serviceRef, onMessagesChange],

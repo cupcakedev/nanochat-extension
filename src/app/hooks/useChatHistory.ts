@@ -25,7 +25,7 @@ export function useChatHistory() {
       }
       const map = new Map(chats.map((c) => [c.id, c]));
       chatsRef.current = map;
-      setChatSummaries(chats.map(chatToSummary));
+      setChatSummaries(chats.filter((c) => c.messages.length > 0).map(chatToSummary));
       setActiveChatId(chats[0].id);
       setActiveChat(chats[0]);
       setLoaded(true);
@@ -36,7 +36,6 @@ export function useChatHistory() {
     const chat = createNewChat();
     chatsRef.current.set(chat.id, chat);
     saveChat(chat);
-    setChatSummaries((prev) => [chatToSummary(chat), ...prev]);
     setActiveChatId(chat.id);
     setActiveChat(chat);
   }, []);
@@ -62,7 +61,7 @@ export function useChatHistory() {
         remaining.push(chat);
       }
 
-      setChatSummaries(remaining.map(chatToSummary));
+      setChatSummaries(remaining.filter((c) => c.messages.length > 0).map(chatToSummary));
 
       if (activeChatId === id) {
         setActiveChatId(remaining[0].id);
@@ -89,9 +88,12 @@ export function useChatHistory() {
       setActiveChat(updated);
       saveChat(updated);
 
-      setChatSummaries((prev) =>
-        prev.map((s) => (s.id === activeChatId ? chatToSummary(updated) : s)),
-      );
+      setChatSummaries(() => {
+        const all = [...chatsRef.current.values()]
+          .filter((c) => c.messages.length > 0)
+          .sort((a, b) => b.updatedAt - a.updatedAt);
+        return all.map(chatToSummary);
+      });
     },
     [activeChatId],
   );
