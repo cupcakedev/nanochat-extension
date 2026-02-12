@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import type { ChatMessage } from '@shared/types';
 import { TypingIndicator } from '@app/components/ui/TypingIndicator';
+import { MarkdownContent } from './MarkdownContent';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -26,8 +27,10 @@ export const MessageBubble = memo(({ message, streaming = false }: MessageBubble
       >
         {isEmpty && streaming ? (
           <TypingIndicator />
-        ) : (
+        ) : isUser ? (
           <span className="whitespace-pre-wrap break-words">{message.content}</span>
+        ) : (
+          <MarkdownContent content={message.content} />
         )}
       </div>
     </div>
