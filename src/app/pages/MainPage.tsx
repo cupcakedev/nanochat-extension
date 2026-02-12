@@ -5,6 +5,7 @@ import { EmptyState } from '@app/components/ui/EmptyState';
 import { ChatInput } from '@app/components/ui/ChatInput';
 import { MessageList } from '@app/components/chat/MessageList';
 import { TokenStats } from '@app/components/chat/TokenStats';
+import { ContextBar } from '@app/components/chat/ContextBar';
 import { ModelStatusBar } from '@app/components/status/ModelStatusBar';
 import { OnboardingScreen } from '@app/components/status/OnboardingScreen';
 import { usePromptSession } from '@app/hooks/usePromptSession';
@@ -29,10 +30,11 @@ export const MainPage = () => {
     updateActiveChat,
   } = useChatHistory();
 
-  const { messages, streaming, tokenStats, send, stop } = useChat(
+  const { messages, streaming, tokenStats, contextUsage, send, stop } = useChat(
     serviceRef,
     activeChatId,
     activeChat?.messages ?? [],
+    activeChat?.contextUsage ?? null,
     updateActiveChat,
   );
 
@@ -86,7 +88,7 @@ export const MainPage = () => {
       />
 
       <main className="flex-1 flex flex-col relative min-w-0">
-        {/* Menu Button */}
+        {contextUsage && <ContextBar usage={contextUsage} />}
         <div className="absolute top-4 left-4 z-20">
           <button
             onClick={toggleSidebar}
