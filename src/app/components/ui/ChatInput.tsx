@@ -1,16 +1,9 @@
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ClipboardEvent,
-} from 'react';
+import { memo, useCallback, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { SendIcon } from '@app/components/icons/SendIcon';
 import { StopIcon } from '@app/components/icons/StopIcon';
 import { PlusIcon } from '@app/components/icons/PlusIcon';
 import { ImageIcon } from '@app/components/icons/ImageIcon';
+import { useOutsideClick } from '@app/hooks/useOutsideClick';
 import { ModeTab } from './ModeTab';
 import { ActionButton } from './ActionButton';
 import { ImagePreviewList } from './ImagePreviewList';
@@ -50,17 +43,8 @@ export const ChatInput = memo(
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [showAttachMenu, setShowAttachMenu] = useState(false);
     const attachMenuRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-      if (!showAttachMenu) return;
-      const handleClickOutside = (e: MouseEvent) => {
-        if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
-          setShowAttachMenu(false);
-        }
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showAttachMenu]);
+    const closeAttachMenu = useCallback(() => setShowAttachMenu(false), []);
+    useOutsideClick(attachMenuRef, closeAttachMenu);
 
     const addImages = useCallback(async (files: File[]) => {
       const imageFiles = files.filter((f) => f.type.startsWith('image/'));
