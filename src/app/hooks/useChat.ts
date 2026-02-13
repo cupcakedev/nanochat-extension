@@ -40,6 +40,10 @@ function extractErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'An error occurred during generation';
 }
 
+function toContextUsage(raw: { used: number; total: number }): ContextUsage {
+  return { ...raw, percent: Math.round((raw.used / raw.total) * 100) };
+}
+
 function calculateTokenStats(tokenCount: number, startTime: number): TokenStats {
   const duration = (performance.now() - startTime) / 1000;
   return {
@@ -70,19 +74,20 @@ export function useChat(
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
 
+  const resetState = useCallback(
+    (msgs: ChatMessage[], ctx?: { used: number; total: number } | null) => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setMessages(msgs);
+      setStreaming(false);
+      setTokenStats(null);
+      setContextUsage(ctx ? toContextUsage(ctx) : null);
+    },
+    [],
+  );
+
   useEffect(() => {
-    abortRef.current?.abort();
-    setMessages(initialMessages);
-    setStreaming(false);
-    setTokenStats(null);
-    if (initialContextUsage) {
-      setContextUsage({
-        ...initialContextUsage,
-        percent: Math.round((initialContextUsage.used / initialContextUsage.total) * 100),
-      });
-    } else {
-      setContextUsage(null);
-    }
+    resetState(initialMessages, initialContextUsage);
   }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const send = useCallback(
@@ -120,19 +125,12 @@ export function useChat(
         setStreaming(false);
         abortRef.current = null;
 
-        if (tokenCount > 0) {
-          setTokenStats(calculateTokenStats(tokenCount, startTime));
-        }
+        const stats = tokenCount > 0 ? calculateTokenStats(tokenCount, startTime) : null;
+        setTokenStats(stats);
 
         const usage = serviceRef.current.getContextUsage();
         const ctxUsage = usage ? { used: usage.used, total: usage.total } : undefined;
-
-        if (ctxUsage) {
-          setContextUsage({
-            ...ctxUsage,
-            percent: Math.round((ctxUsage.used / ctxUsage.total) * 100),
-          });
-        }
+        setContextUsage(ctxUsage ? toContextUsage(ctxUsage) : null);
 
         onMessagesChange?.(trimmed, ctxUsage);
       }
@@ -145,13 +143,9 @@ export function useChat(
   }, []);
 
   const clear = useCallback(() => {
-    abortRef.current?.abort();
-    setMessages([]);
-    setStreaming(false);
-    setTokenStats(null);
-    setContextUsage(null);
+    resetState([]);
     onMessagesChange?.([]);
-  }, [onMessagesChange]);
+  }, [resetState, onMessagesChange]);
 
   return { messages, streaming, tokenStats, contextUsage, send, stop, clear };
 }

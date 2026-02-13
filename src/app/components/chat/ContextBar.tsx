@@ -7,8 +7,9 @@ interface ContextBarProps {
 
 export const ContextBar = memo(({ usage }: ContextBarProps) => {
   const [dismissed, setDismissed] = useState(false);
+  const CONTEXT_LOW_THRESHOLD = 20;
   const remaining = 100 - usage.percent;
-  const isLow = remaining < 20;
+  const isLow = remaining < CONTEXT_LOW_THRESHOLD;
 
   return (
     <>

@@ -20,7 +20,7 @@ export const MessageBubble = memo(({ message, streaming = false }: MessageBubble
             <div className="flex gap-1.5 mb-2 flex-wrap">
               {message.images.map((src, i) => (
                 <img
-                  key={i}
+                  key={`${i}-${src.slice(0, 40)}`}
                   src={src}
                   alt={`Attachment ${i + 1}`}
                   className="max-w-[200px] max-h-[200px] rounded-lg object-cover"

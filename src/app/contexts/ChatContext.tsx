@@ -23,6 +23,16 @@ export interface ChatContextValue {
 
 export const ChatContext = createContext<ChatContextValue | null>(null);
 
+function sortedByRecent(chats: Chat[]): Chat[] {
+  return [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+function buildSummaries(chats: Map<string, Chat>): ChatSummary[] {
+  return sortedByRecent([...chats.values()])
+    .filter((c) => c.messages.length > 0)
+    .map(chatToSummary);
+}
+
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -32,10 +42,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const skipCountRef = useRef(0);
 
   const rebuildSummaries = useCallback(() => {
-    const all = [...chatsRef.current.values()]
-      .filter((c) => c.messages.length > 0)
-      .sort((a, b) => b.updatedAt - a.updatedAt);
-    setChatSummaries(all.map(chatToSummary));
+    setChatSummaries(buildSummaries(chatsRef.current));
   }, []);
 
   useEffect(() => {
@@ -45,16 +52,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         chats = [chat];
         saveChat(chat);
       }
-      const map = new Map(chats.map((c) => [c.id, c]));
-      chatsRef.current = map;
-      setChatSummaries(chats.filter((c) => c.messages.length > 0).map(chatToSummary));
+      chatsRef.current = new Map(chats.map((c) => [c.id, c]));
+      setChatSummaries(buildSummaries(chatsRef.current));
       setActiveChatId(chats[0].id);
       setActiveChat(chats[0]);
       setLoaded(true);
     });
   }, []);
 
-  // Reactive sync from external storage changes
   useEffect(() => {
     const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
       if (!changes[CHATS_STORAGE_KEY]) return;
@@ -68,14 +73,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       rebuildSummaries();
 
-      // Refresh active chat if it still exists
       setActiveChatId((prevId) => {
         if (prevId && newMap[prevId]) {
           setActiveChat(newMap[prevId]);
           return prevId;
         }
-        // Active chat was deleted externally — pick first
-        const sorted = Object.values(newMap).sort((a, b) => b.updatedAt - a.updatedAt);
+        const sorted = sortedByRecent(Object.values(newMap));
         if (sorted.length > 0) {
           setActiveChat(sorted[0]);
           return sorted[0].id;
@@ -110,24 +113,22 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       skipCountRef.current++;
       deleteChatFromStorage(id);
 
-      const remaining = [...chatsRef.current.values()].sort((a, b) => b.updatedAt - a.updatedAt);
-
-      if (remaining.length === 0) {
+      if (chatsRef.current.size === 0) {
         const chat = createNewChat();
         chatsRef.current.set(chat.id, chat);
         skipCountRef.current++;
         saveChat(chat);
-        remaining.push(chat);
       }
 
-      setChatSummaries(remaining.filter((c) => c.messages.length > 0).map(chatToSummary));
+      rebuildSummaries();
 
       if (activeChatId === id) {
-        setActiveChatId(remaining[0].id);
-        setActiveChat(remaining[0]);
+        const first = sortedByRecent([...chatsRef.current.values()])[0];
+        setActiveChatId(first.id);
+        setActiveChat(first);
       }
     },
-    [activeChatId],
+    [activeChatId, rebuildSummaries],
   );
 
   const updateActiveChat = useCallback(

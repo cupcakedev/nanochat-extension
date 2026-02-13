@@ -7,7 +7,10 @@ interface DownloadProgressProps {
   progress: LoadingProgress | null;
 }
 
-const formatDownloadedSize = (progressValue: number) => `${(progressValue * 4).toFixed(1)} / ~4 GB`;
+const MODEL_SIZE_GB = 4;
+
+const formatDownloadedSize = (progressValue: number) =>
+  `${(progressValue * MODEL_SIZE_GB).toFixed(1)} / ~${MODEL_SIZE_GB} GB`;
 
 export const DownloadProgress = memo(({ progress }: DownloadProgressProps) => {
   const currentProgress = progress?.progress ?? 0;

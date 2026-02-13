@@ -44,7 +44,12 @@ export const ChatInput = memo(
     const [showAttachMenu, setShowAttachMenu] = useState(false);
     const attachMenuRef = useRef<HTMLDivElement>(null);
     const closeAttachMenu = useCallback(() => setShowAttachMenu(false), []);
-    useOutsideClick(attachMenuRef, closeAttachMenu);
+    useOutsideClick(attachMenuRef, closeAttachMenu, showAttachMenu);
+
+    const valueRef = useRef(value);
+    valueRef.current = value;
+    const imagesRef = useRef(images);
+    imagesRef.current = images;
 
     const addImages = useCallback(async (files: File[]) => {
       const imageFiles = files.filter((f) => f.type.startsWith('image/'));
@@ -58,12 +63,13 @@ export const ChatInput = memo(
     }, []);
 
     const handleSend = useCallback(() => {
-      const trimmed = value.trim();
-      if (!trimmed && !images.length) return;
-      onSend(trimmed, images.length ? images : undefined);
+      const trimmed = valueRef.current.trim();
+      const imgs = imagesRef.current;
+      if (!trimmed && !imgs.length) return;
+      onSend(trimmed, imgs.length ? imgs : undefined);
       setValue('');
       setImages([]);
-    }, [value, images, onSend]);
+    }, [onSend]);
 
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {

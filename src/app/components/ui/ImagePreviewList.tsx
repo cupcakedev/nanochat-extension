@@ -8,7 +8,7 @@ interface ImagePreviewListProps {
 export const ImagePreviewList = memo(({ images, onRemove }: ImagePreviewListProps) => (
   <div className="flex gap-2 px-3 pt-3 overflow-x-auto">
     {images.map((src, i) => (
-      <div key={i} className="relative shrink-0 group">
+      <div key={`${i}-${src.slice(0, 40)}`} className="relative shrink-0 group">
         <img
           src={src}
           alt={`Attachment ${i + 1}`}

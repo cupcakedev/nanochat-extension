@@ -5,7 +5,6 @@ import { DownloadPrompt } from './DownloadPrompt';
 
 interface OnboardingScreenProps {
   onDownload: () => void;
-  onCancel: () => void;
   loading: boolean;
   progress: LoadingProgress | null;
 }
