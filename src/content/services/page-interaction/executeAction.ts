@@ -1,11 +1,9 @@
 import type { ExecuteActionResponse, ExecutableInteractionAction } from '@shared/types';
-import { HIGHLIGHT_ATTR } from './constants';
-import { clearInteractionHighlights } from './highlights';
+import { getIndexedElement } from './indexed-elements';
 import { executeInputType, executeSelectType, executeContentEditableType } from './type-action-utils';
 
 function findElementByIndex(index: number): HTMLElement | null {
-  if (!Number.isFinite(index) || index <= 0) return null;
-  return document.querySelector<HTMLElement>(`[${HIGHLIGHT_ATTR}="${index}"]`);
+  return getIndexedElement(index);
 }
 
 function isDisabled(element: HTMLElement): boolean {
@@ -78,7 +76,6 @@ export function executeInteractionAction(
   const target = findElementByIndex(index);
 
   if (!target) {
-    clearInteractionHighlights();
     return { action, index, text: normalizedText, ok: false, message: 'Target index not found' };
   }
 
@@ -92,7 +89,5 @@ export function executeInteractionAction(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown action execution error';
     return { action, index, text: normalizedText, ok: false, message };
-  } finally {
-    clearInteractionHighlights();
   }
 }

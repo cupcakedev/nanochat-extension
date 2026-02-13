@@ -127,6 +127,8 @@ export function extractInteractionSnapshot(maxElements = DEFAULT_MAX_ELEMENTS, v
   return {
     pageUrl: location.href,
     pageTitle: document.title,
+    viewportWidth: window.innerWidth,
+    viewportHeight: window.innerHeight,
     interactiveElements: elements.map((element, index) => toSummary(element, index + 1)),
   };
 }
