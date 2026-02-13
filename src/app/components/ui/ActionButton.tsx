@@ -16,7 +16,7 @@ export const ActionButton = memo(({ onClick, disabled, variant, children }: Acti
   <button
     onClick={onClick}
     disabled={disabled}
-    className={`group flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 mb-1 ${variantStyles[variant]}`}
+    className={`group flex items-center justify-center w-10 h-10 rounded-[12px] transition-all duration-200 ${variantStyles[variant]}`}
   >
     {children}
   </button>

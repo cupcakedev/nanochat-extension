@@ -9,9 +9,9 @@ interface ModeTabProps {
 export const ModeTab = memo(({ active, onClick, children }: ModeTabProps) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-colors duration-200 focus:outline-none ${
+    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-[10px] transition-colors duration-200 focus:outline-none ${
       active
-        ? 'bg-white/10 text-white shadow-sm border border-white/5'
+        ? 'bg-white/10 text-white shadow-sm'
         : 'text-neutral-400 hover:text-white'
     }`}
   >
