@@ -118,7 +118,7 @@ export const MainPage = () => {
           )}
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 z-20 p-6">
+        <div className="absolute bottom-0 left-0 right-0 z-20 px-6 pt-3 pb-4">
           <ChatInput
             onSend={send}
             onStop={stop}
