@@ -47,15 +47,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadAllChats().then((chats) => {
-      if (chats.length === 0) {
-        const chat = createNewChat();
-        chats = [chat];
-        saveChat(chat);
-      }
+      const startupChat = createNewChat();
+      chats = [startupChat, ...chats];
+
       chatsRef.current = new Map(chats.map((c) => [c.id, c]));
+      skipCountRef.current++;
+      saveChat(startupChat);
       setChatSummaries(buildSummaries(chatsRef.current));
-      setActiveChatId(chats[0].id);
-      setActiveChat(chats[0]);
+      setActiveChatId(startupChat.id);
+      setActiveChat(startupChat);
       setLoaded(true);
     });
   }, []);
