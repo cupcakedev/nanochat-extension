@@ -63,21 +63,13 @@ export async function getAgentPageContext(): Promise<AgentPageContext> {
   try {
     content = await getPageContent(tab.tabId);
     ensureContentAvailable(content);
-    logger.info('Page content fetched', { length: content.length, content });
+    logger.info('Page content fetched', { length: content.length });
   } catch (err) {
     const errorMessage = getErrorMessage(err);
     if (isExpectedPageContextError(errorMessage)) {
-      logger.info('Page context unavailable in current tab', {
-        tabId: tab.tabId,
-        url: tab.url,
-        reason: errorMessage,
-      });
+      logger.info('Page context unavailable in current tab', { tabId: tab.tabId, url: tab.url });
     } else {
-      logger.warn('Page context fetch failed', {
-        tabId: tab.tabId,
-        url: tab.url,
-        reason: errorMessage,
-      });
+      logger.warn('Page context fetch failed', { tabId: tab.tabId, url: tab.url, reason: errorMessage });
     }
     if (err instanceof AgentContextUnavailableError) throw err;
     throw new AgentContextUnavailableError();
@@ -86,11 +78,8 @@ export async function getAgentPageContext(): Promise<AgentPageContext> {
   return { tab, content };
 }
 
-export async function buildAgentSystemPrompt(): Promise<string> {
-  logger.info('Building agent system prompt...');
-  const { tab, content } = await getAgentPageContext();
-
-  const systemPrompt = [
+function buildSystemPromptFromPageContext(tab: ActiveTab, content: string): string {
+  return [
     'You are a helpful AI assistant with access to the user\'s current web page.',
     '',
     `Current page:`,
@@ -102,28 +91,14 @@ export async function buildAgentSystemPrompt(): Promise<string> {
     '',
     'Answer the user\'s questions based on this page content when relevant. If the user asks about something not on the page, you can still help with general knowledge.',
   ].join('\n');
+}
 
-  logger.info('System prompt built', { totalLength: systemPrompt.length, systemPrompt });
-  return systemPrompt;
+export async function buildAgentSystemPrompt(): Promise<string> {
+  const { tab, content } = await getAgentPageContext();
+  return buildSystemPromptFromPageContext(tab, content);
 }
 
 export async function buildAgentSystemPromptWithContext(): Promise<AgentSystemPromptResult> {
-  logger.info('Building agent system prompt with context...');
   const { tab, content } = await getAgentPageContext();
-
-  const systemPrompt = [
-    'You are a helpful AI assistant with access to the user\'s current web page.',
-    '',
-    `Current page:`,
-    `URL: ${tab.url}`,
-    `Title: ${tab.title}`,
-    '',
-    'Page content:',
-    content,
-    '',
-    'Answer the user\'s questions based on this page content when relevant. If the user asks about something not on the page, you can still help with general knowledge.',
-  ].join('\n');
-
-  logger.info('System prompt with context built', { totalLength: systemPrompt.length, systemPrompt });
-  return { tab, systemPrompt };
+  return { tab, systemPrompt: buildSystemPromptFromPageContext(tab, content) };
 }
