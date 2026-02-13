@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { PromptAPIService } from '@app/services/prompt-api';
+import { buildAgentSystemPrompt } from '@app/services/agent-context';
+import { createLogger } from '@shared/utils';
 import type { ChatMessage, TokenStats } from '@shared/types';
+
+const logger = createLogger('useChat');
 
 function replaceLastMessageContent(prev: ChatMessage[], content: string): ChatMessage[] {
   const updated = [...prev];
@@ -65,6 +69,7 @@ export function useChat(
   initialMessages: ChatMessage[],
   initialContextUsage?: { used: number; total: number } | null,
   onMessagesChange?: (messages: ChatMessage[], contextUsage?: { used: number; total: number }) => void,
+  mode: 'chat' | 'agent' = 'chat',
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [streaming, setStreaming] = useState(false);
@@ -95,6 +100,13 @@ export function useChat(
       const userMessage = createChatMessage('user', text, images);
       const assistantMessage = createChatMessage('assistant', '');
 
+      logger.info('send:start', {
+        mode,
+        textLength: text.length,
+        imageCount: images?.length ?? 0,
+        historyLength: messagesRef.current.length,
+      });
+
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setStreaming(true);
       setTokenStats(null);
@@ -107,6 +119,14 @@ export function useChat(
 
       try {
         const allMessages = [...messagesRef.current, userMessage];
+
+        let systemPrompt: string | null = null;
+        if (mode === 'agent') {
+          logger.info('send:buildingAgentContext');
+          systemPrompt = await buildAgentSystemPrompt();
+          logger.info('send:agentContextReady', { systemPromptLength: systemPrompt.length });
+        }
+
         await serviceRef.current.streamChat(
           allMessages,
           (token) => {
@@ -114,10 +134,15 @@ export function useChat(
             setMessages((prev) => appendTokenToLastMessage(prev, token));
           },
           abortController.signal,
+          systemPrompt,
         );
       } catch (err) {
-        if (abortController.signal.aborted) return;
+        if (abortController.signal.aborted) {
+          logger.info('send:aborted');
+          return;
+        }
         const errorContent = `Error: ${extractErrorMessage(err)}`;
+        logger.error('send:error', errorContent);
         setMessages((prev) => replaceLastMessageContent(prev, errorContent));
       } finally {
         const trimmed = trimLastMessageTrailingWhitespace(messagesRef.current);
@@ -132,10 +157,19 @@ export function useChat(
         const ctxUsage = usage ? { used: usage.used, total: usage.total } : undefined;
         setContextUsage(ctxUsage ? toContextUsage(ctxUsage) : null);
 
+        logger.info('send:complete', {
+          mode,
+          tokenCount,
+          duration: stats?.duration.toFixed(2),
+          tokensPerSecond: stats?.tokensPerSecond.toFixed(1),
+          contextUsed: ctxUsage?.used,
+          contextTotal: ctxUsage?.total,
+        });
+
         onMessagesChange?.(trimmed, ctxUsage);
       }
     },
-    [serviceRef, onMessagesChange],
+    [serviceRef, onMessagesChange, mode],
   );
 
   const stop = useCallback(() => {

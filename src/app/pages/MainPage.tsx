@@ -38,6 +38,7 @@ export const MainPage = () => {
     activeChat?.messages ?? [],
     activeChat?.contextUsage ?? null,
     updateActiveChat,
+    mode,
   );
 
   const hasMessages = messages.length > 0;
