@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { SendIcon } from '@app/components/icons/SendIcon';
 import { StopIcon } from '@app/components/icons/StopIcon';
 import { PlusIcon } from '@app/components/icons/PlusIcon';
@@ -17,6 +17,7 @@ interface ChatInputProps {
   streaming?: boolean;
   placeholder?: string;
   mode: Mode;
+  modeLocked?: boolean;
   onModeChange: (mode: Mode) => void;
 }
 
@@ -36,15 +37,20 @@ export const ChatInput = memo(
     streaming = false,
     placeholder = 'Type a message...',
     mode,
+    modeLocked = false,
     onModeChange,
   }: ChatInputProps) => {
     const [value, setValue] = useState('');
     const [images, setImages] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [showAttachMenu, setShowAttachMenu] = useState(false);
+    const [showModeLockedPopover, setShowModeLockedPopover] = useState(false);
     const attachMenuRef = useRef<HTMLDivElement>(null);
+    const modeTabsRef = useRef<HTMLDivElement>(null);
     const closeAttachMenu = useCallback(() => setShowAttachMenu(false), []);
+    const closeModeLockedPopover = useCallback(() => setShowModeLockedPopover(false), []);
     useOutsideClick(attachMenuRef, closeAttachMenu, showAttachMenu);
+    useOutsideClick(modeTabsRef, closeModeLockedPopover, showModeLockedPopover);
 
     const valueRef = useRef(value);
     valueRef.current = value;
@@ -98,20 +104,48 @@ export const ChatInput = memo(
     );
 
     const canSend = value.trim() || images.length;
+    const handleModeTabClick = useCallback(
+      (nextMode: Mode) => {
+        if (nextMode === mode) {
+          setShowModeLockedPopover(false);
+          return;
+        }
+
+        if (modeLocked) {
+          setShowModeLockedPopover(true);
+          return;
+        }
+
+        setShowModeLockedPopover(false);
+        onModeChange(nextMode);
+      },
+      [mode, modeLocked, onModeChange],
+    );
+
+    useEffect(() => {
+      if (!modeLocked) setShowModeLockedPopover(false);
+    }, [modeLocked]);
 
     return (
       <div className="w-full max-w-3xl mx-auto">
         <div className="flex justify-center mb-4">
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-neutral-100/50 backdrop-blur-md border border-white/5">
-            <ModeTab active={mode === 'chat'} onClick={() => onModeChange('chat')}>
-              Chat
-            </ModeTab>
-            <ModeTab active={mode === 'agent'} onClick={() => onModeChange('agent')}>
-              Agent
-              <span className="px-1 py-0.5 rounded text-[10px] leading-none bg-brand-500/20 text-brand-300 border border-brand-500/20">
-                Beta
-              </span>
-            </ModeTab>
+          <div className="relative" ref={modeTabsRef}>
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-neutral-100/50 backdrop-blur-md border border-white/5">
+              <ModeTab active={mode === 'chat'} onClick={() => handleModeTabClick('chat')}>
+                Chat
+              </ModeTab>
+              <ModeTab active={mode === 'agent'} onClick={() => handleModeTabClick('agent')}>
+                Agent
+                <span className="px-1 py-0.5 rounded text-[10px] leading-none bg-brand-500/20 text-brand-300 border border-brand-500/20">
+                  Beta
+                </span>
+              </ModeTab>
+            </div>
+            {showModeLockedPopover && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-72 rounded-xl border border-amber-300/25 bg-neutral-100/95 px-3 py-2 text-xs text-neutral-800 shadow-lg backdrop-blur-md">
+                Чтобы сменить режим, создайте новый чат.
+              </div>
+            )}
           </div>
         </div>
         <div className="rounded-2xl bg-neutral-100/80 backdrop-blur-xl border border-white/5 transition-all duration-300">
