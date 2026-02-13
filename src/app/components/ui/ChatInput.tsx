@@ -1,7 +1,16 @@
-import { memo, useCallback, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ClipboardEvent,
+} from 'react';
 import { SendIcon } from '@app/components/icons/SendIcon';
 import { StopIcon } from '@app/components/icons/StopIcon';
-import { AttachIcon } from '@app/components/icons/AttachIcon';
+import { PlusIcon } from '@app/components/icons/PlusIcon';
+import { ImageIcon } from '@app/components/icons/ImageIcon';
 import { ModeTab } from './ModeTab';
 import { ActionButton } from './ActionButton';
 import { ImagePreviewList } from './ImagePreviewList';
@@ -39,6 +48,19 @@ export const ChatInput = memo(
     const [value, setValue] = useState('');
     const [images, setImages] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [showAttachMenu, setShowAttachMenu] = useState(false);
+    const attachMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      if (!showAttachMenu) return;
+      const handleClickOutside = (e: MouseEvent) => {
+        if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
+          setShowAttachMenu(false);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showAttachMenu]);
 
     const addImages = useCallback(async (files: File[]) => {
       const imageFiles = files.filter((f) => f.type.startsWith('image/'));
@@ -115,15 +137,31 @@ export const ChatInput = memo(
               className="hidden"
               onChange={handleFileChange}
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled || streaming}
-              className="flex items-center justify-center w-10 h-10 rounded-xl
-                text-neutral-400 hover:text-neutral-700 transition-colors
-                disabled:opacity-50 disabled:cursor-not-allowed mb-1"
-            >
-              <AttachIcon />
-            </button>
+            <div className="relative" ref={attachMenuRef}>
+              <button
+                onClick={() => setShowAttachMenu((v) => !v)}
+                disabled={disabled || streaming}
+                className="flex items-center justify-center w-10 h-10 rounded-xl
+                  text-neutral-400 hover:text-neutral-700 transition-colors
+                  disabled:opacity-50 disabled:cursor-not-allowed mb-1"
+              >
+                <PlusIcon />
+              </button>
+              {showAttachMenu && (
+                <div className="absolute bottom-full left-0 mb-2 min-w-[160px] p-1.5 rounded-xl bg-neutral-100 border border-white/10 shadow-lg backdrop-blur-xl z-50">
+                  <button
+                    onClick={() => {
+                      fileInputRef.current?.click();
+                      setShowAttachMenu(false);
+                    }}
+                    className="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-200/20 rounded-lg transition-colors"
+                  >
+                    <ImageIcon />
+                    Image
+                  </button>
+                </div>
+              )}
+            </div>
             <textarea
               value={value}
               onChange={(e) => setValue(e.target.value)}
