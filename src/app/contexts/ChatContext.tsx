@@ -1,7 +1,6 @@
 import { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Chat, ChatMessage, ChatSummary } from '@shared/types';
 import {
-  CHATS_STORAGE_KEY,
   loadAllChats,
   saveChat,
   deleteChat as deleteChatFromStorage,
@@ -9,6 +8,7 @@ import {
   deriveChatTitle,
   chatToSummary,
 } from '@shared/services/chat-storage';
+import { useStorageSync } from '@app/hooks/useStorageSync';
 
 export interface ChatContextValue {
   chatSummaries: ChatSummary[];
@@ -60,36 +60,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  useEffect(() => {
-    const listener = (changes: { [key: string]: chrome.storage.StorageChange }) => {
-      if (!changes[CHATS_STORAGE_KEY]) return;
-      if (skipCountRef.current > 0) {
-        skipCountRef.current--;
-        return;
-      }
-
-      const newMap = (changes[CHATS_STORAGE_KEY].newValue ?? {}) as Record<string, Chat>;
-      chatsRef.current = new Map(Object.entries(newMap));
-
-      rebuildSummaries();
-
-      setActiveChatId((prevId) => {
-        if (prevId && newMap[prevId]) {
-          setActiveChat(newMap[prevId]);
-          return prevId;
-        }
-        const sorted = sortedByRecent(Object.values(newMap));
-        if (sorted.length > 0) {
-          setActiveChat(sorted[0]);
-          return sorted[0].id;
-        }
-        return null;
-      });
-    };
-
-    chrome.storage.onChanged.addListener(listener);
-    return () => chrome.storage.onChanged.removeListener(listener);
-  }, [rebuildSummaries]);
+  useStorageSync(chatsRef, skipCountRef, rebuildSummaries, setActiveChatId, setActiveChat);
 
   const createChat = useCallback(() => {
     const chat = createNewChat();
