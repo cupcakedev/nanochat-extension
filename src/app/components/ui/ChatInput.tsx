@@ -1,15 +1,14 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
+import { memo, useCallback, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { SendIcon } from '@app/components/icons/SendIcon';
 import { StopIcon } from '@app/components/icons/StopIcon';
 import { ImageIcon } from '@app/components/icons/ImageIcon';
-import { useOutsideClick } from '@app/hooks/useOutsideClick';
-import { ModeTab } from './ModeTab';
+import { useImageAttachments } from '@app/hooks/useImageAttachments';
+import { useTextareaAutoResize } from '@app/hooks/useTextareaAutoResize';
+import { ModeSwitcher } from './ModeSwitcher';
 import { ActionButton } from './ActionButton';
 import { ImagePreviewList } from './ImagePreviewList';
 
 type Mode = 'chat' | 'agent';
-const MIN_TEXTAREA_HEIGHT = 26;
-const MAX_TEXTAREA_HEIGHT = 160;
 
 interface ChatInputProps {
   onSend: (message: string, images?: string[]) => void;
@@ -20,14 +19,6 @@ interface ChatInputProps {
   mode: Mode;
   modeLocked?: boolean;
   onModeChange: (mode: Mode) => void;
-}
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.readAsDataURL(file);
-  });
 }
 
 export const ChatInput = memo(
@@ -42,29 +33,14 @@ export const ChatInput = memo(
     onModeChange,
   }: ChatInputProps) => {
     const [value, setValue] = useState('');
-    const [images, setImages] = useState<string[]>([]);
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [showModeLockedPopover, setShowModeLockedPopover] = useState(false);
-    const modeTabsRef = useRef<HTMLDivElement>(null);
-    const closeModeLockedPopover = useCallback(() => setShowModeLockedPopover(false), []);
-    useOutsideClick(modeTabsRef, closeModeLockedPopover, showModeLockedPopover);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const { images, imagesRef, addImages, removeImage, clearImages } = useImageAttachments();
 
     const valueRef = useRef(value);
     valueRef.current = value;
-    const imagesRef = useRef(images);
-    imagesRef.current = images;
 
-    const addImages = useCallback(async (files: File[]) => {
-      const imageFiles = files.filter((f) => f.type.startsWith('image/'));
-      if (!imageFiles.length) return;
-      const dataUrls = await Promise.all(imageFiles.map(fileToDataUrl));
-      setImages((prev) => [...prev, ...dataUrls]);
-    }, []);
-
-    const removeImage = useCallback((index: number) => {
-      setImages((prev) => prev.filter((_, i) => i !== index));
-    }, []);
+    useTextareaAutoResize(value, textareaRef);
 
     const handleSend = useCallback(() => {
       const trimmed = valueRef.current.trim();
@@ -72,8 +48,8 @@ export const ChatInput = memo(
       if (!trimmed && !imgs.length) return;
       onSend(trimmed, imgs.length ? imgs : undefined);
       setValue('');
-      setImages([]);
-    }, [onSend]);
+      clearImages();
+    }, [onSend, imagesRef, clearImages]);
 
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -102,50 +78,6 @@ export const ChatInput = memo(
     );
 
     const canSend = value.trim() || images.length;
-    const resizeTextarea = useCallback(() => {
-      const textarea = textareaRef.current;
-      if (!textarea) return;
-
-      if (!textarea.value) {
-        textarea.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
-        textarea.style.overflowY = 'hidden';
-        return;
-      }
-
-      textarea.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
-      const nextHeight = Math.min(
-        Math.max(textarea.scrollHeight, MIN_TEXTAREA_HEIGHT),
-        MAX_TEXTAREA_HEIGHT,
-      );
-      textarea.style.height = `${nextHeight}px`;
-      textarea.style.overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
-    }, []);
-
-    useLayoutEffect(() => {
-      resizeTextarea();
-    }, [value, resizeTextarea]);
-
-    const handleModeTabClick = useCallback(
-      (nextMode: Mode) => {
-        if (nextMode === mode) {
-          setShowModeLockedPopover(false);
-          return;
-        }
-
-        if (modeLocked) {
-          setShowModeLockedPopover(true);
-          return;
-        }
-
-        setShowModeLockedPopover(false);
-        onModeChange(nextMode);
-      },
-      [mode, modeLocked, onModeChange],
-    );
-
-    useEffect(() => {
-      if (!modeLocked) setShowModeLockedPopover(false);
-    }, [modeLocked]);
 
     return (
       <div className="w-full max-w-3xl mx-auto">
@@ -190,35 +122,14 @@ export const ChatInput = memo(
                 >
                   <ImageIcon />
                 </button>
-                <div className="relative" ref={modeTabsRef}>
-                  <div className="flex items-center gap-1.5 p-1 rounded-[12px] bg-neutral-200/20 backdrop-blur-md">
-                    <ModeTab active={mode === 'chat'} onClick={() => handleModeTabClick('chat')}>
-                      Chat
-                    </ModeTab>
-                    <ModeTab active={mode === 'agent'} onClick={() => handleModeTabClick('agent')}>
-                      Agent
-                      <span className="px-1.5 py-0.5 rounded-[8px] text-[11px] leading-none bg-brand-500/20 text-brand-300">
-                        Beta
-                      </span>
-                    </ModeTab>
-                  </div>
-                  {showModeLockedPopover && (
-                    <div className="absolute bottom-full left-0 mb-2 z-50 w-72 rounded-[12px] border border-amber-300/25 bg-neutral-100/95 px-3 py-2 text-xs text-neutral-800 shadow-lg backdrop-blur-md">
-                      To switch mode, start a new chat.
-                    </div>
-                  )}
-                </div>
+                <ModeSwitcher mode={mode} modeLocked={modeLocked} onModeChange={onModeChange} />
               </div>
               {streaming ? (
                 <ActionButton onClick={onStop} variant="stop">
                   <StopIcon />
                 </ActionButton>
               ) : (
-                <ActionButton
-                  onClick={handleSend}
-                  disabled={disabled || !canSend}
-                  variant="send"
-                >
+                <ActionButton onClick={handleSend} disabled={disabled || !canSend} variant="send">
                   <SendIcon />
                 </ActionButton>
               )}

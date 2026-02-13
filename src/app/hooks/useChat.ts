@@ -5,66 +5,22 @@ import {
   AgentContextUnavailableError,
   buildAgentSystemPrompt,
 } from '@app/services/agent-context';
+import {
+  appendTokenToLastMessage,
+  calculateTokenStats,
+  createChatMessage,
+  extractErrorMessage,
+  replaceLastMessageContent,
+  toContextUsage,
+  trimLastMessageTrailingWhitespace,
+  type ContextUsage,
+} from '@app/services/chat-message-utils';
 import { createLogger } from '@shared/utils';
 import type { ChatMessage, TokenStats } from '@shared/types';
 
 const logger = createLogger('useChat');
 
-function replaceLastMessageContent(prev: ChatMessage[], content: string): ChatMessage[] {
-  const updated = [...prev];
-  const last = updated[updated.length - 1];
-  updated[updated.length - 1] = { ...last, content };
-  return updated;
-}
-
-function appendTokenToLastMessage(prev: ChatMessage[], token: string): ChatMessage[] {
-  const last = prev[prev.length - 1];
-  return replaceLastMessageContent(prev, last.content + token);
-}
-
-function trimLastMessageTrailingWhitespace(prev: ChatMessage[]): ChatMessage[] {
-  const last = prev[prev.length - 1];
-  const trimmed = last.content.trimEnd();
-  if (trimmed === last.content) return prev;
-  return replaceLastMessageContent(prev, trimmed);
-}
-
-function createChatMessage(
-  role: 'user' | 'assistant',
-  content: string,
-  images?: string[],
-): ChatMessage {
-  return {
-    id: crypto.randomUUID(),
-    role,
-    content,
-    ...(images?.length ? { images } : {}),
-    timestamp: Date.now(),
-  };
-}
-
-function extractErrorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : 'An error occurred during generation';
-}
-
-function toContextUsage(raw: { used: number; total: number }): ContextUsage {
-  return { ...raw, percent: Math.round((raw.used / raw.total) * 100) };
-}
-
-function calculateTokenStats(tokenCount: number, startTime: number): TokenStats {
-  const duration = (performance.now() - startTime) / 1000;
-  return {
-    tokenCount,
-    duration,
-    tokensPerSecond: tokenCount / duration,
-  };
-}
-
-export interface ContextUsage {
-  used: number;
-  total: number;
-  percent: number;
-}
+export type { ContextUsage };
 
 export function useChat(
   serviceRef: RefObject<PromptAPIService>,
@@ -101,27 +57,18 @@ export function useChat(
 
   const send = useCallback(
     async (text: string, images?: string[]) => {
-      logger.info('send:start', {
-        mode,
-        textLength: text.length,
-        imageCount: images?.length ?? 0,
-        historyLength: messagesRef.current.length,
-      });
+      logger.info('send:start', { mode, textLength: text.length, imageCount: images?.length ?? 0 });
 
       let systemPrompt: string | null = null;
       if (mode === 'agent') {
-        logger.info('send:buildingAgentContext');
         try {
           systemPrompt = await buildAgentSystemPrompt();
-          logger.info('send:agentContextReady', { systemPromptLength: systemPrompt.length });
         } catch (err) {
           if (err instanceof AgentContextUnavailableError) {
-            logger.warn('send:agentContextUnavailable', err.message);
             onAgentContextUnavailable?.(err.message);
             return;
           }
           const errorMessage = extractErrorMessage(err);
-          logger.error('send:agentContextBuildFailed', errorMessage);
           const userMessage = createChatMessage('user', text, images);
           const assistantMessage = createChatMessage('assistant', `Error: ${errorMessage}`);
           const failedMessages = [...messagesRef.current, userMessage, assistantMessage];
@@ -159,12 +106,8 @@ export function useChat(
           systemPrompt,
         );
       } catch (err) {
-        if (abortController.signal.aborted) {
-          logger.info('send:aborted');
-          return;
-        }
+        if (abortController.signal.aborted) return;
         const errorContent = `Error: ${extractErrorMessage(err)}`;
-        logger.error('send:error', errorContent);
         setMessages((prev) => replaceLastMessageContent(prev, errorContent));
       } finally {
         const trimmed = trimLastMessageTrailingWhitespace(messagesRef.current);
@@ -184,8 +127,6 @@ export function useChat(
           tokenCount,
           duration: stats?.duration.toFixed(2),
           tokensPerSecond: stats?.tokensPerSecond.toFixed(1),
-          contextUsed: ctxUsage?.used,
-          contextTotal: ctxUsage?.total,
         });
 
         onMessagesChange?.(trimmed, ctxUsage);
