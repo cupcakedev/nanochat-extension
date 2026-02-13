@@ -33,6 +33,14 @@ function buildSummaries(chats: Map<string, Chat>): ChatSummary[] {
     .map(chatToSummary);
 }
 
+function ensureActiveChat(chats: Chat[]): Chat {
+  return sortedByRecent(chats)[0] ?? createNewChat();
+}
+
+function shouldPersistChat(chat: Chat): boolean {
+  return chat.messages.length > 0;
+}
+
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -46,16 +54,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    loadAllChats().then((chats) => {
-      const startupChat = createNewChat();
-      chats = [startupChat, ...chats];
-
-      chatsRef.current = new Map(chats.map((c) => [c.id, c]));
-      skipCountRef.current++;
-      saveChat(startupChat);
+    loadAllChats().then((storedChats) => {
+      const active = ensureActiveChat(storedChats);
+      const initialChats = storedChats.length > 0 ? storedChats : [active];
+      chatsRef.current = new Map(initialChats.map((chat) => [chat.id, chat]));
       setChatSummaries(buildSummaries(chatsRef.current));
-      setActiveChatId(startupChat.id);
-      setActiveChat(startupChat);
+      setActiveChatId(active.id);
+      setActiveChat(active);
       setLoaded(true);
     });
   }, []);
@@ -65,11 +70,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const createChat = useCallback(() => {
     const chat = createNewChat();
     chatsRef.current.set(chat.id, chat);
-    skipCountRef.current++;
-    saveChat(chat);
+    rebuildSummaries();
     setActiveChatId(chat.id);
     setActiveChat(chat);
-  }, []);
+  }, [rebuildSummaries]);
 
   const selectChat = useCallback((id: string) => {
     const chat = chatsRef.current.get(id);
@@ -80,23 +84,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const deleteChat = useCallback(
     (id: string) => {
+      const removed = chatsRef.current.get(id);
+      if (!removed) return;
       chatsRef.current.delete(id);
-      skipCountRef.current++;
-      deleteChatFromStorage(id);
+      if (shouldPersistChat(removed)) {
+        skipCountRef.current++;
+        deleteChatFromStorage(id);
+      }
 
       if (chatsRef.current.size === 0) {
         const chat = createNewChat();
         chatsRef.current.set(chat.id, chat);
-        skipCountRef.current++;
-        saveChat(chat);
       }
 
       rebuildSummaries();
 
-      if (activeChatId === id) {
-        const first = sortedByRecent([...chatsRef.current.values()])[0];
-        setActiveChatId(first.id);
-        setActiveChat(first);
+      const currentActive = activeChatId ? chatsRef.current.get(activeChatId) : null;
+      if (!currentActive || activeChatId === id) {
+        const next = ensureActiveChat([...chatsRef.current.values()]);
+        setActiveChatId(next.id);
+        setActiveChat(next);
       }
     },
     [activeChatId, rebuildSummaries],
@@ -119,8 +126,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       chatsRef.current.set(activeChatId, updated);
       setActiveChat(updated);
-      skipCountRef.current++;
-      saveChat(updated);
+      if (shouldPersistChat(updated)) {
+        skipCountRef.current++;
+        saveChat(updated);
+      } else {
+        skipCountRef.current++;
+        deleteChatFromStorage(updated.id);
+      }
       rebuildSummaries();
     },
     [activeChatId, rebuildSummaries],
