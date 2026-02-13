@@ -1,6 +1,7 @@
-export type InteractionActionType = 'click' | 'type' | 'done' | 'unknown';
+export type InteractionActionType = 'click' | 'type' | 'openUrl' | 'done' | 'unknown';
 export type ExecutableInteractionAction = Extract<InteractionActionType, 'click' | 'type'>;
 export type InteractionConfidence = 'high' | 'medium' | 'low';
+export type InteractionRunStatus = 'continue' | 'done' | 'fail' | 'max-steps';
 
 export interface InteractionRect {
   x: number;
@@ -50,6 +51,7 @@ export interface InteractionActionPlan {
   action: InteractionActionType;
   index: number | null;
   text: string | null;
+  url: string | null;
   reason: string | null;
   confidence: InteractionConfidence;
 }
@@ -58,6 +60,7 @@ export interface InteractionExecutionResult {
   requestedAction: InteractionActionType;
   requestedIndex: number | null;
   requestedText: string | null;
+  requestedUrl: string | null;
   executed: boolean;
   message: string;
 }
@@ -85,6 +88,8 @@ export interface PageInteractionDebugInput {
 }
 
 export interface PageInteractionStepResult {
+  status: InteractionRunStatus;
+  finalAnswer: string | null;
   plans: InteractionActionPlan[];
   executions: InteractionExecutionResult[];
   rawResponse: string;
