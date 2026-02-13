@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Sidebar } from '@app/components/sidebar/Sidebar';
 import { MenuIcon } from '@app/components/icons/MenuIcon';
+import { PlusIcon } from '@app/components/icons/PlusIcon';
+import { TrashIcon } from '@app/components/icons/TrashIcon';
 import { EmptyState } from '@app/components/ui/EmptyState';
 import { ChatInput } from '@app/components/ui/ChatInput';
 import { MessageList } from '@app/components/chat/MessageList';
@@ -49,6 +51,20 @@ export const MainPage = () => {
 
   const toggleSidebar = useCallback(() => setIsSidebarOpen((v) => !v), []);
   const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
+  const handleNewChat = useCallback(() => {
+    serviceRef.current.destroySession();
+    createChat();
+    setMode('chat');
+  }, [createChat, serviceRef]);
+  const handleClearChat = useCallback(() => {
+    if (!activeChatId) return;
+    if (streaming) stop();
+    serviceRef.current.destroySession();
+    const chatIdToDelete = activeChatId;
+    createChat();
+    deleteChat(chatIdToDelete);
+    setMode('chat');
+  }, [activeChatId, createChat, deleteChat, serviceRef, stop, streaming]);
 
   return (
     <div className="relative h-screen flex flex-row bg-neutral-bg overflow-hidden">
@@ -58,7 +74,7 @@ export const MainPage = () => {
         isOpen={isReady && isSidebarOpen}
         onSelectChat={isReady ? selectChat : NOOP}
         onDeleteChat={isReady ? deleteChat : NOOP}
-        onNewChat={isReady ? createChat : NOOP}
+        onNewChat={isReady ? handleNewChat : NOOP}
         onClose={isReady ? closeSidebar : NOOP}
       />
 
@@ -66,16 +82,37 @@ export const MainPage = () => {
         {isReady ? (
           <>
             {contextUsage && <ContextBar usage={contextUsage} />}
-            <div className="absolute top-4 left-4 z-20">
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
               <button
                 onClick={toggleSidebar}
                 className="p-2 rounded-lg bg-neutral-100/50 hover:bg-neutral-100/80 text-neutral-400 hover:text-white transition-colors border border-white/5 backdrop-blur-md"
               >
                 <MenuIcon />
               </button>
+              <button
+                onClick={handleNewChat}
+                className="flex h-[38px] items-center gap-2 px-3 rounded-lg text-xs font-medium
+                  bg-neutral-100/50 text-neutral-400 hover:text-white hover:bg-neutral-100/80
+                  border border-white/5 transition-all duration-200 backdrop-blur-md"
+              >
+                <PlusIcon />
+                <span>New Chat</span>
+              </button>
             </div>
 
-            <div className="absolute top-4 right-4 z-10">
+            <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+              <button
+                onClick={handleClearChat}
+                disabled={!activeChatId}
+                className="flex h-[38px] items-center gap-2 px-3 rounded-lg text-xs font-medium
+                  bg-neutral-100/50 text-neutral-400 hover:text-white hover:bg-neutral-100/80
+                  border border-white/5 transition-all duration-200 backdrop-blur-md
+                  disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Clear current chat"
+              >
+                <TrashIcon />
+                <span>Clear Chat</span>
+              </button>
               <ModelStatusBar status={status} progress={progress} error={error} onRetry={retry} />
             </div>
 
@@ -103,6 +140,7 @@ export const MainPage = () => {
                 disabled={status !== 'ready'}
                 placeholder="Ask anything..."
                 mode={mode}
+                modeLocked={hasMessages}
                 onModeChange={setMode}
               />
             </div>
