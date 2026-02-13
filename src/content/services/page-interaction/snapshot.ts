@@ -1,5 +1,7 @@
 import type { InteractiveElementSnapshotItem, InteractionSnapshotPayload } from '@shared/types';
 import { applyInteractionHighlights } from './highlights';
+import { collectSearchRoots } from './search-roots';
+import { isElementUserVisible } from './visibility';
 
 const INTERACTIVE_TAGS = new Set([
   'a', 'button', 'input', 'textarea', 'select', 'option', 'summary', 'label', 'details',
@@ -32,15 +34,6 @@ function isDisabled(element: HTMLElement): boolean {
   return element.getAttribute('aria-disabled') === 'true' || element.hasAttribute('disabled');
 }
 
-function isVisible(element: HTMLElement, viewportOnly: boolean): boolean {
-  const style = window.getComputedStyle(element);
-  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
-  const rect = element.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return false;
-  if (!viewportOnly) return true;
-  return rect.bottom >= 0 && rect.right >= 0 && rect.left <= window.innerWidth && rect.top <= window.innerHeight;
-}
-
 function isInteractiveElement(element: HTMLElement): boolean {
   const tag = element.tagName.toLowerCase();
   if (tag === 'body' || tag === 'html') return false;
@@ -65,8 +58,7 @@ function getPrimaryText(element: HTMLElement): string | null {
 }
 
 function getHref(element: HTMLElement): string | null {
-  if (element instanceof HTMLAnchorElement) return normalizeText(element.href, 220);
-  return null;
+  return element instanceof HTMLAnchorElement ? normalizeText(element.href, 220) : null;
 }
 
 function toSummary(element: HTMLElement, index: number): InteractiveElementSnapshotItem {
@@ -97,40 +89,44 @@ function queryCandidates(): HTMLElement[] {
     'a[href]', 'button', "input:not([type='hidden'])", 'select', 'textarea',
     'summary', 'label[for]', '[role]', '[tabindex]', "[contenteditable='true']", '[onclick]',
   ];
+
   const seen = new Set<HTMLElement>();
   const result: HTMLElement[] = [];
-  for (const selector of selectors) {
-    document.querySelectorAll<HTMLElement>(selector).forEach((el) => {
-      if (!seen.has(el)) {
-        seen.add(el);
-        result.push(el);
-      }
+  const roots = collectSearchRoots();
+
+  roots.forEach((root) => {
+    selectors.forEach((selector) => {
+      root.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+        if (seen.has(element)) return;
+        seen.add(element);
+        result.push(element);
+      });
     });
-  }
+  });
+
   return result;
 }
 
-function collectInteractiveElements(maxElements: number, viewportOnly: boolean): HTMLElement[] {
-  return queryCandidates()
-    .filter((el) => isInteractiveElement(el) && isVisible(el, viewportOnly))
-    .sort((a, b) => {
-      const ar = a.getBoundingClientRect();
-      const br = b.getBoundingClientRect();
-      return ar.top !== br.top ? ar.top - br.top : ar.left - br.left;
-    })
-    .slice(0, Math.max(1, maxElements));
+function sortByPosition(elements: HTMLElement[]): HTMLElement[] {
+  return elements.sort((left, right) => {
+    const l = left.getBoundingClientRect();
+    const r = right.getBoundingClientRect();
+    return l.top !== r.top ? l.top - r.top : l.left - r.left;
+  });
 }
 
-export function extractInteractionSnapshot(
-  maxElements = DEFAULT_MAX_ELEMENTS,
-  viewportOnly = true,
-): InteractionSnapshotPayload {
+function collectInteractiveElements(maxElements: number, viewportOnly: boolean): HTMLElement[] {
+  return sortByPosition(
+    queryCandidates().filter((element) => isInteractiveElement(element) && isElementUserVisible(element, viewportOnly)),
+  ).slice(0, Math.max(1, maxElements));
+}
+
+export function extractInteractionSnapshot(maxElements = DEFAULT_MAX_ELEMENTS, viewportOnly = true): InteractionSnapshotPayload {
   const elements = collectInteractiveElements(maxElements, viewportOnly);
   applyInteractionHighlights(elements);
-
   return {
     pageUrl: location.href,
     pageTitle: document.title,
-    interactiveElements: elements.map((el, i) => toSummary(el, i + 1)),
+    interactiveElements: elements.map((element, index) => toSummary(element, index + 1)),
   };
 }
