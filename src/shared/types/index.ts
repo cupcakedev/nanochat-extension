@@ -24,5 +24,6 @@ export type {
   InteractionExecutionResult,
   PageInteractionCaptureMeta,
   PageInteractionDebugInput,
+  InteractionCompletionVerification,
   PageInteractionStepResult,
 } from './interaction';

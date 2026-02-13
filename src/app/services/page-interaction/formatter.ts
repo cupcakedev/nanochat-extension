@@ -31,6 +31,12 @@ function formatFinalAnswer(result: PageInteractionStepResult): string {
   return result.finalAnswer ?? 'No final answer';
 }
 
+function formatVerification(result: PageInteractionStepResult): string {
+  if (!result.verification) return 'n/a';
+  const label = result.verification.complete ? 'passed' : 'failed';
+  return `${label} (${result.verification.confidence}) - ${result.verification.reason}`;
+}
+
 export function formatInteractionAssistantMessage(result: PageInteractionStepResult): string {
   const executedCount = result.executions.filter((execution) => execution.executed).length;
   return [
@@ -39,6 +45,7 @@ export function formatInteractionAssistantMessage(result: PageInteractionStepRes
     `Executed: ${executedCount}/${result.executions.length}`,
     'Steps:',
     formatStepSummary(result),
+    `Verification: ${formatVerification(result)}`,
     `Result: ${formatFinalAnswer(result)}`,
     `Capture: ${formatCaptureMeta(result)}`,
   ].join('\n');

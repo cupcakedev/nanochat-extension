@@ -87,9 +87,16 @@ export interface PageInteractionDebugInput {
   interactiveElements: InteractiveElementSnapshotItem[];
 }
 
+export interface InteractionCompletionVerification {
+  complete: boolean;
+  reason: string;
+  confidence: InteractionConfidence;
+}
+
 export interface PageInteractionStepResult {
   status: InteractionRunStatus;
   finalAnswer: string | null;
+  verification: InteractionCompletionVerification | null;
   plans: InteractionActionPlan[];
   executions: InteractionExecutionResult[];
   rawResponse: string;

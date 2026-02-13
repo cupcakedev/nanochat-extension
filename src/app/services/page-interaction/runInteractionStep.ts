@@ -9,6 +9,7 @@ import {
 import type {
   ExecutableInteractionAction,
   InteractionActionPlan,
+  InteractionCompletionVerification,
   InteractionExecutionResult,
   InteractiveElementSnapshotItem,
   InteractionRunStatus,
@@ -20,6 +21,7 @@ import { captureVisibleViewport } from './capture';
 import { annotateInteractionCanvas } from './annotate-canvas';
 import { enforceTypingFirst } from './guards';
 import { estimateTokens, isInputTooLargeError, runTextImagePrompt } from './prompt-api';
+import { verifyTaskCompletion } from './verifier';
 import {
   INTERACTION_CAPTURE_SETTLE_MS,
   INTERACTION_PROMPT_MAX_RETRY_ATTEMPTS,
@@ -73,6 +75,17 @@ function fallbackExecution(plan: InteractionActionPlan, message: string): Intera
   };
 }
 
+function verifierExecution(reason: string): InteractionExecutionResult {
+  return {
+    requestedAction: 'unknown',
+    requestedIndex: null,
+    requestedText: null,
+    requestedUrl: null,
+    executed: false,
+    message: `Verifier rejected completion: ${reason}`,
+  };
+}
+
 function nextPromptElementLimit(current: number): number {
   return Math.floor(current * INTERACTION_PROMPT_RETRY_SHRINK_FACTOR);
 }
@@ -85,6 +98,10 @@ function sanitizePageContent(content: string, maxChars: number): string {
   const normalized = content.replace(/\s+/g, ' ').trim();
   if (!normalized) return '';
   return normalized.length <= maxChars ? normalized : normalized.slice(0, maxChars);
+}
+
+function extractErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function toExecutionFromAction(
@@ -261,6 +278,7 @@ export async function runPageInteractionStep(userInstruction: string): Promise<P
   const rawResponses: string[] = [];
   let finalStatus: InteractionRunStatus = 'continue';
   let finalAnswer: string | null = null;
+  let lastVerification: InteractionCompletionVerification | null = null;
   let lastDecision: PromptDecisionResult | null = null;
   let lastPageUrl = '';
   let lastPageTitle = '';
@@ -300,8 +318,38 @@ export async function runPageInteractionStep(userInstruction: string): Promise<P
     lastPromptElementCount = decision.promptElements.length;
     totalRetries += decision.retryCount;
 
-    if (decision.decision.status !== 'continue') {
-      finalStatus = decision.decision.status;
+    if (decision.decision.status === 'done') {
+      const verification = await verifyTaskCompletion({
+        task,
+        pageUrl: snapshot.pageUrl,
+        pageTitle: snapshot.pageTitle,
+        pageContent,
+        history: allExecutions,
+        plannerFinalAnswer: decision.decision.finalAnswer,
+      }).catch((error) => ({
+        complete: false,
+        reason: `Verifier error: ${extractErrorMessage(error)}`,
+        confidence: 'low' as const,
+      }));
+
+      lastVerification = verification;
+      if (verification.complete) {
+        finalStatus = 'done';
+        finalAnswer = decision.decision.finalAnswer ?? verification.reason;
+        break;
+      }
+
+      allExecutions.push(verifierExecution(verification.reason));
+      if (stepNumber >= AGENT_MAX_STEPS) {
+        finalStatus = 'max-steps';
+        finalAnswer = verification.reason;
+        break;
+      }
+      continue;
+    }
+
+    if (decision.decision.status === 'fail') {
+      finalStatus = 'fail';
       finalAnswer = decision.decision.finalAnswer ?? decision.decision.reason;
       break;
     }
@@ -345,6 +393,7 @@ export async function runPageInteractionStep(userInstruction: string): Promise<P
   return {
     status: completion.status,
     finalAnswer: completion.finalAnswer,
+    verification: lastVerification,
     plans: allPlans,
     executions: allExecutions,
     rawResponse: rawResponses.join('\n'),

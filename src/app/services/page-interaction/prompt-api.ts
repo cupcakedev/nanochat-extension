@@ -3,6 +3,11 @@ const TEXT_IMAGE_LANGUAGE_OPTIONS = {
   expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
 };
 
+const TEXT_LANGUAGE_OPTIONS = {
+  expectedInputs: [{ type: 'text' as const, languages: ['en'] }],
+  expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
+};
+
 const INTERACTION_ACTION_ITEM_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -30,7 +35,7 @@ const INTERACTION_PLAN_SCHEMA = {
 } as const;
 
 interface PromptRequestOptions {
-  responseConstraint: typeof INTERACTION_PLAN_SCHEMA;
+  responseConstraint: unknown;
   omitResponseConstraintInput: boolean;
 }
 
@@ -63,11 +68,7 @@ function buildPromptOptions(): PromptRequestOptions {
   return { responseConstraint: INTERACTION_PLAN_SCHEMA, omitResponseConstraintInput: true };
 }
 
-async function measureInputUsage(
-  session: LanguageModel,
-  input: ReturnType<typeof buildPromptInput>,
-  options: PromptRequestOptions,
-): Promise<number | null> {
+async function measureInputUsage(session: LanguageModel, input: unknown, options: PromptRequestOptions): Promise<number | null> {
   try {
     const measured = await (session as unknown as {
       measureInputUsage: (value: unknown, opts: unknown) => Promise<unknown>;
@@ -78,11 +79,7 @@ async function measureInputUsage(
   }
 }
 
-async function promptOnce(
-  session: LanguageModel,
-  input: ReturnType<typeof buildPromptInput>,
-  options: PromptRequestOptions,
-): Promise<string> {
+async function promptOnce(session: LanguageModel, input: unknown, options: PromptRequestOptions): Promise<string> {
   const prompt = (session as unknown as {
     prompt?: (value: unknown, opts?: unknown) => Promise<string>;
   }).prompt;
@@ -146,6 +143,51 @@ export async function runTextImagePrompt(prompt: string, imageCanvas: HTMLCanvas
     };
   } finally {
     bitmap.close();
+    session.destroy();
+  }
+}
+
+function buildTextPromptInput(prompt: string) {
+  return [{
+    role: 'user' as const,
+    content: [{ type: 'text' as const, value: prompt }],
+  }] as const;
+}
+
+function buildPromptOptionsWithSchema(schema: unknown): PromptRequestOptions {
+  return { responseConstraint: schema, omitResponseConstraintInput: true };
+}
+
+export async function runTextPromptWithConstraint(
+  prompt: string,
+  responseConstraint: unknown,
+): Promise<TextImagePromptResult> {
+  const availability = await LanguageModel.availability(TEXT_LANGUAGE_OPTIONS);
+  if (availability === 'unavailable') {
+    throw new Error('Chrome Prompt API is unavailable in this browser profile');
+  }
+
+  const session = await LanguageModel.create(TEXT_LANGUAGE_OPTIONS);
+  const sessionAny = session as unknown as { inputUsage?: unknown; inputQuota?: unknown };
+  const input = buildTextPromptInput(prompt);
+  const options = buildPromptOptionsWithSchema(responseConstraint);
+  const sessionInputUsageBefore = toNumber(sessionAny.inputUsage);
+  const sessionInputQuota = toNumber(sessionAny.inputQuota);
+
+  try {
+    const measuredInputTokens = await measureInputUsage(session, input, options);
+    const output = await promptOnce(session, input, options);
+    const sessionInputUsageAfter = toNumber(sessionAny.inputUsage);
+    const usage = sessionInputUsageAfter ?? sessionInputUsageBefore;
+    return {
+      output: output.trim(),
+      measuredInputTokens,
+      sessionInputUsageBefore,
+      sessionInputUsageAfter,
+      sessionInputQuota,
+      sessionInputQuotaRemaining: remainingQuota(sessionInputQuota, usage),
+    };
+  } finally {
     session.destroy();
   }
 }
