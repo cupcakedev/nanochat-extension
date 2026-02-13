@@ -85,7 +85,7 @@ function patchMissingTypeText(plan: InteractionActionPlan, preferredValue: strin
   return { ...plan, text: preferredValue, reason };
 }
 
-export function enforceTypingFirst(
+function enforceTypingFirstForSinglePlan(
   plan: InteractionActionPlan,
   instruction: string,
   elements: InteractiveElementSnapshotItem[],
@@ -107,4 +107,25 @@ export function enforceTypingFirst(
     confidence: patched.confidence === 'high' ? 'high' : 'medium',
     reason: `Typing-first guard: input text "${preferredValue}" into index ${candidate.index} before any click.`,
   };
+}
+
+function shouldPrependTypingAction(original: InteractionActionPlan, adjusted: InteractionActionPlan): boolean {
+  return original.action !== 'type' && adjusted.action === 'type' && adjusted.index !== null && adjusted.text !== null;
+}
+
+export function enforceTypingFirst(
+  plans: InteractionActionPlan[],
+  instruction: string,
+  elements: InteractiveElementSnapshotItem[],
+): InteractionActionPlan[] {
+  if (!plans.length) return plans;
+
+  const [first, ...rest] = plans;
+  const adjustedFirst = enforceTypingFirstForSinglePlan(first, instruction, elements);
+
+  if (shouldPrependTypingAction(first, adjustedFirst)) {
+    return [adjustedFirst, first, ...rest];
+  }
+
+  return [adjustedFirst, ...rest];
 }

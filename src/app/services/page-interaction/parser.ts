@@ -4,6 +4,8 @@ import type {
   InteractionConfidence,
 } from '@shared/types';
 
+const MAX_ACTIONS_PER_PLAN = 6;
+
 function extractJsonObject(text: string): string {
   const start = text.indexOf('{');
   if (start === -1) throw new Error('Prompt API returned non-JSON output');
@@ -54,20 +56,25 @@ function normalizeIndex(value: unknown): number | null {
   return null;
 }
 
+function toUnknownPlan(reason: string): InteractionActionPlan {
+  return {
+    action: 'unknown',
+    index: null,
+    text: null,
+    reason,
+    confidence: 'low',
+  };
+}
+
 function normalizeExecutableActionPlan(
   action: InteractionActionType,
   index: number | null,
   reason: string | null,
 ): InteractionActionPlan {
   if ((action === 'click' || action === 'type') && index === null) {
-    return {
-      action: 'unknown',
-      index: null,
-      text: null,
-      reason: reason ?? 'Missing index for actionable command',
-      confidence: 'low',
-    };
+    return toUnknownPlan(reason ?? 'Missing index for actionable command');
   }
+
   return {
     action,
     index,
@@ -77,15 +84,39 @@ function normalizeExecutableActionPlan(
   };
 }
 
-export function parseInteractionAction(rawText: string): InteractionActionPlan {
-  const parsed = JSON.parse(extractJsonObject(rawText)) as Record<string, unknown>;
+function normalizeActionPlan(value: unknown): InteractionActionPlan {
+  if (!value || typeof value !== 'object') {
+    return toUnknownPlan('Invalid action item');
+  }
+
+  const parsed = value as Record<string, unknown>;
   const action = normalizeAction(parsed.action);
   const index = normalizeIndex(parsed.index);
   const text = normalizeTextValue(parsed.text);
   const reason = normalizeTextValue(parsed.reason);
   const confidence = normalizeConfidence(parsed.confidence);
-
   const plan = normalizeExecutableActionPlan(action, index, reason);
+
   if (action === 'click') return { ...plan, confidence };
   return { ...plan, text, confidence };
+}
+
+function readRawActions(root: Record<string, unknown>): unknown[] {
+  const actions = root.actions;
+  if (Array.isArray(actions)) return actions;
+  return [root];
+}
+
+function readRoot(rawText: string): Record<string, unknown> {
+  return JSON.parse(extractJsonObject(rawText)) as Record<string, unknown>;
+}
+
+export function parseInteractionActions(rawText: string): InteractionActionPlan[] {
+  const root = readRoot(rawText);
+  const plans = readRawActions(root)
+    .slice(0, MAX_ACTIONS_PER_PLAN)
+    .map(normalizeActionPlan);
+
+  if (!plans.length) return [toUnknownPlan('No action returned')];
+  return plans;
 }

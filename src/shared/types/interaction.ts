@@ -27,6 +27,8 @@ export interface InteractiveElementSnapshotItem {
 export interface InteractionSnapshotPayload {
   pageUrl: string;
   pageTitle: string;
+  viewportWidth: number;
+  viewportHeight: number;
   interactiveElements: InteractiveElementSnapshotItem[];
 }
 
@@ -83,8 +85,8 @@ export interface PageInteractionDebugInput {
 }
 
 export interface PageInteractionStepResult {
-  plan: InteractionActionPlan;
-  execution: InteractionExecutionResult;
+  plans: InteractionActionPlan[];
+  executions: InteractionExecutionResult[];
   rawResponse: string;
   screenshotDataUrl: string;
   debugInput: PageInteractionDebugInput;

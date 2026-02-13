@@ -2,12 +2,14 @@ import { getActiveTab, getInteractionSnapshot, executeAction, clearHighlights } 
 import type {
   ExecutableInteractionAction,
   InteractionActionPlan,
+  InteractionExecutionResult,
   InteractiveElementSnapshotItem,
   PageInteractionStepResult,
 } from '@shared/types';
 import { buildInteractionPrompt } from './prompt';
-import { parseInteractionAction } from './parser';
+import { parseInteractionActions } from './parser';
 import { captureVisibleViewport } from './capture';
+import { annotateInteractionCanvas } from './annotate-canvas';
 import { enforceTypingFirst } from './guards';
 import { estimateTokens, isInputTooLargeError, runTextImagePrompt } from './prompt-api';
 import {
@@ -18,7 +20,7 @@ import {
 } from './constants';
 
 interface PromptPlanResult {
-  plan: InteractionActionPlan;
+  plans: InteractionActionPlan[];
   rawResponse: string;
   prompt: string;
   promptElements: InteractiveElementSnapshotItem[];
@@ -28,6 +30,9 @@ interface PromptPlanResult {
   sessionInputUsageAfter: number | null;
   sessionInputQuota: number | null;
   sessionInputQuotaRemaining: number | null;
+  screenshotDataUrl: string;
+  imageWidth: number;
+  imageHeight: number;
 }
 
 type ExecutableInteractionPlan = InteractionActionPlan & {
@@ -45,10 +50,10 @@ function isExecutableAction(plan: InteractionActionPlan): plan is ExecutableInte
   return (plan.action === 'click' || plan.action === 'type') && plan.index !== null;
 }
 
-function createFallbackExecutionResult(plan: InteractionActionPlan) {
+function createFallbackExecutionResult(plan: InteractionActionPlan): InteractionExecutionResult {
   if (plan.action === 'done') {
     return {
-      requestedAction: 'done' as const,
+      requestedAction: 'done',
       requestedIndex: null,
       requestedText: null,
       executed: false,
@@ -57,33 +62,11 @@ function createFallbackExecutionResult(plan: InteractionActionPlan) {
   }
 
   return {
-    requestedAction: 'unknown' as const,
-    requestedIndex: null,
-    requestedText: null,
-    executed: false,
-    message: 'AI could not choose a safe action',
-  };
-}
-
-async function executePlannedAction(tabId: number, plan: InteractionActionPlan) {
-  if (!isExecutableAction(plan)) {
-    await clearHighlights(tabId);
-    return createFallbackExecutionResult(plan);
-  }
-
-  const response = await executeAction(
-    tabId,
-    plan.action,
-    plan.index,
-    plan.action === 'type' ? plan.text ?? '' : null,
-  );
-
-  return {
     requestedAction: plan.action,
     requestedIndex: plan.index,
     requestedText: plan.text,
-    executed: response.ok,
-    message: response.message,
+    executed: false,
+    message: 'AI could not choose a safe action',
   };
 }
 
@@ -95,12 +78,53 @@ function mustStopRetrying(current: number, next: number): boolean {
   return next < 6 || next >= current;
 }
 
+function toExecutionResult(
+  plan: ExecutableInteractionPlan,
+  response: Awaited<ReturnType<typeof executeAction>>,
+): InteractionExecutionResult {
+  return {
+    requestedAction: plan.action,
+    requestedIndex: plan.index,
+    requestedText: plan.text,
+    executed: response.ok,
+    message: response.message,
+  };
+}
+
+async function executePlannedActions(
+  tabId: number,
+  plans: InteractionActionPlan[],
+): Promise<InteractionExecutionResult[]> {
+  const executions: InteractionExecutionResult[] = [];
+
+  for (const plan of plans) {
+    if (!isExecutableAction(plan)) {
+      executions.push(createFallbackExecutionResult(plan));
+      break;
+    }
+
+    const response = await executeAction(
+      tabId,
+      plan.action,
+      plan.index,
+      plan.action === 'type' ? plan.text ?? '' : null,
+    );
+
+    const execution = toExecutionResult(plan, response);
+    executions.push(execution);
+    if (!execution.executed) break;
+  }
+
+  return executions;
+}
+
 async function requestActionPlan(
   pageUrl: string,
   pageTitle: string,
   instruction: string,
   elements: InteractiveElementSnapshotItem[],
-  imageCanvas: HTMLCanvasElement,
+  baseCanvas: HTMLCanvasElement,
+  viewport: { width: number; height: number },
 ): Promise<PromptPlanResult> {
   let limit = Math.max(1, elements.length);
   let lastError: unknown = null;
@@ -108,12 +132,13 @@ async function requestActionPlan(
   for (let attempt = 0; attempt <= INTERACTION_PROMPT_MAX_RETRY_ATTEMPTS; attempt += 1) {
     const promptElements = elements.slice(0, Math.max(1, limit));
     const prompt = buildInteractionPrompt({ pageUrl, pageTitle, instruction, elements: promptElements });
+    const annotatedCanvas = annotateInteractionCanvas(baseCanvas, promptElements, viewport);
 
     try {
-      const runResult = await runTextImagePrompt(prompt, imageCanvas);
-      const plan = parseInteractionAction(runResult.output);
+      const runResult = await runTextImagePrompt(prompt, annotatedCanvas);
+      const plans = parseInteractionActions(runResult.output);
       return {
-        plan,
+        plans,
         rawResponse: runResult.output,
         prompt,
         promptElements,
@@ -123,6 +148,9 @@ async function requestActionPlan(
         sessionInputUsageAfter: runResult.sessionInputUsageAfter,
         sessionInputQuota: runResult.sessionInputQuota,
         sessionInputQuotaRemaining: runResult.sessionInputQuotaRemaining,
+        screenshotDataUrl: annotatedCanvas.toDataURL('image/png'),
+        imageWidth: annotatedCanvas.width,
+        imageHeight: annotatedCanvas.height,
       };
     } catch (error) {
       lastError = error;
@@ -139,29 +167,31 @@ async function requestActionPlan(
 export async function runPageInteractionStep(userInstruction: string): Promise<PageInteractionStepResult> {
   const instruction = normalizeInstruction(userInstruction);
   const activeTab = await getActiveTab();
-  const snapshot = await getInteractionSnapshot(activeTab.tabId, {
-    maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
-    viewportOnly: true,
-  });
-  const capture = await captureVisibleViewport(activeTab.windowId, INTERACTION_CAPTURE_SETTLE_MS);
 
   try {
+    const snapshot = await getInteractionSnapshot(activeTab.tabId, {
+      maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
+      viewportOnly: true,
+    });
+    const capture = await captureVisibleViewport(activeTab.windowId, INTERACTION_CAPTURE_SETTLE_MS);
+
     const planned = await requestActionPlan(
       snapshot.pageUrl,
       snapshot.pageTitle,
       instruction,
       snapshot.interactiveElements,
       capture.canvas,
+      { width: snapshot.viewportWidth, height: snapshot.viewportHeight },
     );
 
-    const plan = enforceTypingFirst(planned.plan, instruction, planned.promptElements);
-    const execution = await executePlannedAction(activeTab.tabId, plan);
+    const plans = enforceTypingFirst(planned.plans, instruction, planned.promptElements);
+    const executions = await executePlannedActions(activeTab.tabId, plans);
 
     return {
-      plan,
-      execution,
+      plans,
+      executions,
       rawResponse: planned.rawResponse,
-      screenshotDataUrl: capture.dataUrl,
+      screenshotDataUrl: planned.screenshotDataUrl,
       debugInput: {
         pageUrl: snapshot.pageUrl,
         pageTitle: snapshot.pageTitle,
@@ -176,15 +206,14 @@ export async function runPageInteractionStep(userInstruction: string): Promise<P
         interactiveElements: planned.promptElements,
       },
       captureMeta: {
-        imageWidth: capture.canvas.width,
-        imageHeight: capture.canvas.height,
+        imageWidth: planned.imageWidth,
+        imageHeight: planned.imageHeight,
         elementCount: snapshot.interactiveElements.length,
         promptElementCount: planned.promptElements.length,
         retryCount: planned.retryCount,
       },
     };
-  } catch (error) {
+  } finally {
     await clearHighlights(activeTab.tabId).catch(() => undefined);
-    throw error;
   }
 }

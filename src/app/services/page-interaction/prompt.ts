@@ -36,13 +36,19 @@ export function buildInteractionPrompt(params: {
   const elementLines = params.elements.map(createElementLine);
 
   return [
-    'You are a browser interaction planner for one next UI action.',
+    'You are a browser interaction planner for sequential UI actions.',
     'Return only minified JSON and nothing else.',
-    '{"action":"click|type|done|unknown","index":number|null,"text":string|null,"reason":string|null,"confidence":"high|medium|low"}.',
-    'Choose exactly one next action for the current page state and screenshot.',
+    '{"actions":[{"action":"click|type|done|unknown","index":number|null,"text":string|null,"reason":string|null,"confidence":"high|medium|low"}]}.',
+    'Choose 1 to 6 consecutive actions for the current page state and screenshot.',
+    'Map each explicit user intent to an action step; do not collapse multiple intents into one step.',
+    'If instruction includes sequence connectors (then, and then, after that, потом, а потом, затем, после этого), return multiple actions in that order.',
     'You can only use indices from the provided indexed interactive elements list.',
+    'Actions are executed in listed order.',
     'Use action=click for pressing links/buttons/tabs/controls.',
     'Use action=type for entering text into a field; provide the exact text in text.',
+    'If instruction asks to type text and also click/press/search/submit, return at least two actions: type first, click second.',
+    'Search flow rule: after typing a query, include a click on the search control (button/icon with text or aria like Search/Поиск).',
+    'Do not stop after typing when the instruction explicitly asks for a follow-up click.',
     'If the instruction includes explicit text/code to enter, prioritize action=type first on the relevant input.',
     'Do not click Apply/Add/Submit/Continue before entering requested text into the matching field.',
     'Coupon/promo/discount flows must be two-step: type first, click apply second.',

@@ -3,6 +3,53 @@ const TEXT_IMAGE_LANGUAGE_OPTIONS = {
   expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
 };
 
+const INTERACTION_ACTION_ITEM_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['action', 'index', 'text', 'reason', 'confidence'],
+  properties: {
+    action: { enum: ['click', 'type', 'done', 'unknown'] },
+    index: {
+      anyOf: [
+        { type: 'integer', minimum: 1 },
+        { type: 'null' },
+      ],
+    },
+    text: {
+      anyOf: [
+        { type: 'string', minLength: 1, maxLength: 240 },
+        { type: 'null' },
+      ],
+    },
+    reason: {
+      anyOf: [
+        { type: 'string', minLength: 1, maxLength: 320 },
+        { type: 'null' },
+      ],
+    },
+    confidence: { enum: ['high', 'medium', 'low'] },
+  },
+} as const;
+
+const INTERACTION_PLAN_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['actions'],
+  properties: {
+    actions: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 6,
+      items: INTERACTION_ACTION_ITEM_SCHEMA,
+    },
+  },
+} as const;
+
+interface PromptRequestOptions {
+  responseConstraint: typeof INTERACTION_PLAN_SCHEMA;
+  omitResponseConstraintInput: boolean;
+}
+
 export interface TextImagePromptResult {
   output: string;
   measuredInputTokens: number | null;
@@ -28,21 +75,44 @@ function buildPromptInput(prompt: string, bitmap: ImageBitmap) {
   }] as const;
 }
 
-async function measureInputUsage(session: LanguageModel, input: ReturnType<typeof buildPromptInput>) {
+function buildPromptOptions(): PromptRequestOptions {
+  return {
+    responseConstraint: INTERACTION_PLAN_SCHEMA,
+    omitResponseConstraintInput: true,
+  };
+}
+
+async function measureInputUsage(
+  session: LanguageModel,
+  input: ReturnType<typeof buildPromptInput>,
+  options: PromptRequestOptions,
+): Promise<number | null> {
   try {
     const measured = await (session as unknown as {
-      measureInputUsage: (value: unknown, options: unknown) => Promise<unknown>;
-    }).measureInputUsage(input, { expectedOutputs: TEXT_IMAGE_LANGUAGE_OPTIONS.expectedOutputs });
+      measureInputUsage: (value: unknown, opts: unknown) => Promise<unknown>;
+    }).measureInputUsage(input, options);
     return toNumber(measured);
   } catch {
     return null;
   }
 }
 
-async function readPromptOutput(session: LanguageModel, input: ReturnType<typeof buildPromptInput>) {
+async function promptOnce(
+  session: LanguageModel,
+  input: ReturnType<typeof buildPromptInput>,
+  options: PromptRequestOptions,
+): Promise<string> {
+  const prompt = (session as unknown as {
+    prompt?: (value: unknown, opts?: unknown) => Promise<string>;
+  }).prompt;
+
+  if (typeof prompt === 'function') {
+    return prompt.call(session, input, options);
+  }
+
   const stream = (session as unknown as {
-    promptStreaming: (value: unknown, options: unknown) => ReadableStream<string>;
-  }).promptStreaming(input, { expectedOutputs: TEXT_IMAGE_LANGUAGE_OPTIONS.expectedOutputs });
+    promptStreaming: (value: unknown, opts?: unknown) => ReadableStream<string>;
+  }).promptStreaming(input, options);
   const reader = stream.getReader();
   let output = '';
   try {
@@ -51,10 +121,10 @@ async function readPromptOutput(session: LanguageModel, input: ReturnType<typeof
       if (done) break;
       if (value) output += value;
     }
+    return output;
   } finally {
     reader.releaseLock();
   }
-  return output;
 }
 
 export function estimateTokens(value: string): number {
@@ -76,13 +146,14 @@ export async function runTextImagePrompt(prompt: string, imageCanvas: HTMLCanvas
   const sessionAny = session as unknown as { inputUsage?: unknown; inputQuota?: unknown };
   const bitmap = await createImageBitmap(imageCanvas);
   const input = buildPromptInput(prompt, bitmap);
+  const options = buildPromptOptions();
   const sessionInputUsageBefore = toNumber(sessionAny.inputUsage);
   const sessionInputQuota = toNumber(sessionAny.inputQuota);
   let sessionInputUsageAfter: number | null = null;
 
   try {
-    const measuredInputTokens = await measureInputUsage(session, input);
-    const output = await readPromptOutput(session, input);
+    const measuredInputTokens = await measureInputUsage(session, input, options);
+    const output = await promptOnce(session, input, options);
     sessionInputUsageAfter = toNumber(sessionAny.inputUsage);
     const usage = sessionInputUsageAfter ?? sessionInputUsageBefore;
     return {
