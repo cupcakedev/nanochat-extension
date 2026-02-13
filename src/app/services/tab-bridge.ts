@@ -16,6 +16,74 @@ export interface ActiveTab {
   favIconUrl: string;
 }
 
+function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function nowMs(): number {
+  return Date.now();
+}
+
+function tabSignature(tab: chrome.tabs.Tab): string {
+  return `${tab.status ?? 'unknown'}|${tab.url ?? ''}`;
+}
+
+interface SettledWaitConfig {
+  maxWaitMs: number;
+  pollIntervalMs: number;
+  stableIdleMs: number;
+}
+
+export interface WaitForTabSettledOptions {
+  maxWaitMs?: number;
+  pollIntervalMs?: number;
+  stableIdleMs?: number;
+}
+
+function toSettledWaitConfig(options?: WaitForTabSettledOptions): SettledWaitConfig {
+  return {
+    maxWaitMs: Math.max(0, options?.maxWaitMs ?? 4500),
+    pollIntervalMs: Math.max(40, options?.pollIntervalMs ?? 120),
+    stableIdleMs: Math.max(0, options?.stableIdleMs ?? 320),
+  };
+}
+
+async function getTabOrNull(tabId: number): Promise<chrome.tabs.Tab | null> {
+  try {
+    return await chrome.tabs.get(tabId);
+  } catch {
+    return null;
+  }
+}
+
+function isSettled(tab: chrome.tabs.Tab, stableSince: number, stableIdleMs: number): boolean {
+  if (tab.status !== 'complete') return false;
+  return nowMs() - stableSince >= stableIdleMs;
+}
+
+export async function waitForTabSettled(tabId: number, options?: WaitForTabSettledOptions): Promise<void> {
+  const config = toSettledWaitConfig(options);
+  if (config.maxWaitMs === 0) return;
+
+  const startedAt = nowMs();
+  let stableSince = startedAt;
+  let lastSignature = '';
+
+  while (nowMs() - startedAt < config.maxWaitMs) {
+    const tab = await getTabOrNull(tabId);
+    if (!tab) return;
+
+    const signature = tabSignature(tab);
+    if (signature !== lastSignature) {
+      lastSignature = signature;
+      stableSince = nowMs();
+    }
+
+    if (isSettled(tab, stableSince, config.stableIdleMs)) return;
+    await pause(config.pollIntervalMs);
+  }
+}
+
 export async function getActiveTab(): Promise<ActiveTab> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error('No active tab found');
