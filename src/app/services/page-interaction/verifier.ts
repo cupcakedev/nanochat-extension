@@ -91,30 +91,6 @@ function buildVerifierPrompt(params: {
   ].join('\n\n');
 }
 
-function hasKeyword(task: string, keywords: string[]): boolean {
-  const normalized = task.toLowerCase();
-  return keywords.some((keyword) => normalized.includes(keyword));
-}
-
-function runDeterministicGuard(task: string, pageUrl: string): InteractionCompletionVerification | null {
-  const asksOpenVideo = hasKeyword(task, ['open video', 'watch video', 'открой видео', 'видео', 'ролик']);
-  const youtubeContext = hasKeyword(task, ['youtube', 'ютуб']) || pageUrl.includes('youtube.com');
-  if (!asksOpenVideo || !youtubeContext) return null;
-  if (/\/watch\?v=/i.test(pageUrl)) {
-    return {
-      complete: true,
-      reason: 'URL matches YouTube watch page requirement.',
-      confidence: 'high',
-    };
-  }
-
-  return {
-    complete: false,
-    reason: 'Task asks to open a video, but current page is not a YouTube watch page.',
-    confidence: 'high',
-  };
-}
-
 function parseVerifierOutput(output: string): InteractionCompletionVerification {
   const parsed = JSON.parse(extractJsonObject(output)) as Record<string, unknown>;
   const complete = normalizeComplete(parsed.complete);
@@ -136,9 +112,6 @@ export async function verifyTaskCompletion(params: {
   history: InteractionExecutionResult[];
   plannerFinalAnswer: string | null;
 }): Promise<VerificationResult> {
-  const deterministic = runDeterministicGuard(params.task, params.pageUrl);
-  if (deterministic) return { verification: deterministic, rawOutput: null };
-
   const prompt = buildVerifierPrompt(params);
   const response = await runTextPromptWithConstraint(prompt, COMPLETION_VERIFICATION_SCHEMA);
   return { verification: parseVerifierOutput(response.output), rawOutput: response.output };

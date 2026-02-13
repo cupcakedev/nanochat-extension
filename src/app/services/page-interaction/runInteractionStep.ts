@@ -5,6 +5,7 @@ import {
   getInteractionSnapshot,
   getPageContent,
   openUrlInTab,
+  waitForTabSettled,
 } from '@app/services/tab-bridge';
 import type {
   ExecutableInteractionAction,
@@ -37,6 +38,9 @@ import {
   INTERACTION_PROMPT_MAX_RETRY_ATTEMPTS,
   INTERACTION_PROMPT_RETRY_SHRINK_FACTOR,
   INTERACTION_SNAPSHOT_MAX_ELEMENTS,
+  INTERACTION_TAB_SETTLE_IDLE_MS,
+  INTERACTION_TAB_SETTLE_MAX_WAIT_MS,
+  INTERACTION_TAB_SETTLE_POLL_MS,
 } from './constants';
 
 const AGENT_MAX_STEPS = 12;
@@ -407,6 +411,11 @@ export async function runPageInteractionStep(
   for (let stepNumber = 1; stepNumber <= AGENT_MAX_STEPS; stepNumber += 1) {
     const activeTab = await getActiveTab();
     lastTabId = activeTab.tabId;
+    await waitForTabSettled(activeTab.tabId, {
+      maxWaitMs: INTERACTION_TAB_SETTLE_MAX_WAIT_MS,
+      pollIntervalMs: INTERACTION_TAB_SETTLE_POLL_MS,
+      stableIdleMs: INTERACTION_TAB_SETTLE_IDLE_MS,
+    });
     const snapshot = await getInteractionSnapshot(activeTab.tabId, {
       maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
       viewportOnly: true,
