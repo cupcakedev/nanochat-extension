@@ -6,6 +6,16 @@ interface ChatsMap {
   [id: string]: Chat;
 }
 
+function isPersistableChat(chat: Chat): boolean {
+  return chat.messages.length > 0;
+}
+
+function removeEmptyChats(map: ChatsMap): { map: ChatsMap; changed: boolean } {
+  const entries = Object.entries(map).filter(([, chat]) => isPersistableChat(chat));
+  const cleaned = Object.fromEntries(entries) as ChatsMap;
+  return { map: cleaned, changed: entries.length !== Object.keys(map).length };
+}
+
 async function readChatsMap(): Promise<ChatsMap> {
   const result = await chrome.storage.local.get(CHATS_STORAGE_KEY);
   return (result[CHATS_STORAGE_KEY] as ChatsMap) ?? {};
@@ -16,8 +26,10 @@ async function writeChatsMap(map: ChatsMap): Promise<void> {
 }
 
 export async function loadAllChats(): Promise<Chat[]> {
-  const map = await readChatsMap();
-  return Object.values(map).sort((a, b) => b.updatedAt - a.updatedAt);
+  const rawMap = await readChatsMap();
+  const cleaned = removeEmptyChats(rawMap);
+  if (cleaned.changed) await writeChatsMap(cleaned.map);
+  return Object.values(cleaned.map).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 export async function loadChat(id: string): Promise<Chat | null> {
