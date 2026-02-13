@@ -6,27 +6,13 @@ const TEXT_IMAGE_LANGUAGE_OPTIONS = {
 const INTERACTION_ACTION_ITEM_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['action', 'index', 'text', 'reason', 'confidence'],
+  required: ['action', 'index', 'text', 'url', 'reason', 'confidence'],
   properties: {
-    action: { enum: ['click', 'type', 'done', 'unknown'] },
-    index: {
-      anyOf: [
-        { type: 'integer', minimum: 1 },
-        { type: 'null' },
-      ],
-    },
-    text: {
-      anyOf: [
-        { type: 'string', minLength: 1, maxLength: 240 },
-        { type: 'null' },
-      ],
-    },
-    reason: {
-      anyOf: [
-        { type: 'string', minLength: 1, maxLength: 320 },
-        { type: 'null' },
-      ],
-    },
+    action: { enum: ['openUrl', 'click', 'type', 'done', 'unknown'] },
+    index: { anyOf: [{ type: 'integer', minimum: 1 }, { type: 'null' }] },
+    text: { anyOf: [{ type: 'string', minLength: 1, maxLength: 240 }, { type: 'null' }] },
+    url: { anyOf: [{ type: 'string', minLength: 1, maxLength: 500 }, { type: 'null' }] },
+    reason: { anyOf: [{ type: 'string', minLength: 1, maxLength: 320 }, { type: 'null' }] },
     confidence: { enum: ['high', 'medium', 'low'] },
   },
 } as const;
@@ -34,14 +20,12 @@ const INTERACTION_ACTION_ITEM_SCHEMA = {
 const INTERACTION_PLAN_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['actions'],
+  required: ['status', 'finalAnswer', 'reason', 'actions'],
   properties: {
-    actions: {
-      type: 'array',
-      minItems: 1,
-      maxItems: 6,
-      items: INTERACTION_ACTION_ITEM_SCHEMA,
-    },
+    status: { enum: ['continue', 'done', 'fail'] },
+    finalAnswer: { anyOf: [{ type: 'string', minLength: 1, maxLength: 4000 }, { type: 'null' }] },
+    reason: { anyOf: [{ type: 'string', minLength: 1, maxLength: 320 }, { type: 'null' }] },
+    actions: { type: 'array', minItems: 0, maxItems: 4, items: INTERACTION_ACTION_ITEM_SCHEMA },
   },
 } as const;
 
@@ -76,10 +60,7 @@ function buildPromptInput(prompt: string, bitmap: ImageBitmap) {
 }
 
 function buildPromptOptions(): PromptRequestOptions {
-  return {
-    responseConstraint: INTERACTION_PLAN_SCHEMA,
-    omitResponseConstraintInput: true,
-  };
+  return { responseConstraint: INTERACTION_PLAN_SCHEMA, omitResponseConstraintInput: true };
 }
 
 async function measureInputUsage(
@@ -149,12 +130,11 @@ export async function runTextImagePrompt(prompt: string, imageCanvas: HTMLCanvas
   const options = buildPromptOptions();
   const sessionInputUsageBefore = toNumber(sessionAny.inputUsage);
   const sessionInputQuota = toNumber(sessionAny.inputQuota);
-  let sessionInputUsageAfter: number | null = null;
 
   try {
     const measuredInputTokens = await measureInputUsage(session, input, options);
     const output = await promptOnce(session, input, options);
-    sessionInputUsageAfter = toNumber(sessionAny.inputUsage);
+    const sessionInputUsageAfter = toNumber(sessionAny.inputUsage);
     const usage = sessionInputUsageAfter ?? sessionInputUsageBefore;
     return {
       output: output.trim(),

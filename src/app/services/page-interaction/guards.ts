@@ -90,6 +90,7 @@ function enforceTypingFirstForSinglePlan(
   instruction: string,
   elements: InteractiveElementSnapshotItem[],
 ): InteractionActionPlan {
+  if (plan.action === 'openUrl' || plan.action === 'done') return plan;
   const preferredValue = extractQuotedValue(instruction) ?? extractCodeValue(instruction);
   const clickOnly = isClickOnlyInstruction(instruction, preferredValue);
   const patched = patchMissingTypeText(plan, preferredValue, clickOnly);
@@ -104,6 +105,7 @@ function enforceTypingFirstForSinglePlan(
     action: 'type',
     index: candidate.index,
     text: preferredValue,
+    url: null,
     confidence: patched.confidence === 'high' ? 'high' : 'medium',
     reason: `Typing-first guard: input text "${preferredValue}" into index ${candidate.index} before any click.`,
   };

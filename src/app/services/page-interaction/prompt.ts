@@ -1,4 +1,4 @@
-import type { InteractiveElementSnapshotItem } from '@shared/types';
+import type { InteractionExecutionResult, InteractiveElementSnapshotItem } from '@shared/types';
 
 function compact(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -27,39 +27,53 @@ function createElementLine(element: InteractiveElementSnapshotItem): string {
   return parts.join(' | ');
 }
 
+function formatHistoryLine(execution: InteractionExecutionResult, index: number): string {
+  const actionParts: string[] = [execution.requestedAction];
+  if (execution.requestedIndex !== null) actionParts.push(`#${execution.requestedIndex}`);
+  if (execution.requestedText) actionParts.push(`"${truncate(execution.requestedText, 80)}"`);
+  if (execution.requestedUrl) actionParts.push(execution.requestedUrl);
+  return `${index + 1}. ${actionParts.join(' ')} => ${execution.executed ? 'ok' : 'fail'} | ${truncate(execution.message, 140) ?? ''}`;
+}
+
+function formatExecutionHistory(history: InteractionExecutionResult[]): string {
+  if (!history.length) return 'none';
+  return history.slice(-10).map(formatHistoryLine).join('\n');
+}
+
 export function buildInteractionPrompt(params: {
+  task: string;
+  stepNumber: number;
+  maxSteps: number;
   pageUrl: string;
   pageTitle: string;
-  instruction: string;
+  pageContentExcerpt: string;
+  history: InteractionExecutionResult[];
   elements: InteractiveElementSnapshotItem[];
 }): string {
   const elementLines = params.elements.map(createElementLine);
 
   return [
-    'You are a browser interaction planner for sequential UI actions.',
+    'You are a browser agent planner running inside an execution loop.',
     'Return only minified JSON and nothing else.',
-    '{"actions":[{"action":"click|type|done|unknown","index":number|null,"text":string|null,"reason":string|null,"confidence":"high|medium|low"}]}.',
-    'Choose 1 to 6 consecutive actions for the current page state and screenshot.',
-    'Map each explicit user intent to an action step; do not collapse multiple intents into one step.',
-    'If instruction includes sequence connectors (then, and then, after that, потом, а потом, затем, после этого), return multiple actions in that order.',
-    'You can only use indices from the provided indexed interactive elements list.',
+    '{"status":"continue|done|fail","finalAnswer":string|null,"reason":string|null,"actions":[{"action":"openUrl|click|type|done|unknown","index":number|null,"text":string|null,"url":string|null,"reason":string|null,"confidence":"high|medium|low"}]}.',
+    'Goal: complete the user task safely and efficiently.',
+    'If goal is achieved now, set status=done, finalAnswer filled, actions=[].',
+    'If impossible or blocked, set status=fail, reason filled, actions=[].',
+    'If more work is needed, set status=continue and provide 1 to 4 actions.',
     'Actions are executed in listed order.',
-    'Use action=click for pressing links/buttons/tabs/controls.',
-    'Use action=type for entering text into a field; provide the exact text in text.',
-    'If instruction asks to type text and also click/press/search/submit, return at least two actions: type first, click second.',
-    'Search flow rule: after typing a query, include a click on the search control (button/icon with text or aria like Search/Поиск).',
-    'Do not stop after typing when the instruction explicitly asks for a follow-up click.',
-    'If the instruction includes explicit text/code to enter, prioritize action=type first on the relevant input.',
-    'Do not click Apply/Add/Submit/Continue before entering requested text into the matching field.',
-    'Coupon/promo/discount flows must be two-step: type first, click apply second.',
-    'If user asks only click/press and does not ask type/fill/enter, choose action=click.',
+    'Use openUrl with absolute http/https URL for navigation.',
+    'If openUrl is needed, return only openUrl in actions for that loop step.',
+    'Use click only with a valid index from indexed elements.',
+    'Use type only with a valid index and non-empty text.',
+    'If instruction has multi-intent (for example type then click/search), output multiple actions in that order.',
     'Never choose disabled=true targets.',
-    'If task is already completed, return done with index=null.',
-    'If uncertain, return unknown with index=null.',
-    'Output must be English.',
-    `User instruction: ${params.instruction}`,
-    `Page URL: ${params.pageUrl}`,
-    `Page title: ${params.pageTitle}`,
+    'Do not repeat failed actions unchanged more than once.',
+    `Task: ${params.task}`,
+    `Loop step: ${params.stepNumber}/${params.maxSteps}`,
+    `Current URL: ${params.pageUrl}`,
+    `Current title: ${params.pageTitle}`,
+    `Recent execution history:\n${formatExecutionHistory(params.history)}`,
+    `Visible page text excerpt:\n${params.pageContentExcerpt || 'none'}`,
     'Indexed interactive elements:',
     elementLines.join('\n'),
   ].join('\n\n');
