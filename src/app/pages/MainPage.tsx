@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Sidebar } from '@app/components/sidebar/Sidebar';
 import { MenuIcon } from '@app/components/icons/MenuIcon';
 import { PlusIcon } from '@app/components/icons/PlusIcon';
@@ -13,12 +13,45 @@ import { OnboardingScreen } from '@app/components/status/OnboardingScreen';
 import { usePromptSession } from '@app/hooks/usePromptSession';
 import { useChat } from '@app/hooks/useChat';
 import { useChatContext } from '@app/hooks/useChatContext';
+import { AGENT_CONTEXT_UNAVAILABLE_MESSAGE, getAgentPageContext } from '@app/services/agent-context';
+import { getActiveTab, setAgentIndicatorPosition } from '@app/services/tab-bridge';
 
 const NOOP = () => {};
+const AGENT_NOTICE_DURATION_MS = 5000;
+const SIDEBAR_CONTEXT_CHIP_DELAY_MS = 500;
+const AGENT_INDICATOR_BOTTOM_ADJUST_PX = -8;
+
+interface AgentContextChip {
+  title: string;
+  faviconUrl: string;
+}
+
+function resolveSiteTitle(title: string, url: string): string {
+  if (title.trim()) return title.trim();
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'Current site';
+  }
+}
+
+function toAgentContextChip(title: string, url: string, faviconUrl: string): AgentContextChip {
+  return {
+    title: resolveSiteTitle(title, url),
+    faviconUrl,
+  };
+}
 
 export const MainPage = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mode, setMode] = useState<'chat' | 'agent'>('chat');
+  const [agentContextChip, setAgentContextChip] = useState<AgentContextChip | null>(null);
+  const [agentContextChipVisible, setAgentContextChipVisible] = useState(false);
+  const [agentNotice, setAgentNotice] = useState<string | null>(null);
+  const [agentChipAnimationKey, setAgentChipAnimationKey] = useState(0);
+  const agentNoticeTimeoutRef = useRef<number | null>(null);
+  const agentChipRevealTimeoutRef = useRef<number | null>(null);
+  const inputDockRef = useRef<HTMLDivElement | null>(null);
 
   const { status, progress, error, retry, download, serviceRef } =
     usePromptSession();
@@ -34,6 +67,63 @@ export const MainPage = () => {
     updateActiveChat,
   } = useChatContext();
 
+  const clearAgentNoticeTimer = useCallback(() => {
+    if (agentNoticeTimeoutRef.current !== null) {
+      window.clearTimeout(agentNoticeTimeoutRef.current);
+      agentNoticeTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearAgentChipRevealTimer = useCallback(() => {
+    if (agentChipRevealTimeoutRef.current !== null) {
+      window.clearTimeout(agentChipRevealTimeoutRef.current);
+      agentChipRevealTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearAgentNoticeTimer();
+      clearAgentChipRevealTimer();
+    };
+  }, [clearAgentNoticeTimer, clearAgentChipRevealTimer]);
+
+  const showAgentUnavailable = useCallback(
+    (message = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) => {
+      clearAgentNoticeTimer();
+      clearAgentChipRevealTimer();
+      serviceRef.current.destroySession();
+      setMode('chat');
+      setAgentContextChipVisible(false);
+      setAgentContextChip(null);
+      setAgentNotice(message);
+      agentNoticeTimeoutRef.current = window.setTimeout(() => {
+        setAgentNotice(null);
+        agentNoticeTimeoutRef.current = null;
+      }, AGENT_NOTICE_DURATION_MS);
+    },
+    [clearAgentChipRevealTimer, clearAgentNoticeTimer, serviceRef],
+  );
+
+  const applyAgentContextChip = useCallback((title: string, url: string, faviconUrl: string) => {
+    clearAgentChipRevealTimer();
+    setAgentContextChipVisible(false);
+    setAgentContextChip(toAgentContextChip(title, url, faviconUrl));
+    agentChipRevealTimeoutRef.current = window.setTimeout(() => {
+      setAgentContextChipVisible(true);
+      setAgentChipAnimationKey((prev) => prev + 1);
+      agentChipRevealTimeoutRef.current = null;
+    }, SIDEBAR_CONTEXT_CHIP_DELAY_MS);
+  }, [clearAgentChipRevealTimer]);
+
+  const calculateAgentIndicatorBottomOffset = useCallback((): number => {
+    const dock = inputDockRef.current;
+    if (!dock) return 180;
+    const rect = dock.getBoundingClientRect();
+    const rawOffset = window.innerHeight - rect.top + 18 + AGENT_INDICATOR_BOTTOM_ADJUST_PX;
+    return Math.round(Math.min(Math.max(rawOffset, 80), 360));
+  }, []);
+
   const { messages, streaming, tokenStats, contextUsage, send, stop } = useChat(
     serviceRef,
     activeChatId,
@@ -41,6 +131,7 @@ export const MainPage = () => {
     activeChat?.contextUsage ?? null,
     updateActiveChat,
     mode,
+    showAgentUnavailable,
   );
 
   const hasMessages = messages.length > 0;
@@ -52,19 +143,74 @@ export const MainPage = () => {
   const toggleSidebar = useCallback(() => setIsSidebarOpen((v) => !v), []);
   const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
   const handleNewChat = useCallback(() => {
+    clearAgentNoticeTimer();
+    clearAgentChipRevealTimer();
     serviceRef.current.destroySession();
     createChat();
     setMode('chat');
-  }, [createChat, serviceRef]);
+    setAgentContextChipVisible(false);
+    setAgentContextChip(null);
+    setAgentNotice(null);
+  }, [clearAgentChipRevealTimer, clearAgentNoticeTimer, createChat, serviceRef]);
   const handleClearChat = useCallback(() => {
     if (!activeChatId) return;
     if (streaming) stop();
+    clearAgentNoticeTimer();
+    clearAgentChipRevealTimer();
     serviceRef.current.destroySession();
     const chatIdToDelete = activeChatId;
     createChat();
     deleteChat(chatIdToDelete);
     setMode('chat');
-  }, [activeChatId, createChat, deleteChat, serviceRef, stop, streaming]);
+    setAgentContextChipVisible(false);
+    setAgentContextChip(null);
+    setAgentNotice(null);
+  }, [activeChatId, clearAgentChipRevealTimer, clearAgentNoticeTimer, createChat, deleteChat, serviceRef, stop, streaming]);
+
+  const handleModeChange = useCallback(
+    (nextMode: 'chat' | 'agent') => {
+      if (nextMode === 'chat') {
+        clearAgentNoticeTimer();
+        clearAgentChipRevealTimer();
+        setAgentNotice(null);
+        setAgentContextChipVisible(false);
+        setAgentContextChip(null);
+        setMode('chat');
+        return;
+      }
+
+      void (async () => {
+        try {
+          const activeTab = await getActiveTab();
+          const indicatorBottomOffset = calculateAgentIndicatorBottomOffset();
+          try {
+            await setAgentIndicatorPosition(activeTab.tabId, indicatorBottomOffset);
+          } catch {
+            //
+          }
+
+          const { tab } = await getAgentPageContext();
+          clearAgentNoticeTimer();
+          setAgentNotice(null);
+          applyAgentContextChip(tab.title, tab.url, tab.favIconUrl);
+          setMode('agent');
+        } catch (err) {
+          const message =
+            err instanceof Error && err.message.trim()
+              ? err.message
+              : AGENT_CONTEXT_UNAVAILABLE_MESSAGE;
+          showAgentUnavailable(message);
+        }
+      })();
+    },
+    [
+      applyAgentContextChip,
+      calculateAgentIndicatorBottomOffset,
+      clearAgentChipRevealTimer,
+      clearAgentNoticeTimer,
+      showAgentUnavailable,
+    ],
+  );
 
   return (
     <div className="relative h-screen flex flex-row bg-neutral-bg overflow-hidden">
@@ -96,7 +242,6 @@ export const MainPage = () => {
                   border border-white/5 transition-all duration-200 backdrop-blur-md"
               >
                 <PlusIcon />
-                <span>New Chat</span>
               </button>
             </div>
 
@@ -111,14 +256,13 @@ export const MainPage = () => {
                 title="Clear current chat"
               >
                 <TrashIcon />
-                <span>Clear Chat</span>
               </button>
               <ModelStatusBar status={status} progress={progress} error={error} onRetry={retry} />
             </div>
 
             <div className="flex-1 overflow-y-auto pb-36">
               {hasMessages ? (
-                <div className="max-w-3xl mx-auto w-full pt-10 px-4">
+                <div className="max-w-3xl mx-auto w-full pt-14 px-4">
                   <MessageList messages={messages} streaming={streaming} />
                   {shouldShowDevTokenStats && <TokenStats stats={tokenStats!} />}
                 </div>
@@ -132,7 +276,36 @@ export const MainPage = () => {
               )}
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 z-20 px-6 pt-3 pb-4">
+            <div ref={inputDockRef} className="absolute bottom-0 left-0 right-0 z-20 px-6 pt-3 pb-4">
+              {mode === 'agent' && agentContextChip && agentContextChipVisible && (
+                <div className="mx-auto mb-4 w-full max-w-3xl">
+                  <div
+                    key={agentChipAnimationKey}
+                    className="nano-context-chip-enter inline-flex max-w-full items-center gap-2 rounded-[16px] border border-white/10 bg-neutral-100/80 px-3.5 py-2 text-xs text-neutral-700 backdrop-blur-md"
+                  >
+                    {agentContextChip.faviconUrl ? (
+                      <img
+                        src={agentContextChip.faviconUrl}
+                        alt=""
+                        className="h-4 w-4 rounded-[4px] shrink-0"
+                      />
+                    ) : (
+                      <span className="flex h-4 w-4 items-center justify-center rounded-[4px] bg-neutral-200/30 text-[10px] leading-none text-neutral-600 shrink-0">
+                        •
+                      </span>
+                    )}
+                    <span className="text-neutral-500 shrink-0">In context:</span>
+                    <span className="truncate text-neutral-800">{agentContextChip.title}</span>
+                  </div>
+                </div>
+              )}
+              {agentNotice && (
+                <div className="mx-auto mb-4 w-full max-w-3xl">
+                  <div className="inline-flex max-w-full rounded-[18px] border border-amber-300/25 bg-amber-200/10 px-4 py-2.5 text-xs text-amber-100">
+                    {agentNotice}
+                  </div>
+                </div>
+              )}
               <ChatInput
                 onSend={send}
                 onStop={stop}
@@ -141,7 +314,7 @@ export const MainPage = () => {
                 placeholder="Ask anything..."
                 mode={mode}
                 modeLocked={hasMessages}
-                onModeChange={setMode}
+                onModeChange={handleModeChange}
               />
             </div>
           </>

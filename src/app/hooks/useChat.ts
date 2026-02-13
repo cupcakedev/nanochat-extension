@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { PromptAPIService } from '@app/services/prompt-api';
-import { buildAgentSystemPrompt } from '@app/services/agent-context';
+import {
+  AgentContextUnavailableError,
+  buildAgentSystemPrompt,
+} from '@app/services/agent-context';
 import { createLogger } from '@shared/utils';
 import type { ChatMessage, TokenStats } from '@shared/types';
 
@@ -70,6 +73,7 @@ export function useChat(
   initialContextUsage?: { used: number; total: number } | null,
   onMessagesChange?: (messages: ChatMessage[], contextUsage?: { used: number; total: number }) => void,
   mode: 'chat' | 'agent' = 'chat',
+  onAgentContextUnavailable?: (message: string) => void,
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [streaming, setStreaming] = useState(false);
@@ -97,15 +101,40 @@ export function useChat(
 
   const send = useCallback(
     async (text: string, images?: string[]) => {
-      const userMessage = createChatMessage('user', text, images);
-      const assistantMessage = createChatMessage('assistant', '');
-
       logger.info('send:start', {
         mode,
         textLength: text.length,
         imageCount: images?.length ?? 0,
         historyLength: messagesRef.current.length,
       });
+
+      let systemPrompt: string | null = null;
+      if (mode === 'agent') {
+        logger.info('send:buildingAgentContext');
+        try {
+          systemPrompt = await buildAgentSystemPrompt();
+          logger.info('send:agentContextReady', { systemPromptLength: systemPrompt.length });
+        } catch (err) {
+          if (err instanceof AgentContextUnavailableError) {
+            logger.warn('send:agentContextUnavailable', err.message);
+            onAgentContextUnavailable?.(err.message);
+            return;
+          }
+          const errorMessage = extractErrorMessage(err);
+          logger.error('send:agentContextBuildFailed', errorMessage);
+          const userMessage = createChatMessage('user', text, images);
+          const assistantMessage = createChatMessage('assistant', `Error: ${errorMessage}`);
+          const failedMessages = [...messagesRef.current, userMessage, assistantMessage];
+          setMessages(failedMessages);
+          setTokenStats(null);
+          setStreaming(false);
+          onMessagesChange?.(failedMessages);
+          return;
+        }
+      }
+
+      const userMessage = createChatMessage('user', text, images);
+      const assistantMessage = createChatMessage('assistant', '');
 
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setStreaming(true);
@@ -119,13 +148,6 @@ export function useChat(
 
       try {
         const allMessages = [...messagesRef.current, userMessage];
-
-        let systemPrompt: string | null = null;
-        if (mode === 'agent') {
-          logger.info('send:buildingAgentContext');
-          systemPrompt = await buildAgentSystemPrompt();
-          logger.info('send:agentContextReady', { systemPromptLength: systemPrompt.length });
-        }
 
         await serviceRef.current.streamChat(
           allMessages,
@@ -169,7 +191,7 @@ export function useChat(
         onMessagesChange?.(trimmed, ctxUsage);
       }
     },
-    [serviceRef, onMessagesChange, mode],
+    [serviceRef, onMessagesChange, mode, onAgentContextUnavailable],
   );
 
   const stop = useCallback(() => {

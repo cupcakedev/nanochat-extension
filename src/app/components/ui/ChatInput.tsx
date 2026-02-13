@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { SendIcon } from '@app/components/icons/SendIcon';
 import { StopIcon } from '@app/components/icons/StopIcon';
 import { ImageIcon } from '@app/components/icons/ImageIcon';
@@ -8,6 +8,8 @@ import { ActionButton } from './ActionButton';
 import { ImagePreviewList } from './ImagePreviewList';
 
 type Mode = 'chat' | 'agent';
+const MIN_TEXTAREA_HEIGHT = 26;
+const MAX_TEXTAREA_HEIGHT = 160;
 
 interface ChatInputProps {
   onSend: (message: string, images?: string[]) => void;
@@ -42,6 +44,7 @@ export const ChatInput = memo(
     const [value, setValue] = useState('');
     const [images, setImages] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [showModeLockedPopover, setShowModeLockedPopover] = useState(false);
     const modeTabsRef = useRef<HTMLDivElement>(null);
     const closeModeLockedPopover = useCallback(() => setShowModeLockedPopover(false), []);
@@ -99,6 +102,29 @@ export const ChatInput = memo(
     );
 
     const canSend = value.trim() || images.length;
+    const resizeTextarea = useCallback(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      if (!textarea.value) {
+        textarea.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
+        textarea.style.overflowY = 'hidden';
+        return;
+      }
+
+      textarea.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
+      const nextHeight = Math.min(
+        Math.max(textarea.scrollHeight, MIN_TEXTAREA_HEIGHT),
+        MAX_TEXTAREA_HEIGHT,
+      );
+      textarea.style.height = `${nextHeight}px`;
+      textarea.style.overflowY = textarea.scrollHeight > MAX_TEXTAREA_HEIGHT ? 'auto' : 'hidden';
+    }, []);
+
+    useLayoutEffect(() => {
+      resizeTextarea();
+    }, [value, resizeTextarea]);
+
     const handleModeTabClick = useCallback(
       (nextMode: Mode) => {
         if (nextMode === mode) {
@@ -129,22 +155,23 @@ export const ChatInput = memo(
           )}
           <div className="px-5 pt-4 pb-2">
             <textarea
+              ref={textareaRef}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               disabled={disabled || streaming}
               placeholder={placeholder}
-              rows={2}
+              rows={1}
               className="w-full resize-none border-none bg-transparent px-0 py-0 text-base leading-snug
                 text-neutral-800 placeholder-neutral-500 outline-none focus:ring-0
                 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200
-                min-h-[56px] max-h-[160px]"
+                h-auto"
             />
           </div>
           <div className="px-3 pt-1.5 pb-2.5">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-4">
+              <div className="flex min-w-0 items-center gap-5">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -156,7 +183,7 @@ export const ChatInput = memo(
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={disabled || streaming}
-                  className="flex items-center justify-center w-10 h-10 rounded-[12px]
+                  className="flex items-center justify-center w-12 h-12 rounded-[12px] [&_svg]:w-5 [&_svg]:h-5
                     text-neutral-400 hover:text-neutral-700 transition-colors
                     disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Attach image"
@@ -164,20 +191,20 @@ export const ChatInput = memo(
                   <ImageIcon />
                 </button>
                 <div className="relative" ref={modeTabsRef}>
-                  <div className="flex items-center gap-1 p-0.5 rounded-[12px] bg-neutral-200/20 backdrop-blur-md">
+                  <div className="flex items-center gap-1.5 p-1 rounded-[12px] bg-neutral-200/20 backdrop-blur-md">
                     <ModeTab active={mode === 'chat'} onClick={() => handleModeTabClick('chat')}>
                       Chat
                     </ModeTab>
                     <ModeTab active={mode === 'agent'} onClick={() => handleModeTabClick('agent')}>
                       Agent
-                      <span className="px-1 py-0.5 rounded-[8px] text-[10px] leading-none bg-brand-500/20 text-brand-300">
+                      <span className="px-1.5 py-0.5 rounded-[8px] text-[11px] leading-none bg-brand-500/20 text-brand-300">
                         Beta
                       </span>
                     </ModeTab>
                   </div>
                   {showModeLockedPopover && (
                     <div className="absolute bottom-full left-0 mb-2 z-50 w-72 rounded-[12px] border border-amber-300/25 bg-neutral-100/95 px-3 py-2 text-xs text-neutral-800 shadow-lg backdrop-blur-md">
-                      Чтобы сменить режим, создайте новый чат.
+                      To switch mode, start a new chat.
                     </div>
                   )}
                 </div>

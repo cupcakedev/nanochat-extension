@@ -5,6 +5,10 @@ import {
   executeInteractionAction,
   clearInteractionHighlights,
 } from './services/page-interaction';
+import {
+  pulseAgentConnectionIndicator,
+  setAgentIndicatorBottomOffset,
+} from './services/agent-connection-indicator';
 
 const logger = createLogger('content');
 
@@ -21,6 +25,7 @@ const handleMessage: MessageHandler = (message, _sender, sendResponse) => {
       return;
 
     case 'GET_PAGE_CONTENT': {
+      pulseAgentConnectionIndicator();
       const content = document.body.innerText || document.body.textContent || '';
       logger.info('GET_PAGE_CONTENT', {
         innerTextLength: document.body.innerText?.length ?? 0,
@@ -31,6 +36,11 @@ const handleMessage: MessageHandler = (message, _sender, sendResponse) => {
       sendResponse({ content });
       return;
     }
+
+    case 'SET_AGENT_INDICATOR_POSITION':
+      setAgentIndicatorBottomOffset(message.payload.bottomOffset);
+      sendResponse({ ok: true });
+      return;
 
     case 'GET_INTERACTION_SNAPSHOT':
       sendResponse(

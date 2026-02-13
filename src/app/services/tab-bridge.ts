@@ -9,6 +9,7 @@ export interface ActiveTab {
   windowId: number;
   url: string;
   title: string;
+  favIconUrl: string;
 }
 
 export async function getActiveTab(): Promise<ActiveTab> {
@@ -19,6 +20,7 @@ export async function getActiveTab(): Promise<ActiveTab> {
     windowId: tab.windowId,
     url: tab.url ?? '',
     title: tab.title ?? '',
+    favIconUrl: tab.favIconUrl ?? '',
   };
   logger.info('getActiveTab', { tabId: result.tabId, url: result.url });
   return result;
@@ -29,6 +31,17 @@ export async function getPageContent(tabId: number): Promise<string> {
   const response = await sendMessageToTab<'GET_PAGE_CONTENT'>(tabId, { type: 'GET_PAGE_CONTENT' });
   logger.info('getPageContent:response', { tabId, contentLength: response.content.length });
   return response.content;
+}
+
+export async function setAgentIndicatorPosition(
+  tabId: number,
+  bottomOffset: number,
+): Promise<void> {
+  logger.info('setAgentIndicatorPosition:request', { tabId, bottomOffset });
+  await sendMessageToTab<'SET_AGENT_INDICATOR_POSITION'>(tabId, {
+    type: 'SET_AGENT_INDICATOR_POSITION',
+    payload: { bottomOffset },
+  });
 }
 
 export async function getInteractionSnapshot(
