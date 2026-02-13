@@ -13,6 +13,24 @@ const INTERACTIVE_ROLES = new Set([
 ]);
 
 const DEFAULT_MAX_ELEMENTS = 50;
+const PRIORITY_SELECTORS = [
+  'a#video-title[href*="/watch"]',
+  'a#thumbnail[href*="/watch"]',
+  'a[href*="/watch"]',
+];
+const BASE_SELECTORS = [
+  'a[href]',
+  'button',
+  "input:not([type='hidden'])",
+  'select',
+  'textarea',
+  'summary',
+  'label[for]',
+  '[role]',
+  '[tabindex]',
+  "[contenteditable='true']",
+  '[onclick]',
+];
 
 function normalizeText(value: string | null | undefined, max = 140): string | null {
   if (!value) return null;
@@ -54,11 +72,18 @@ function getPrimaryText(element: HTMLElement): string | null {
     const selected = element.options[element.selectedIndex]?.text ?? '';
     return normalizeText(selected) ?? normalizeText(element.name);
   }
+  if (element instanceof HTMLAnchorElement) {
+    return normalizeText(element.innerText) ?? normalizeText(element.getAttribute('title'));
+  }
   return normalizeText(element.innerText) ?? normalizeText(element.textContent);
 }
 
 function getHref(element: HTMLElement): string | null {
   return element instanceof HTMLAnchorElement ? normalizeText(element.href, 220) : null;
+}
+
+function getAriaLabel(element: HTMLElement): string | null {
+  return normalizeText(element.getAttribute('aria-label')) ?? normalizeText(element.getAttribute('title'));
 }
 
 function toSummary(element: HTMLElement, index: number): InteractiveElementSnapshotItem {
@@ -69,7 +94,7 @@ function toSummary(element: HTMLElement, index: number): InteractiveElementSnaps
     role: normalizeText(element.getAttribute('role'), 32),
     inputType: element instanceof HTMLInputElement ? normalizeText(element.type, 32) : null,
     text: getPrimaryText(element),
-    ariaLabel: normalizeText(element.getAttribute('aria-label')),
+    ariaLabel: getAriaLabel(element),
     placeholder: normalizeText(element.getAttribute('placeholder'), 80),
     name: normalizeText(element.getAttribute('name'), 80),
     id: normalizeText(element.id, 80),
@@ -84,39 +109,58 @@ function toSummary(element: HTMLElement, index: number): InteractiveElementSnaps
   };
 }
 
-function queryCandidates(): HTMLElement[] {
-  const selectors = [
-    'a[href]', 'button', "input:not([type='hidden'])", 'select', 'textarea',
-    'summary', 'label[for]', '[role]', '[tabindex]', "[contenteditable='true']", '[onclick]',
-  ];
-
-  const seen = new Set<HTMLElement>();
-  const result: HTMLElement[] = [];
-  const roots = collectSearchRoots();
-
-  roots.forEach((root) => {
-    selectors.forEach((selector) => {
-      root.querySelectorAll<HTMLElement>(selector).forEach((element) => {
-        if (seen.has(element)) return;
-        seen.add(element);
-        result.push(element);
-      });
+function pushSelectorMatches(
+  root: ParentNode,
+  selectors: string[],
+  seen: Set<HTMLElement>,
+  result: HTMLElement[],
+): void {
+  selectors.forEach((selector) => {
+    root.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+      if (seen.has(element)) return;
+      seen.add(element);
+      result.push(element);
     });
   });
+}
 
+function queryCandidates(): HTMLElement[] {
+  const seen = new Set<HTMLElement>();
+  const result: HTMLElement[] = [];
+  collectSearchRoots().forEach((root) => {
+    pushSelectorMatches(root, PRIORITY_SELECTORS, seen, result);
+    pushSelectorMatches(root, BASE_SELECTORS, seen, result);
+  });
   return result;
 }
 
-function sortByPosition(elements: HTMLElement[]): HTMLElement[] {
+function interactionPriority(element: HTMLElement): number {
+  if (element instanceof HTMLAnchorElement && /\/watch\?v=/i.test(element.href)) return 0;
+  if (element instanceof HTMLAnchorElement) return 1;
+  if (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    element instanceof HTMLSelectElement
+  ) return 2;
+  return 3;
+}
+
+function compareByPosition(left: HTMLElement, right: HTMLElement): number {
+  const l = left.getBoundingClientRect();
+  const r = right.getBoundingClientRect();
+  return l.top !== r.top ? l.top - r.top : l.left - r.left;
+}
+
+function sortByPriorityAndPosition(elements: HTMLElement[]): HTMLElement[] {
   return elements.sort((left, right) => {
-    const l = left.getBoundingClientRect();
-    const r = right.getBoundingClientRect();
-    return l.top !== r.top ? l.top - r.top : l.left - r.left;
+    const priorityDiff = interactionPriority(left) - interactionPriority(right);
+    if (priorityDiff !== 0) return priorityDiff;
+    return compareByPosition(left, right);
   });
 }
 
 function collectInteractiveElements(maxElements: number, viewportOnly: boolean): HTMLElement[] {
-  return sortByPosition(
+  return sortByPriorityAndPosition(
     queryCandidates().filter((element) => isInteractiveElement(element) && isElementUserVisible(element, viewportOnly)),
   ).slice(0, Math.max(1, maxElements));
 }

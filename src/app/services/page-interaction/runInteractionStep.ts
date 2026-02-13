@@ -23,6 +23,16 @@ import { enforceTypingFirst } from './guards';
 import { estimateTokens, isInputTooLargeError, runTextImagePrompt } from './prompt-api';
 import { verifyTaskCompletion } from './verifier';
 import {
+  formatExecutionLines,
+  formatFinalLine,
+  formatObserveLine,
+  formatPlannerLine,
+  formatPlannerRawLine,
+  formatPlanLines,
+  formatVerificationLine,
+  formatVerificationRawLine,
+} from './progress';
+import {
   INTERACTION_CAPTURE_SETTLE_MS,
   INTERACTION_PROMPT_MAX_RETRY_ATTEMPTS,
   INTERACTION_PROMPT_RETRY_SHRINK_FACTOR,
@@ -47,6 +57,27 @@ interface PromptDecisionResult {
   screenshotDataUrl: string;
   imageWidth: number;
   imageHeight: number;
+}
+
+export interface InteractionProgressLineEvent {
+  type: 'line';
+  line: string;
+}
+
+export interface InteractionProgressScreenshotEvent {
+  type: 'screenshot';
+  stepNumber: number;
+  imageDataUrl: string;
+  width: number;
+  height: number;
+}
+
+export type InteractionProgressEvent =
+  | InteractionProgressLineEvent
+  | InteractionProgressScreenshotEvent;
+
+export interface InteractionRunOptions {
+  onProgress?: (event: InteractionProgressEvent) => void;
 }
 
 type ExecutableInteractionPlan = InteractionActionPlan & {
@@ -102,6 +133,27 @@ function sanitizePageContent(content: string, maxChars: number): string {
 
 function extractErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function emitProgressLine(options: InteractionRunOptions | undefined, line: string): void {
+  options?.onProgress?.({ type: 'line', line });
+}
+
+function emitProgressScreenshot(
+  onProgress: InteractionRunOptions['onProgress'] | undefined,
+  stepNumber: number,
+  canvas: HTMLCanvasElement,
+): string | null {
+  if (!onProgress) return null;
+  const imageDataUrl = canvas.toDataURL('image/png');
+  onProgress({
+    type: 'screenshot',
+    stepNumber,
+    imageDataUrl,
+    width: canvas.width,
+    height: canvas.height,
+  });
+  return imageDataUrl;
 }
 
 function toExecutionFromAction(
@@ -189,6 +241,7 @@ async function requestPlannerDecision(params: {
   elements: InteractiveElementSnapshotItem[];
   baseCanvas: HTMLCanvasElement;
   viewport: { width: number; height: number };
+  onProgress?: InteractionRunOptions['onProgress'];
 }): Promise<PromptDecisionResult> {
   let elementLimit = Math.max(1, params.elements.length);
   let pageTextLimit = PAGE_TEXT_MAX_CHARS;
@@ -208,6 +261,7 @@ async function requestPlannerDecision(params: {
       elements: promptElements,
     });
     const annotatedCanvas = annotateInteractionCanvas(params.baseCanvas, promptElements, params.viewport);
+    const emittedScreenshot = emitProgressScreenshot(params.onProgress, params.stepNumber, annotatedCanvas);
 
     try {
       const runResult = await runTextImagePrompt(prompt, annotatedCanvas);
@@ -222,7 +276,7 @@ async function requestPlannerDecision(params: {
         sessionInputUsageAfter: runResult.sessionInputUsageAfter,
         sessionInputQuota: runResult.sessionInputQuota,
         sessionInputQuotaRemaining: runResult.sessionInputQuotaRemaining,
-        screenshotDataUrl: annotatedCanvas.toDataURL('image/png'),
+        screenshotDataUrl: emittedScreenshot ?? annotatedCanvas.toDataURL('image/png'),
         imageWidth: annotatedCanvas.width,
         imageHeight: annotatedCanvas.height,
       };
@@ -271,7 +325,10 @@ function resolveCompletion(
   return { status, finalAnswer: fallbackFinalAnswer };
 }
 
-export async function runPageInteractionStep(userInstruction: string): Promise<PageInteractionStepResult> {
+export async function runPageInteractionStep(
+  userInstruction: string,
+  options?: InteractionRunOptions,
+): Promise<PageInteractionStepResult> {
   const task = normalizeInstruction(userInstruction);
   const allPlans: InteractionActionPlan[] = [];
   const allExecutions: InteractionExecutionResult[] = [];
@@ -294,6 +351,7 @@ export async function runPageInteractionStep(userInstruction: string): Promise<P
       maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
       viewportOnly: true,
     });
+    emitProgressLine(options, formatObserveLine(stepNumber, snapshot.pageUrl, snapshot.interactiveElements.length));
     lastPageUrl = snapshot.pageUrl;
     lastPageTitle = snapshot.pageTitle;
     const capture = await captureVisibleViewport(activeTab.windowId, INTERACTION_CAPTURE_SETTLE_MS);
@@ -310,29 +368,45 @@ export async function runPageInteractionStep(userInstruction: string): Promise<P
       elements: snapshot.interactiveElements,
       baseCanvas: capture.canvas,
       viewport: { width: snapshot.viewportWidth, height: snapshot.viewportHeight },
+      onProgress: options?.onProgress,
     });
 
     rawResponses.push(decision.rawResponse);
+    emitProgressLine(
+      options,
+      formatPlannerLine(stepNumber, decision.decision.status, decision.decision.actions.length),
+    );
+    emitProgressLine(options, formatPlannerRawLine(stepNumber, decision.rawResponse));
     lastDecision = decision;
     lastElementCount = snapshot.interactiveElements.length;
     lastPromptElementCount = decision.promptElements.length;
     totalRetries += decision.retryCount;
 
     if (decision.decision.status === 'done') {
-      const verification = await verifyTaskCompletion({
+      const verificationResult = await verifyTaskCompletion({
         task,
         pageUrl: snapshot.pageUrl,
         pageTitle: snapshot.pageTitle,
         pageContent,
         history: allExecutions,
         plannerFinalAnswer: decision.decision.finalAnswer,
-      }).catch((error) => ({
-        complete: false,
-        reason: `Verifier error: ${extractErrorMessage(error)}`,
-        confidence: 'low' as const,
-      }));
-
+      }).catch((error) => {
+        const message = `Verifier error: ${extractErrorMessage(error)}`;
+        return {
+          verification: {
+            complete: false,
+            reason: message,
+            confidence: 'low' as const,
+          },
+          rawOutput: message,
+        };
+      });
+      const verification = verificationResult.verification;
       lastVerification = verification;
+      emitProgressLine(options, formatVerificationLine(stepNumber, verification));
+      if (verificationResult.rawOutput) {
+        emitProgressLine(options, formatVerificationRawLine(stepNumber, verificationResult.rawOutput));
+      }
       if (verification.complete) {
         finalStatus = 'done';
         finalAnswer = decision.decision.finalAnswer ?? verification.reason;
@@ -355,9 +429,11 @@ export async function runPageInteractionStep(userInstruction: string): Promise<P
     }
 
     const plans = enforceTypingFirst(decision.decision.actions, task, decision.promptElements);
+    formatPlanLines(stepNumber, plans).forEach((line) => emitProgressLine(options, line));
     allPlans.push(...plans);
 
     const executions = await executePlannedActions(activeTab.tabId, plans);
+    formatExecutionLines(stepNumber, executions).forEach((line) => emitProgressLine(options, line));
     allExecutions.push(...executions);
 
     if (!executions.length) {
@@ -386,6 +462,7 @@ export async function runPageInteractionStep(userInstruction: string): Promise<P
   }
 
   const completion = resolveCompletion(finalStatus, lastDecision.decision, allExecutions, finalAnswer);
+  emitProgressLine(options, formatFinalLine(completion.status, completion.finalAnswer));
   if (lastTabId !== null) {
     await clearHighlights(lastTabId).catch(() => undefined);
   }

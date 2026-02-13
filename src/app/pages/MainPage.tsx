@@ -6,6 +6,7 @@ import { EmptyState } from '@app/components/ui/EmptyState';
 import { MessageList } from '@app/components/chat/MessageList';
 import { TokenStats } from '@app/components/chat/TokenStats';
 import { ContextBar } from '@app/components/chat/ContextBar';
+import { DevTracePanel } from '@app/components/chat/DevTracePanel';
 import { OnboardingScreen } from '@app/components/status/OnboardingScreen';
 import { usePromptSession } from '@app/hooks/usePromptSession';
 import { useChat } from '@app/hooks/useChat';
@@ -39,7 +40,16 @@ export const MainPage = () => {
     ? { url: agentContextChip.url, title: agentContextChip.title, faviconUrl: agentContextChip.faviconUrl }
     : null;
 
-  const { messages, streaming, tokenStats, contextUsage, send, stop } = useChat(
+  const {
+    messages,
+    streaming,
+    tokenStats,
+    contextUsage,
+    devTraceItems,
+    devTraceEnabled,
+    send,
+    stop,
+  } = useChat(
     serviceRef, activeChatId, initialMessages,
     activeChat?.contextUsage ?? null, updateActiveChat, mode, activePageSource, showAgentUnavailable,
   );
@@ -104,6 +114,7 @@ export const MainPage = () => {
                     streaming={streaming}
                     pageSource={mode === 'chat' ? activeChat?.pageSource : undefined}
                   />
+                  {devTraceEnabled && <DevTracePanel items={devTraceItems} streaming={streaming} />}
                   {shouldShowDevTokenStats && <TokenStats stats={tokenStats!} />}
                 </div>
               ) : (

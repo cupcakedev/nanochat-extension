@@ -16,7 +16,9 @@ import {
   extractInteractionUsage,
   formatInteractionAssistantMessage,
   runPageInteractionStep,
+  type InteractionProgressEvent,
 } from '@app/services/page-interaction';
+import type { DevTraceItem } from '@app/types/dev-trace';
 import type { ChatMode } from '@app/types/mode';
 import { createLogger } from '@shared/utils';
 import type { ChatMessage, PageSource, TokenStats } from '@shared/types';
@@ -38,6 +40,40 @@ function setAssistantCompletion(
   return next;
 }
 
+function readDevTraceFlag(): boolean {
+  try {
+    const queryFlag = new URLSearchParams(window.location.search).get('devTrace') === '1';
+    const storageFlag = window.localStorage.getItem('nanochat:devTrace') === '1';
+    return queryFlag || storageFlag;
+  } catch {
+    return false;
+  }
+}
+
+function shouldEnableDevTrace(mode: ChatMode): boolean {
+  if (mode !== 'interactive') return false;
+  return import.meta.env.DEV || readDevTraceFlag();
+}
+
+function toLineTraceItem(line: string): DevTraceItem {
+  return { id: crypto.randomUUID(), kind: 'line', line };
+}
+
+function toScreenshotTraceItem(event: Extract<InteractionProgressEvent, { type: 'screenshot' }>): DevTraceItem {
+  return {
+    id: crypto.randomUUID(),
+    kind: 'screenshot',
+    stepNumber: event.stepNumber,
+    imageDataUrl: event.imageDataUrl,
+    width: event.width,
+    height: event.height,
+  };
+}
+
+function appendTraceItem(prev: DevTraceItem[], item: DevTraceItem): DevTraceItem[] {
+  return [...prev, item];
+}
+
 export function useChat(
   serviceRef: RefObject<PromptAPIService>,
   chatId: string | null,
@@ -55,6 +91,7 @@ export function useChat(
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [streaming, setStreaming] = useState(false);
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
+  const [devTraceItems, setDevTraceItems] = useState<DevTraceItem[]>([]);
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(
     initialContextUsage ? toContextUsage(initialContextUsage) : null,
   );
@@ -62,6 +99,7 @@ export function useChat(
   const messagesRef = useRef(messages);
   const pageSourceRef = useRef(pageSource);
   const chatIdRef = useRef(chatId);
+  const devTraceEnabled = shouldEnableDevTrace(mode);
 
   messagesRef.current = messages;
   pageSourceRef.current = pageSource;
@@ -72,6 +110,7 @@ export function useChat(
     setMessages(msgs);
     setStreaming(false);
     setTokenStats(null);
+    setDevTraceItems([]);
     setContextUsage(ctx ? toContextUsage(ctx) : null);
   }, []);
 
@@ -86,23 +125,38 @@ export function useChat(
     userMessage: ChatMessage,
     assistantMessage: ChatMessage,
   ) => {
+    const isDevTraceEnabled = shouldEnableDevTrace(mode);
+    const baseMessages = [...messagesRef.current, userMessage, assistantMessage];
+    const updateProgress = (event: InteractionProgressEvent) => {
+      if (!isDevTraceEnabled) return;
+      if (event.type === 'line') {
+        setDevTraceItems((prev) => appendTraceItem(prev, toLineTraceItem(event.line)));
+        return;
+      }
+      setDevTraceItems((prev) => appendTraceItem(prev, toScreenshotTraceItem(event)));
+    };
+
+    setDevTraceItems([]);
     setMessages((prev) => [...prev, userMessage, assistantMessage]);
     setStreaming(true);
     setTokenStats(null);
 
     try {
-      const result = await runPageInteractionStep(text);
+      const runOptions = isDevTraceEnabled ? { onProgress: updateProgress } : undefined;
+      const result = await runPageInteractionStep(text, runOptions);
       const usage = extractInteractionUsage(result);
-      const formatted = formatInteractionAssistantMessage(result);
       const completedMessages = setAssistantCompletion(
-        [...messagesRef.current, userMessage, assistantMessage],
-        formatted,
+        baseMessages,
+        formatInteractionAssistantMessage(result),
         [result.screenshotDataUrl],
       );
       setMessages(completedMessages);
       setContextUsage(usage ? toContextUsage(usage) : null);
       onMessagesChange?.(completedMessages, usage, pageSourceRef.current ?? undefined);
     } catch (error) {
+      if (isDevTraceEnabled) {
+        setDevTraceItems((prev) => appendTraceItem(prev, toLineTraceItem(`[error] ${extractErrorMessage(error)}`)));
+      }
       const completedMessages = setAssistantCompletion(
         [...messagesRef.current, userMessage, assistantMessage],
         `Error: ${extractErrorMessage(error)}`,
@@ -113,7 +167,7 @@ export function useChat(
     } finally {
       setStreaming(false);
     }
-  }, [onMessagesChange]);
+  }, [mode, onMessagesChange]);
 
   const sendChat = useCallback(async (
     userMessage: ChatMessage,
@@ -214,5 +268,15 @@ export function useChat(
     onMessagesChange?.([]);
   }, [onMessagesChange, resetState]);
 
-  return { messages, streaming, tokenStats, contextUsage, send, stop, clear };
+  return {
+    messages,
+    streaming,
+    tokenStats,
+    contextUsage,
+    devTraceItems,
+    devTraceEnabled,
+    send,
+    stop,
+    clear,
+  };
 }

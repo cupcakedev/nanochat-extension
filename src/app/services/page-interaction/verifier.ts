@@ -123,6 +123,11 @@ function parseVerifierOutput(output: string): InteractionCompletionVerification 
   return { complete, reason, confidence };
 }
 
+export interface VerificationResult {
+  verification: InteractionCompletionVerification;
+  rawOutput: string | null;
+}
+
 export async function verifyTaskCompletion(params: {
   task: string;
   pageUrl: string;
@@ -130,11 +135,11 @@ export async function verifyTaskCompletion(params: {
   pageContent: string;
   history: InteractionExecutionResult[];
   plannerFinalAnswer: string | null;
-}): Promise<InteractionCompletionVerification> {
+}): Promise<VerificationResult> {
   const deterministic = runDeterministicGuard(params.task, params.pageUrl);
-  if (deterministic) return deterministic;
+  if (deterministic) return { verification: deterministic, rawOutput: null };
 
   const prompt = buildVerifierPrompt(params);
   const response = await runTextPromptWithConstraint(prompt, COMPLETION_VERIFICATION_SCHEMA);
-  return parseVerifierOutput(response.output);
+  return { verification: parseVerifierOutput(response.output), rawOutput: response.output };
 }

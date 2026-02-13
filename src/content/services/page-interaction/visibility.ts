@@ -65,8 +65,18 @@ function hasHiddenAttribute(element: HTMLElement): boolean {
   return element.hasAttribute('hidden');
 }
 
-function isAriaHidden(element: HTMLElement): boolean {
-  return element.getAttribute('aria-hidden') === 'true';
+function isControlElement(element: HTMLElement): boolean {
+  return (
+    element instanceof HTMLAnchorElement ||
+    element instanceof HTMLButtonElement ||
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLSelectElement ||
+    element instanceof HTMLTextAreaElement
+  );
+}
+
+function shouldRejectAriaHidden(element: HTMLElement): boolean {
+  return element.getAttribute('aria-hidden') === 'true' && !isControlElement(element);
 }
 
 function hasVisibleStyleChain(element: HTMLElement): boolean {
@@ -124,12 +134,43 @@ function toSamplePoints(rect: RectBox): Array<{ x: number; y: number }> {
     .filter((point, index, arr) => arr.findIndex((item) => item.x === point.x && item.y === point.y) === index);
 }
 
+function closestInteractiveElement(element: Element | null): HTMLElement | null {
+  if (!element) return null;
+  return element.closest<HTMLElement>(
+    'a[href],button,input,select,textarea,[role],[tabindex],[contenteditable="true"],[onclick]',
+  );
+}
+
+function normalizeComparableHref(value: string): string {
+  try {
+    const url = new URL(value, location.href);
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
+function hasSameHref(element: HTMLElement, hit: HTMLElement): boolean {
+  if (!(element instanceof HTMLAnchorElement) || !(hit instanceof HTMLAnchorElement)) return false;
+  return normalizeComparableHref(element.href) === normalizeComparableHref(hit.href);
+}
+
+function isRelatedToHit(element: HTMLElement, hit: Element): boolean {
+  if (element === hit) return true;
+  if (element.contains(hit)) return true;
+  if (hit instanceof HTMLElement && hit.contains(element)) return true;
+  if (!(hit instanceof HTMLElement)) return false;
+  const closest = closestInteractiveElement(hit);
+  if (!closest) return false;
+  if (closest === element || element.contains(closest) || closest.contains(element)) return true;
+  return hasSameHref(element, closest);
+}
+
 function isPointVisibleForElement(element: HTMLElement, x: number, y: number): boolean {
   const hit = document.elementFromPoint(x, y);
   if (!hit) return false;
-  if (element === hit) return true;
-  if (element.contains(hit)) return true;
-  return hit instanceof HTMLElement && hit.contains(element);
+  return isRelatedToHit(element, hit);
 }
 
 function visibleHitsCount(element: HTMLElement, rect: RectBox): number {
@@ -143,7 +184,7 @@ function hasEnoughVisibleArea(rect: RectBox): boolean {
 }
 
 export function isElementUserVisible(element: HTMLElement, viewportOnly: boolean): boolean {
-  if (isAriaHidden(element)) return false;
+  if (shouldRejectAriaHidden(element)) return false;
   if (!hasVisibleStyleChain(element)) return false;
   if (window.getComputedStyle(element).pointerEvents === 'none') return false;
 
