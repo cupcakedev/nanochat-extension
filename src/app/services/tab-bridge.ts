@@ -104,3 +104,40 @@ export async function captureScreenshot(windowId: number): Promise<string> {
   logger.info('captureScreenshot:response', { windowId, dataUrlLength: dataUrl.length });
   return dataUrl;
 }
+
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) throw new Error('openUrl action received empty URL');
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+function waitForTabComplete(tabId: number, timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(handleUpdate);
+      reject(new Error('Timed out waiting for page load after openUrl'));
+    }, timeoutMs);
+
+    const handleUpdate = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (updatedTabId !== tabId) return;
+      if (changeInfo.status !== 'complete') return;
+      window.clearTimeout(timeout);
+      chrome.tabs.onUpdated.removeListener(handleUpdate);
+      resolve();
+    };
+
+    chrome.tabs.onUpdated.addListener(handleUpdate);
+  });
+}
+
+export async function openUrlInTab(tabId: number, url: string): Promise<{ finalUrl: string }> {
+  const targetUrl = normalizeUrl(url);
+  logger.info('openUrlInTab:request', { tabId, url: targetUrl });
+  const updated = await chrome.tabs.update(tabId, { url: targetUrl });
+  if (!updated?.id) throw new Error('Failed to update active tab URL');
+  await waitForTabComplete(updated.id, 15000);
+  const tab = await chrome.tabs.get(updated.id);
+  logger.info('openUrlInTab:response', { tabId: updated.id, url: tab.url });
+  return { finalUrl: tab.url ?? targetUrl };
+}
