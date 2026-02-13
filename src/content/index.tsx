@@ -25,7 +25,12 @@ const handleMessage: MessageHandler = (message, _sender, sendResponse) => {
       return;
 
     case 'GET_PAGE_CONTENT': {
-      pulseAgentConnectionIndicator();
+      if (message.payload?.indicatorBottomOffset != null) {
+        setAgentIndicatorBottomOffset(message.payload.indicatorBottomOffset);
+      }
+      if (message.payload?.showIndicator !== false) {
+        pulseAgentConnectionIndicator();
+      }
       const content = document.body.innerText || document.body.textContent || '';
       logger.info('GET_PAGE_CONTENT', {
         innerTextLength: document.body.innerText?.length ?? 0,

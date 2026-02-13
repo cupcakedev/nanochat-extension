@@ -19,6 +19,12 @@ export interface TokenStats {
   tokensPerSecond: number;
 }
 
+export interface PageSource {
+  url: string;
+  title: string;
+  faviconUrl: string;
+}
+
 export interface Chat {
   id: string;
   title: string;
@@ -26,6 +32,7 @@ export interface Chat {
   updatedAt: number;
   messages: ChatMessage[];
   contextUsage?: { used: number; total: number };
+  pageSource?: PageSource;
 }
 
 export interface ChatSummary {

@@ -26,9 +26,20 @@ export async function getActiveTab(): Promise<ActiveTab> {
   return result;
 }
 
-export async function getPageContent(tabId: number): Promise<string> {
+export interface GetPageContentOptions {
+  indicatorBottomOffset?: number;
+  showIndicator?: boolean;
+}
+
+export async function getPageContent(
+  tabId: number,
+  options?: GetPageContentOptions,
+): Promise<string> {
   logger.info('getPageContent:request', { tabId });
-  const response = await sendMessageToTab<'GET_PAGE_CONTENT'>(tabId, { type: 'GET_PAGE_CONTENT' });
+  const response = await sendMessageToTab<'GET_PAGE_CONTENT'>(tabId, {
+    type: 'GET_PAGE_CONTENT',
+    payload: options,
+  });
   logger.info('getPageContent:response', { tabId, contentLength: response.content.length });
   return response.content;
 }

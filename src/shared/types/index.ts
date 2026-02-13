@@ -7,6 +7,7 @@ export type {
   TokenStats,
   Chat,
   ChatSummary,
+  PageSource,
 } from './chat';
 
 export type {

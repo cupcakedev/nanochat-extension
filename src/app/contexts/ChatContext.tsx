@@ -1,5 +1,5 @@
 import { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Chat, ChatMessage, ChatSummary } from '@shared/types';
+import type { Chat, ChatMessage, ChatSummary, PageSource } from '@shared/types';
 import {
   loadAllChats,
   saveChat,
@@ -18,7 +18,7 @@ export interface ChatContextValue {
   createChat: () => void;
   selectChat: (id: string) => void;
   deleteChat: (id: string) => void;
-  updateActiveChat: (messages: ChatMessage[], contextUsage?: { used: number; total: number }) => void;
+  updateActiveChat: (messages: ChatMessage[], contextUsage?: { used: number; total: number }, pageSource?: PageSource) => void;
 }
 
 export const ChatContext = createContext<ChatContextValue | null>(null);
@@ -103,7 +103,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const updateActiveChat = useCallback(
-    (messages: ChatMessage[], contextUsage?: { used: number; total: number }) => {
+    (messages: ChatMessage[], contextUsage?: { used: number; total: number }, pageSource?: PageSource) => {
       if (!activeChatId) return;
       const existing = chatsRef.current.get(activeChatId);
       if (!existing) return;
@@ -114,6 +114,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         title: deriveChatTitle(messages),
         updatedAt: Date.now(),
         ...(contextUsage ? { contextUsage } : {}),
+        ...(pageSource ? { pageSource } : {}),
       };
 
       chatsRef.current.set(activeChatId, updated);

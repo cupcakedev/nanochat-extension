@@ -11,6 +11,7 @@ import { usePromptSession } from '@app/hooks/usePromptSession';
 import { useChat } from '@app/hooks/useChat';
 import { useChatContext } from '@app/hooks/useChatContext';
 import { useAgentMode } from '@app/hooks/useAgentMode';
+import type { PageSource } from '@shared/types';
 
 const NOOP = () => {};
 
@@ -24,15 +25,22 @@ export const MainPage = () => {
     createChat, selectChat, deleteChat, updateActiveChat,
   } = useChatContext();
 
+  const initialMessages = activeChat?.messages ?? [];
+  const hasInitialMessages = initialMessages.length > 0;
+
   const {
     mode, agentContextChip, agentContextChipVisible,
     agentNotice, agentChipAnimationKey,
     handleModeChange, showAgentUnavailable, resetAgentState, inputDockRef,
-  } = useAgentMode(serviceRef);
+  } = useAgentMode(serviceRef, hasInitialMessages);
+
+  const activePageSource: PageSource | null = mode === 'agent' && agentContextChip
+    ? { url: agentContextChip.url, title: agentContextChip.title, faviconUrl: agentContextChip.faviconUrl }
+    : null;
 
   const { messages, streaming, tokenStats, contextUsage, send, stop } = useChat(
-    serviceRef, activeChatId, activeChat?.messages ?? [],
-    activeChat?.contextUsage ?? null, updateActiveChat, mode, showAgentUnavailable,
+    serviceRef, activeChatId, initialMessages,
+    activeChat?.contextUsage ?? null, updateActiveChat, mode, activePageSource, showAgentUnavailable,
   );
 
   const hasMessages = messages.length > 0;
@@ -87,10 +95,14 @@ export const MainPage = () => {
               onRetry={retry}
             />
 
-            <div className="flex-1 overflow-y-auto pb-36">
+            <div className="flex-1 overflow-y-auto pb-48">
               {hasMessages ? (
                 <div className="max-w-3xl mx-auto w-full pt-14 px-4">
-                  <MessageList messages={messages} streaming={streaming} />
+                  <MessageList
+                    messages={messages}
+                    streaming={streaming}
+                    pageSource={mode !== 'agent' ? activeChat?.pageSource : undefined}
+                  />
                   {shouldShowDevTokenStats && <TokenStats stats={tokenStats!} />}
                 </div>
               ) : (

@@ -1,6 +1,6 @@
 import { createLogger } from '@shared/utils';
 import type { InteractiveElementSnapshotItem } from '@shared/types';
-import type { ActiveTab } from './tab-bridge';
+import type { ActiveTab, GetPageContentOptions } from './tab-bridge';
 import { getActiveTab, getPageContent } from './tab-bridge';
 
 const logger = createLogger('agent-context');
@@ -55,13 +55,15 @@ export function formatElementLine(element: InteractiveElementSnapshotItem): stri
   return parts.join(' | ');
 }
 
-export async function getAgentPageContext(): Promise<AgentPageContext> {
+export async function getAgentPageContext(
+  pageContentOptions?: GetPageContentOptions,
+): Promise<AgentPageContext> {
   const tab = await getActiveTab();
   logger.info('Active tab', { tabId: tab.tabId, url: tab.url, title: tab.title });
 
   let content: string;
   try {
-    content = await getPageContent(tab.tabId);
+    content = await getPageContent(tab.tabId, pageContentOptions);
     ensureContentAvailable(content);
     logger.info('Page content fetched', { length: content.length });
   } catch (err) {

@@ -17,7 +17,9 @@ export interface BaseMessage<T extends MessageType> {
 }
 
 export type PingMessage = BaseMessage<'PING'>;
-export type GetPageContentMessage = BaseMessage<'GET_PAGE_CONTENT'>;
+export interface GetPageContentMessage extends BaseMessage<'GET_PAGE_CONTENT'> {
+  payload?: { indicatorBottomOffset?: number; showIndicator?: boolean };
+}
 export interface SetAgentIndicatorPositionMessage extends BaseMessage<'SET_AGENT_INDICATOR_POSITION'> {
   payload: { bottomOffset: number };
 }

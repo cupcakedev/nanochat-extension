@@ -16,7 +16,7 @@ import {
   type ContextUsage,
 } from '@app/services/chat-message-utils';
 import { createLogger } from '@shared/utils';
-import type { ChatMessage, TokenStats } from '@shared/types';
+import type { ChatMessage, PageSource, TokenStats } from '@shared/types';
 
 const logger = createLogger('useChat');
 
@@ -27,8 +27,9 @@ export function useChat(
   chatId: string | null,
   initialMessages: ChatMessage[],
   initialContextUsage?: { used: number; total: number } | null,
-  onMessagesChange?: (messages: ChatMessage[], contextUsage?: { used: number; total: number }) => void,
+  onMessagesChange?: (messages: ChatMessage[], contextUsage?: { used: number; total: number }, pageSource?: PageSource) => void,
   mode: 'chat' | 'agent' = 'chat',
+  pageSource?: PageSource | null,
   onAgentContextUnavailable?: (message: string) => void,
 ) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -38,6 +39,8 @@ export function useChat(
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+  const pageSourceRef = useRef(pageSource);
+  pageSourceRef.current = pageSource;
 
   const resetState = useCallback(
     (msgs: ChatMessage[], ctx?: { used: number; total: number } | null) => {
@@ -75,7 +78,7 @@ export function useChat(
           setMessages(failedMessages);
           setTokenStats(null);
           setStreaming(false);
-          onMessagesChange?.(failedMessages);
+          onMessagesChange?.(failedMessages, undefined, pageSourceRef.current ?? undefined);
           return;
         }
       }
@@ -129,7 +132,7 @@ export function useChat(
           tokensPerSecond: stats?.tokensPerSecond.toFixed(1),
         });
 
-        onMessagesChange?.(trimmed, ctxUsage);
+        onMessagesChange?.(trimmed, ctxUsage, pageSourceRef.current ?? undefined);
       }
     },
     [serviceRef, onMessagesChange, mode, onAgentContextUnavailable],
