@@ -1,4 +1,4 @@
-import type { ExecuteActionResponse, InteractionActionType } from '@shared/types';
+import type { ExecuteActionResponse, ExecutableInteractionAction } from '@shared/types';
 import { HIGHLIGHT_ATTR } from './constants';
 import { clearInteractionHighlights } from './highlights';
 import { executeInputType, executeSelectType, executeContentEditableType } from './type-action-utils';
@@ -70,7 +70,7 @@ function executeType(target: HTMLElement, text: string): { ok: boolean; message:
 }
 
 export function executeInteractionAction(
-  action: InteractionActionType,
+  action: ExecutableInteractionAction,
   index: number,
   text: string | null | undefined,
 ): ExecuteActionResponse {

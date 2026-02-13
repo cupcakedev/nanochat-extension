@@ -1,26 +1,23 @@
 import { useEffect, useRef } from 'react';
 
-export function useTabChangeListener(
-  enabled: boolean,
-  onTabChange: () => void,
-) {
+export function useTabChangeListener(enabled: boolean, onTabChange: () => void) {
   const enabledRef = useRef(enabled);
-  enabledRef.current = enabled;
-
   const onTabChangeRef = useRef(onTabChange);
-  onTabChangeRef.current = onTabChange;
+
+  useEffect(() => {
+    enabledRef.current = enabled;
+    onTabChangeRef.current = onTabChange;
+  }, [enabled, onTabChange]);
 
   useEffect(() => {
     const handleTabUpdated = (_tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
-      if (changeInfo.status === 'complete' && enabledRef.current) {
-        onTabChangeRef.current();
-      }
+      if (changeInfo.status !== 'complete' || !enabledRef.current) return;
+      onTabChangeRef.current();
     };
 
     const handleTabActivated = () => {
-      if (enabledRef.current) {
-        onTabChangeRef.current();
-      }
+      if (!enabledRef.current) return;
+      onTabChangeRef.current();
     };
 
     chrome.tabs.onUpdated.addListener(handleTabUpdated);

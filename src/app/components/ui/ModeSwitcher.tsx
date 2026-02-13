@@ -1,42 +1,36 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { useOutsideClick } from '@app/hooks/useOutsideClick';
+import type { ChatMode } from '@app/types/mode';
 import { ModeTab } from './ModeTab';
 
-type Mode = 'chat' | 'agent';
-
 interface ModeSwitcherProps {
-  mode: Mode;
+  mode: ChatMode;
   modeLocked: boolean;
-  onModeChange: (mode: Mode) => void;
+  onModeChange: (mode: ChatMode) => void;
 }
 
 export const ModeSwitcher = memo(({ mode, modeLocked, onModeChange }: ModeSwitcherProps) => {
   const [showLockedPopover, setShowLockedPopover] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const closePopover = useCallback(() => setShowLockedPopover(false), []);
-  useOutsideClick(containerRef, closePopover, showLockedPopover);
+  const popoverVisible = showLockedPopover && modeLocked;
 
-  useEffect(() => {
-    if (!modeLocked) setShowLockedPopover(false);
-  }, [modeLocked]);
+  useOutsideClick(containerRef, closePopover, popoverVisible);
 
-  const handleTabClick = useCallback(
-    (nextMode: Mode) => {
-      if (nextMode === mode) {
-        setShowLockedPopover(false);
-        return;
-      }
-
-      if (modeLocked) {
-        setShowLockedPopover(true);
-        return;
-      }
-
+  const handleTabClick = useCallback((nextMode: ChatMode) => {
+    if (nextMode === mode) {
       setShowLockedPopover(false);
-      onModeChange(nextMode);
-    },
-    [mode, modeLocked, onModeChange],
-  );
+      return;
+    }
+
+    if (modeLocked) {
+      setShowLockedPopover(true);
+      return;
+    }
+
+    setShowLockedPopover(false);
+    onModeChange(nextMode);
+  }, [mode, modeLocked, onModeChange]);
 
   return (
     <div className="relative" ref={containerRef}>
@@ -50,8 +44,11 @@ export const ModeSwitcher = memo(({ mode, modeLocked, onModeChange }: ModeSwitch
             Beta
           </span>
         </ModeTab>
+        <ModeTab active={mode === 'interactive'} onClick={() => handleTabClick('interactive')}>
+          Interactive
+        </ModeTab>
       </div>
-      {showLockedPopover && (
+      {popoverVisible && (
         <div className="absolute bottom-full left-0 mb-2 z-50 w-72 rounded-[12px] border border-amber-300/25 bg-neutral-100/95 px-3 py-2 text-xs text-neutral-800 shadow-lg backdrop-blur-md">
           To switch mode, start a new chat.
         </div>

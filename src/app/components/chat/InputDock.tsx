@@ -4,10 +4,12 @@ import { AgentContextChip } from './AgentContextChip';
 import { AgentNotice } from './AgentNotice';
 import { ChatInput } from '@app/components/ui/ChatInput';
 import type { AgentContextChip as AgentContextChipType } from '@app/hooks/useAgentMode';
+import type { ChatMode } from '@app/types/mode';
+import { requiresPageContext } from '@app/types/mode';
 
 interface InputDockProps {
   dockRef: RefObject<HTMLDivElement | null>;
-  mode: 'chat' | 'agent';
+  mode: ChatMode;
   agentContextChip: AgentContextChipType | null;
   agentContextChipVisible: boolean;
   agentChipAnimationKey: number;
@@ -17,14 +19,14 @@ interface InputDockProps {
   streaming: boolean;
   disabled: boolean;
   hasMessages: boolean;
-  onModeChange: (mode: 'chat' | 'agent') => void;
+  onModeChange: (mode: ChatMode) => void;
 }
 
 const shouldShowContextChip = (
-  mode: string,
+  mode: ChatMode,
   chip: AgentContextChipType | null,
   visible: boolean,
-): chip is AgentContextChipType => mode === 'agent' && chip !== null && visible;
+): chip is AgentContextChipType => requiresPageContext(mode) && chip !== null && visible;
 
 export const InputDock = memo(({
   dockRef,

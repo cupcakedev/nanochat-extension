@@ -1,6 +1,10 @@
 import { createLogger } from '@shared/utils';
 import { sendMessageToTab } from '@shared/messaging';
-import type { InteractionSnapshotPayload, ExecuteActionResponse, InteractionActionType } from '@shared/types';
+import type {
+  InteractionSnapshotPayload,
+  ExecuteActionResponse,
+  ExecutableInteractionAction,
+} from '@shared/types';
 
 const logger = createLogger('tab-bridge');
 
@@ -74,7 +78,7 @@ export async function getInteractionSnapshot(
 
 export async function executeAction(
   tabId: number,
-  action: InteractionActionType,
+  action: ExecutableInteractionAction,
   index: number,
   text?: string | null,
 ): Promise<ExecuteActionResponse> {

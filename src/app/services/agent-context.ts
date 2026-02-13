@@ -6,7 +6,7 @@ import { getActiveTab, getPageContent } from './tab-bridge';
 const logger = createLogger('agent-context');
 
 export const AGENT_CONTEXT_UNAVAILABLE_MESSAGE =
-  'Agent mode works only on regular web pages. Open a website tab and try again.';
+  'Agent and Interactive modes work only on regular web pages. Open a website tab and try again.';
 
 export class AgentContextUnavailableError extends Error {
   constructor(message = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) {

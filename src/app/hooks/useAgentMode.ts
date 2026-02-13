@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { PromptAPIService } from '@app/services/prompt-api';
 import { AGENT_CONTEXT_UNAVAILABLE_MESSAGE, getAgentPageContext } from '@app/services/agent-context';
+import type { ChatMode } from '@app/types/mode';
+import { requiresPageContext } from '@app/types/mode';
 import { useTabChangeListener } from './useTabChangeListener';
 
 const AGENT_NOTICE_DURATION_MS = 5000;
@@ -16,17 +18,19 @@ export interface AgentContextChip {
 
 function resolveSiteTitle(title: string, url: string): string {
   if (title.trim()) return title.trim();
-  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return 'Current site'; }
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'Current site';
+  }
 }
 
-function extractAgentErrorMessage(err: unknown): string {
-  return err instanceof Error && err.message.trim()
-    ? err.message
-    : AGENT_CONTEXT_UNAVAILABLE_MESSAGE;
+function extractAgentErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message.trim() ? error.message : AGENT_CONTEXT_UNAVAILABLE_MESSAGE;
 }
 
 export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessages: boolean) {
-  const [mode, setMode] = useState<'chat' | 'agent'>('chat');
+  const [mode, setMode] = useState<ChatMode>('chat');
   const [agentContextChip, setAgentContextChip] = useState<AgentContextChip | null>(null);
   const [agentContextChipVisible, setAgentContextChipVisible] = useState(false);
   const [agentNotice, setAgentNotice] = useState<string | null>(null);
@@ -37,21 +41,21 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
   const refreshingRef = useRef(false);
 
   const clearNoticeTimer = useCallback(() => {
-    if (noticeTimerRef.current !== null) {
-      window.clearTimeout(noticeTimerRef.current);
-      noticeTimerRef.current = null;
-    }
+    if (noticeTimerRef.current === null) return;
+    window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = null;
   }, []);
 
   const clearChipRevealTimer = useCallback(() => {
-    if (chipRevealTimerRef.current !== null) {
-      window.clearTimeout(chipRevealTimerRef.current);
-      chipRevealTimerRef.current = null;
-    }
+    if (chipRevealTimerRef.current === null) return;
+    window.clearTimeout(chipRevealTimerRef.current);
+    chipRevealTimerRef.current = null;
   }, []);
 
-  useEffect(() => () => { clearNoticeTimer(); clearChipRevealTimer(); },
-    [clearNoticeTimer, clearChipRevealTimer]);
+  useEffect(() => () => {
+    clearNoticeTimer();
+    clearChipRevealTimer();
+  }, [clearChipRevealTimer, clearNoticeTimer]);
 
   const resetAgentState = useCallback(() => {
     clearNoticeTimer();
@@ -60,7 +64,7 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
     setAgentContextChipVisible(false);
     setAgentContextChip(null);
     setAgentNotice(null);
-  }, [clearNoticeTimer, clearChipRevealTimer]);
+  }, [clearChipRevealTimer, clearNoticeTimer]);
 
   const showAgentUnavailable = useCallback((message = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) => {
     clearNoticeTimer();
@@ -112,30 +116,37 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
     clearNoticeTimer();
     setAgentNotice(null);
     applyContextChip(tab.title, tab.url, tab.favIconUrl, animate);
-    return tab;
-  }, [applyContextChip, computeIndicatorOffset, clearNoticeTimer]);
+  }, [applyContextChip, clearNoticeTimer, computeIndicatorOffset]);
 
   const refreshAgentContext = useCallback(async () => {
     if (refreshingRef.current) return;
     refreshingRef.current = true;
-    try { await fetchAndApplyContext(false); }
-    catch (err) { showAgentUnavailable(extractAgentErrorMessage(err)); }
-    finally { refreshingRef.current = false; }
+    try {
+      await fetchAndApplyContext(false);
+    } catch (error) {
+      showAgentUnavailable(extractAgentErrorMessage(error));
+    } finally {
+      refreshingRef.current = false;
+    }
   }, [fetchAndApplyContext, showAgentUnavailable]);
 
-  useTabChangeListener(mode === 'agent' && !hasMessages, refreshAgentContext);
+  useTabChangeListener(requiresPageContext(mode) && !hasMessages, refreshAgentContext);
 
-  const handleModeChange = useCallback((nextMode: 'chat' | 'agent') => {
-    if (nextMode === 'chat') { resetAgentState(); return; }
+  const handleModeChange = useCallback((nextMode: ChatMode) => {
+    if (!requiresPageContext(nextMode)) {
+      resetAgentState();
+      return;
+    }
+
     void (async () => {
-      try { await fetchAndApplyContext(true); setMode('agent'); }
-      catch (err) { showAgentUnavailable(extractAgentErrorMessage(err)); }
+      try {
+        await fetchAndApplyContext(true);
+        setMode(nextMode);
+      } catch (error) {
+        showAgentUnavailable(extractAgentErrorMessage(error));
+      }
     })();
   }, [fetchAndApplyContext, resetAgentState, showAgentUnavailable]);
 
-  return {
-    mode, agentContextChip, agentContextChipVisible,
-    agentNotice, agentChipAnimationKey,
-    handleModeChange, showAgentUnavailable, resetAgentState, inputDockRef,
-  };
+  return { mode, agentContextChip, agentContextChipVisible, agentNotice, agentChipAnimationKey, handleModeChange, showAgentUnavailable, resetAgentState, inputDockRef };
 }

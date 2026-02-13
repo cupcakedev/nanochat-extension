@@ -4,11 +4,10 @@ import { StopIcon } from '@app/components/icons/StopIcon';
 import { ImageIcon } from '@app/components/icons/ImageIcon';
 import { useImageAttachments } from '@app/hooks/useImageAttachments';
 import { useTextareaAutoResize } from '@app/hooks/useTextareaAutoResize';
+import type { ChatMode } from '@app/types/mode';
 import { ModeSwitcher } from './ModeSwitcher';
 import { ActionButton } from './ActionButton';
 import { ImagePreviewList } from './ImagePreviewList';
-
-type Mode = 'chat' | 'agent';
 
 interface ChatInputProps {
   onSend: (message: string, images?: string[]) => void;
@@ -16,9 +15,9 @@ interface ChatInputProps {
   disabled?: boolean;
   streaming?: boolean;
   placeholder?: string;
-  mode: Mode;
+  mode: ChatMode;
   modeLocked?: boolean;
-  onModeChange: (mode: Mode) => void;
+  onModeChange: (mode: ChatMode) => void;
 }
 
 export const ChatInput = memo(
@@ -35,21 +34,17 @@ export const ChatInput = memo(
     const [value, setValue] = useState('');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { images, imagesRef, addImages, removeImage, clearImages } = useImageAttachments();
-
-    const valueRef = useRef(value);
-    valueRef.current = value;
+    const { images, addImages, removeImage, clearImages } = useImageAttachments();
 
     useTextareaAutoResize(value, textareaRef);
 
     const handleSend = useCallback(() => {
-      const trimmed = valueRef.current.trim();
-      const imgs = imagesRef.current;
-      if (!trimmed && !imgs.length) return;
-      onSend(trimmed, imgs.length ? imgs : undefined);
+      const trimmed = value.trim();
+      if (!trimmed && !images.length) return;
+      onSend(trimmed, images.length ? images : undefined);
       setValue('');
       clearImages();
-    }, [onSend, imagesRef, clearImages]);
+    }, [clearImages, images, onSend, value]);
 
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {

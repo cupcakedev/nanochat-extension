@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve) => {
@@ -10,23 +10,21 @@ function fileToDataUrl(file: File): Promise<string> {
 
 export function useImageAttachments() {
   const [images, setImages] = useState<string[]>([]);
-  const imagesRef = useRef(images);
-  imagesRef.current = images;
 
   const addImages = useCallback(async (files: File[]) => {
-    const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
     if (!imageFiles.length) return;
     const dataUrls = await Promise.all(imageFiles.map(fileToDataUrl));
     setImages((prev) => [...prev, ...dataUrls]);
   }, []);
 
   const removeImage = useCallback((index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImages((prev) => prev.filter((_, imageIndex) => imageIndex !== index));
   }, []);
 
   const clearImages = useCallback(() => {
     setImages([]);
   }, []);
 
-  return { images, imagesRef, addImages, removeImage, clearImages };
+  return { images, addImages, removeImage, clearImages };
 }

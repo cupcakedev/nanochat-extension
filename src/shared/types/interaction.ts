@@ -1,4 +1,6 @@
-export type InteractionActionType = 'click' | 'type';
+export type InteractionActionType = 'click' | 'type' | 'done' | 'unknown';
+export type ExecutableInteractionAction = Extract<InteractionActionType, 'click' | 'type'>;
+export type InteractionConfidence = 'high' | 'medium' | 'low';
 
 export interface InteractionRect {
   x: number;
@@ -29,15 +31,62 @@ export interface InteractionSnapshotPayload {
 }
 
 export interface ExecuteActionPayload {
-  action: InteractionActionType;
+  action: ExecutableInteractionAction;
   index: number;
   text?: string | null;
 }
 
 export interface ExecuteActionResponse {
-  action: InteractionActionType;
+  action: ExecutableInteractionAction;
   index: number;
   text: string | null;
   ok: boolean;
   message: string;
+}
+
+export interface InteractionActionPlan {
+  action: InteractionActionType;
+  index: number | null;
+  text: string | null;
+  reason: string | null;
+  confidence: InteractionConfidence;
+}
+
+export interface InteractionExecutionResult {
+  requestedAction: InteractionActionType;
+  requestedIndex: number | null;
+  requestedText: string | null;
+  executed: boolean;
+  message: string;
+}
+
+export interface PageInteractionCaptureMeta {
+  imageWidth: number;
+  imageHeight: number;
+  elementCount: number;
+  promptElementCount: number;
+  retryCount: number;
+}
+
+export interface PageInteractionDebugInput {
+  pageUrl: string;
+  pageTitle: string;
+  instruction: string;
+  prompt: string;
+  promptTokens: number;
+  measuredInputTokens: number | null;
+  sessionInputUsageBefore: number | null;
+  sessionInputUsageAfter: number | null;
+  sessionInputQuota: number | null;
+  sessionInputQuotaRemaining: number | null;
+  interactiveElements: InteractiveElementSnapshotItem[];
+}
+
+export interface PageInteractionStepResult {
+  plan: InteractionActionPlan;
+  execution: InteractionExecutionResult;
+  rawResponse: string;
+  screenshotDataUrl: string;
+  debugInput: PageInteractionDebugInput;
+  captureMeta: PageInteractionCaptureMeta;
 }

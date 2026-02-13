@@ -11,6 +11,7 @@ import { usePromptSession } from '@app/hooks/usePromptSession';
 import { useChat } from '@app/hooks/useChat';
 import { useChatContext } from '@app/hooks/useChatContext';
 import { useAgentMode } from '@app/hooks/useAgentMode';
+import { requiresPageContext } from '@app/types/mode';
 import type { PageSource } from '@shared/types';
 
 const NOOP = () => {};
@@ -34,7 +35,7 @@ export const MainPage = () => {
     handleModeChange, showAgentUnavailable, resetAgentState, inputDockRef,
   } = useAgentMode(serviceRef, hasInitialMessages);
 
-  const activePageSource: PageSource | null = mode === 'agent' && agentContextChip
+  const activePageSource: PageSource | null = requiresPageContext(mode) && agentContextChip
     ? { url: agentContextChip.url, title: agentContextChip.title, faviconUrl: agentContextChip.faviconUrl }
     : null;
 
@@ -101,7 +102,7 @@ export const MainPage = () => {
                   <MessageList
                     messages={messages}
                     streaming={streaming}
-                    pageSource={mode !== 'agent' ? activeChat?.pageSource : undefined}
+                    pageSource={mode === 'chat' ? activeChat?.pageSource : undefined}
                   />
                   {shouldShowDevTokenStats && <TokenStats stats={tokenStats!} />}
                 </div>

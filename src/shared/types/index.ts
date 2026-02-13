@@ -12,9 +12,16 @@ export type {
 
 export type {
   InteractionActionType,
+  ExecutableInteractionAction,
+  InteractionConfidence,
   InteractionRect,
   InteractiveElementSnapshotItem,
   InteractionSnapshotPayload,
   ExecuteActionPayload,
   ExecuteActionResponse,
+  InteractionActionPlan,
+  InteractionExecutionResult,
+  PageInteractionCaptureMeta,
+  PageInteractionDebugInput,
+  PageInteractionStepResult,
 } from './interaction';
