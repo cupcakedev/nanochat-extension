@@ -8,3 +8,12 @@ export type {
   Chat,
   ChatSummary,
 } from './chat';
+
+export type {
+  InteractionActionType,
+  InteractionRect,
+  InteractiveElementSnapshotItem,
+  InteractionSnapshotPayload,
+  ExecuteActionPayload,
+  ExecuteActionResponse,
+} from './interaction';

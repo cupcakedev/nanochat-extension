@@ -1,5 +1,10 @@
 import { createLogger } from '@shared/utils';
 import type { ExtensionMessage, MessageResponseMap, MessageType } from '@shared/types';
+import {
+  extractInteractionSnapshot,
+  executeInteractionAction,
+  clearInteractionHighlights,
+} from './services/page-interaction';
 
 const logger = createLogger('content');
 
@@ -14,8 +19,41 @@ const handleMessage: MessageHandler = (message, _sender, sendResponse) => {
     case 'PING':
       sendResponse({ pong: true });
       return;
-    case 'GET_PAGE_CONTENT':
-      sendResponse({ content: document.body.innerText });
+
+    case 'GET_PAGE_CONTENT': {
+      const content = document.body.innerText || document.body.textContent || '';
+      logger.info('GET_PAGE_CONTENT', {
+        innerTextLength: document.body.innerText?.length ?? 0,
+        textContentLength: document.body.textContent?.length ?? 0,
+        usedLength: content.length,
+        preview: content.slice(0, 100),
+      });
+      sendResponse({ content });
+      return;
+    }
+
+    case 'GET_INTERACTION_SNAPSHOT':
+      sendResponse(
+        extractInteractionSnapshot(
+          message.payload?.maxElements,
+          message.payload?.viewportOnly,
+        ),
+      );
+      return;
+
+    case 'EXECUTE_INTERACTION_ACTION':
+      sendResponse(
+        executeInteractionAction(
+          message.payload.action,
+          message.payload.index,
+          message.payload.text,
+        ),
+      );
+      return;
+
+    case 'CLEAR_INTERACTION_HIGHLIGHTS':
+      clearInteractionHighlights();
+      sendResponse({ cleared: true });
       return;
   }
 };
