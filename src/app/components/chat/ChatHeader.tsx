@@ -16,16 +16,13 @@ interface ChatHeaderProps {
   onRetry: () => void;
 }
 
-const TOOLBAR_BUTTON_CLASS =
-  'p-2 rounded-lg bg-neutral-100/50 hover:bg-neutral-100/80 text-neutral-400 hover:text-white transition-colors border border-white/5 backdrop-blur-md';
+const HEADER_BUTTON_CLASS =
+  `flex items-center justify-center h-[38px] w-[38px] rounded-[12px]
+  bg-neutral-100/80 text-neutral-400 hover:text-white hover:bg-neutral-100
+  border border-white/5 backdrop-blur-xl transition-all duration-200`;
 
-const ACTION_BUTTON_CLASS =
-  `flex h-[38px] items-center gap-2 px-3 rounded-lg text-xs font-medium
-  bg-neutral-100/50 text-neutral-400 hover:text-white hover:bg-neutral-100/80
-  border border-white/5 transition-all duration-200 backdrop-blur-md`;
-
-const CLEAR_BUTTON_CLASS =
-  `${ACTION_BUTTON_CLASS} disabled:opacity-50 disabled:cursor-not-allowed`;
+const HEADER_BUTTON_DISABLED_CLASS =
+  `${HEADER_BUTTON_CLASS} disabled:opacity-40 disabled:cursor-not-allowed`;
 
 export const ChatHeader = memo(({
   onToggleSidebar,
@@ -39,10 +36,10 @@ export const ChatHeader = memo(({
 }: ChatHeaderProps) => (
   <>
     <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
-      <button onClick={onToggleSidebar} className={TOOLBAR_BUTTON_CLASS}>
+      <button onClick={onToggleSidebar} className={HEADER_BUTTON_CLASS}>
         <MenuIcon />
       </button>
-      <button onClick={onNewChat} className={ACTION_BUTTON_CLASS}>
+      <button onClick={onNewChat} className={HEADER_BUTTON_CLASS}>
         <PlusIcon />
       </button>
     </div>
@@ -50,7 +47,7 @@ export const ChatHeader = memo(({
       <button
         onClick={onClearChat}
         disabled={!activeChatId}
-        className={CLEAR_BUTTON_CLASS}
+        className={HEADER_BUTTON_DISABLED_CLASS}
         title="Clear current chat"
       >
         <TrashIcon />

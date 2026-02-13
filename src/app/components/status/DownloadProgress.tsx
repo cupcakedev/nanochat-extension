@@ -18,18 +18,18 @@ export const DownloadProgress = memo(({ progress }: DownloadProgressProps) => {
 
   return (
     <div className="w-full max-w-[320px] flex flex-col items-center">
-      <h2 className="text-base font-medium text-neutral-800 mb-4">{statusText}</h2>
-      <div className="mb-6">
+      <h2 className="text-base font-medium text-neutral-800 mb-5">{statusText}</h2>
+      <div className="mb-5">
         <ProgressRing progress={currentProgress} />
       </div>
 
       {progress && (
-        <p className="mt-1 text-xs text-neutral-500 tabular-nums">
+        <p className="text-xs text-neutral-500 tabular-nums">
           {formatDownloadedSize(progress.progress)}
         </p>
       )}
 
-      <div className="mt-6 w-full">
+      <div className="mt-8 w-full">
         <CapabilitiesList />
       </div>
     </div>

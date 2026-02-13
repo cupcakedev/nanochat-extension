@@ -23,7 +23,7 @@ export const ModelStatusBar = memo(({ status, progress, error, onRetry }: ModelS
 
   if (status === 'loading') {
     return (
-      <div className="px-4 py-2">
+      <div className="px-3.5 py-2 rounded-[12px] bg-neutral-100/80 border border-white/5 backdrop-blur-md">
         <span className="text-xs text-neutral-500">Initializing model...</span>
       </div>
     );

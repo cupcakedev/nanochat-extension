@@ -37,7 +37,7 @@ export const Sidebar = memo(
         >
           <div className="flex items-center justify-between px-4 py-5">
             <div className="flex items-center gap-3">
-              <div className="p-1.5 bg-neutral-200/10 rounded-xl border border-white/5">
+              <div className="p-1.5 bg-neutral-200/10 rounded-[12px] border border-white/5">
                 <Logo size={20} />
               </div>
             </div>
@@ -46,9 +46,9 @@ export const Sidebar = memo(
                 onNewChat();
                 onClose();
               }}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium
-                            bg-neutral-200/10 text-neutral-400 hover:text-white hover:bg-neutral-200/20 
-                            border border-transparent hover:border-white/5 transition-all duration-200 group"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-[12px] text-xs font-medium
+                bg-neutral-200/20 text-neutral-400 hover:text-white hover:bg-neutral-200/30
+                border border-white/5 backdrop-blur-md transition-all duration-200"
             >
               <PlusIcon />
               <span>New Chat</span>
@@ -56,12 +56,12 @@ export const Sidebar = memo(
           </div>
 
           <div className="px-4 pb-4">
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-white/5 to-transparent" />
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin scrollbar-thumb-white/5 hover:scrollbar-thumb-white/10">
-            <div className="space-y-2">
-              <div className="px-3 py-2 text-xs font-medium text-neutral-500 uppercase tracking-wider">
+          <div className="flex-1 overflow-y-auto px-3 pb-4">
+            <div className="space-y-1.5">
+              <div className="px-3 py-2 text-[11px] font-medium text-neutral-500 uppercase tracking-wider">
                 Today
               </div>
               {chatSummaries.map((s) => (

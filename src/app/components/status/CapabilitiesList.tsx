@@ -18,11 +18,11 @@ export const CapabilitiesList = memo(() => {
 
   return (
     <div>
-      <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">
+      <h3 className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-3">
         What NanoChat can do
       </h3>
-      <div className="w-full rounded-xl bg-neutral-100 border border-neutral-200 p-4">
-        <div className="flex items-center gap-2.5 min-h-[24px]">
+      <div className="w-full rounded-[16px] bg-neutral-100/60 border border-white/5 backdrop-blur-md p-4">
+        <div className="flex items-center gap-3 min-h-[24px]">
           <span className={`text-base shrink-0 ${fadeTransition}`}>{icon}</span>
           <span className={`text-[13px] text-neutral-700 leading-tight ${fadeTransition}`}>
             {text}

@@ -79,11 +79,11 @@ body {
 }
 
 .markdown-body code {
-  @apply px-1 py-0.5 rounded text-xs bg-white/10;
+  @apply px-1.5 py-0.5 rounded-[6px] text-xs bg-white/10;
 }
 
 .markdown-body pre {
-  @apply my-2 p-3 rounded-lg overflow-x-auto text-xs bg-black/20;
+  @apply my-2 p-3 rounded-[12px] overflow-x-auto text-xs bg-black/20;
 }
 
 .markdown-body pre code {
