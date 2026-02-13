@@ -12,6 +12,14 @@ function formatExecutionStatus(execution: InteractionExecutionResult): string {
   return execution.executed ? 'executed' : 'not executed';
 }
 
+function isMappedPlanExecution(execution: InteractionExecutionResult): boolean {
+  return execution.requestedAction !== 'unknown';
+}
+
+function collectPlanExecutions(executions: InteractionExecutionResult[]): InteractionExecutionResult[] {
+  return executions.filter(isMappedPlanExecution);
+}
+
 function formatStepLine(stepNumber: number, plan: InteractionActionPlan, execution: InteractionExecutionResult | undefined): string {
   if (!execution) return `${stepNumber}. ${formatAction(plan)} | pending`;
   return `${stepNumber}. ${formatAction(plan)} | ${formatExecutionStatus(execution)} | ${execution.message}`;
@@ -24,7 +32,8 @@ function formatCaptureMeta(result: PageInteractionStepResult): string {
 
 function formatStepSummary(result: PageInteractionStepResult): string {
   if (!result.plans.length) return 'No executed actions';
-  return result.plans.map((plan, index) => formatStepLine(index + 1, plan, result.executions[index])).join('\n');
+  const planExecutions = collectPlanExecutions(result.executions);
+  return result.plans.map((plan, index) => formatStepLine(index + 1, plan, planExecutions[index])).join('\n');
 }
 
 function formatFinalAnswer(result: PageInteractionStepResult): string {
@@ -38,11 +47,15 @@ function formatVerification(result: PageInteractionStepResult): string {
 }
 
 export function formatInteractionAssistantMessage(result: PageInteractionStepResult): string {
-  const executedCount = result.executions.filter((execution) => execution.executed).length;
+  const planExecutions = collectPlanExecutions(result.executions);
+  const executedCount = result.plans.reduce(
+    (count, _, index) => count + (planExecutions[index]?.executed ? 1 : 0),
+    0,
+  );
   return [
     `Status: ${result.status}`,
     `Actions: ${result.plans.length}`,
-    `Executed: ${executedCount}/${result.executions.length}`,
+    `Executed: ${executedCount}/${result.plans.length}`,
     'Steps:',
     formatStepSummary(result),
     `Verification: ${formatVerification(result)}`,

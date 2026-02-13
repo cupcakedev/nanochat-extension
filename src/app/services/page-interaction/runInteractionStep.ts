@@ -156,6 +156,66 @@ function emitProgressScreenshot(
   return imageDataUrl;
 }
 
+function normalizeComparableUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.hash = '';
+    return url.toString();
+  } catch {
+    return value.trim();
+  }
+}
+
+function isSameDestination(currentUrl: string, targetUrl: string): boolean {
+  return normalizeComparableUrl(currentUrl) === normalizeComparableUrl(targetUrl);
+}
+
+function extractFirstHttpUrlCandidate(value: string | null): string | null {
+  if (!value) return null;
+  const match = value.match(/https?:\/\/[^\s"'<>`]+/i);
+  if (!match) return null;
+  try {
+    return new URL(match[0]).toString();
+  } catch {
+    return null;
+  }
+}
+
+function toRecoveryOpenUrlPlan(url: string, reason: string): InteractionActionPlan {
+  return {
+    action: 'openUrl',
+    index: null,
+    text: null,
+    url,
+    reason,
+    confidence: 'high',
+  };
+}
+
+function keepExecutableRecoveryActions(actions: InteractionActionPlan[]): InteractionActionPlan[] {
+  return actions.filter((action) => action.action === 'openUrl' || action.action === 'click' || action.action === 'type');
+}
+
+function buildRejectedDoneRecoveryPlans(params: {
+  currentUrl: string;
+  decision: ParsedInteractionDecision;
+}): InteractionActionPlan[] {
+  const aiActions = keepExecutableRecoveryActions(params.decision.actions);
+  if (aiActions.length > 0) return aiActions;
+
+  const finalAnswerUrl = extractFirstHttpUrlCandidate(params.decision.finalAnswer);
+  if (finalAnswerUrl && !isSameDestination(params.currentUrl, finalAnswerUrl)) {
+    return [toRecoveryOpenUrlPlan(finalAnswerUrl, 'Verifier rejected done, navigating to planner finalAnswer URL')];
+  }
+
+  const reasonUrl = extractFirstHttpUrlCandidate(params.decision.reason);
+  if (reasonUrl && !isSameDestination(params.currentUrl, reasonUrl)) {
+    return [toRecoveryOpenUrlPlan(reasonUrl, 'Verifier rejected done, navigating to planner reason URL')];
+  }
+
+  return [];
+}
+
 function toExecutionFromAction(
   plan: ExecutableInteractionPlan,
   response: Awaited<ReturnType<typeof executeAction>>,
@@ -411,6 +471,41 @@ export async function runPageInteractionStep(
         finalStatus = 'done';
         finalAnswer = decision.decision.finalAnswer ?? verification.reason;
         break;
+      }
+
+      const recoveryPlans = enforceTypingFirst(
+        buildRejectedDoneRecoveryPlans({
+          currentUrl: snapshot.pageUrl,
+          decision: decision.decision,
+        }),
+        task,
+        decision.promptElements,
+      );
+      if (recoveryPlans.length > 0) {
+        emitProgressLine(
+          options,
+          `[${stepNumber}] recovery | verifier rejected done, fallback actions=${recoveryPlans.length}`,
+        );
+        formatPlanLines(stepNumber, recoveryPlans).forEach((line) => emitProgressLine(options, line));
+        allPlans.push(...recoveryPlans);
+
+        const recoveryExecutions = await executePlannedActions(activeTab.tabId, recoveryPlans);
+        formatExecutionLines(stepNumber, recoveryExecutions).forEach((line) => emitProgressLine(options, line));
+        allExecutions.push(...recoveryExecutions);
+
+        if (!recoveryExecutions.length) {
+          finalStatus = 'fail';
+          finalAnswer = 'Recovery produced no executable actions';
+          break;
+        }
+
+        const lastRecoveryExecution = recoveryExecutions[recoveryExecutions.length - 1];
+        if (!lastRecoveryExecution.executed && stepNumber >= AGENT_MAX_STEPS) {
+          finalStatus = 'max-steps';
+          finalAnswer = 'Maximum agent steps reached';
+          break;
+        }
+        continue;
       }
 
       allExecutions.push(verifierExecution(verification.reason));

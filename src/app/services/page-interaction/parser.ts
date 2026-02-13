@@ -116,17 +116,12 @@ function readActions(root: Record<string, unknown>): InteractionActionPlan[] {
   return root.actions.slice(0, MAX_ACTIONS_PER_PLAN).map(normalizeActionPlan);
 }
 
-function enforceDoneFailActions(status: Exclude<InteractionRunStatus, 'max-steps'>, actions: InteractionActionPlan[]): InteractionActionPlan[] {
-  if (status === 'continue') return actions;
-  return [];
-}
-
 export function parseInteractionDecision(rawText: string): ParsedInteractionDecision {
   const root = readRoot(rawText);
   const status = normalizeStatus(root.status);
   const finalAnswer = normalizeTextValue(root.finalAnswer);
   const reason = normalizeTextValue(root.reason);
-  const actions = enforceDoneFailActions(status, readActions(root));
+  const actions = readActions(root);
 
   if (status === 'continue' && actions.length === 0) {
     return {
