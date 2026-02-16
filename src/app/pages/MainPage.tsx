@@ -72,6 +72,7 @@ export const MainPage = () => {
               agentContextChipVisible={state.agentContextChipVisible}
               agentChipAnimationKey={state.agentChipAnimationKey}
               chatPageSource={state.chatPageSource}
+              chatContextSource={state.chatContextSource}
               chatContextAnimationKey={state.chatContextAnimationKey}
               agentNotice={state.agentNotice}
               onSend={state.send}
@@ -79,7 +80,8 @@ export const MainPage = () => {
               streaming={state.streaming}
               disabled={state.status !== SessionStatus.Ready}
               contextMode={state.contextMode}
-              onContextModeChange={state.setContextMode}
+              onDismissChatContext={state.dismissChatContext}
+              onAddChatContext={state.addChatContext}
             />
           </>
         ) : (

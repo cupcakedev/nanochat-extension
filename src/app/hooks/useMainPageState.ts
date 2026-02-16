@@ -1,14 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { usePromptSession } from '@app/hooks/usePromptSession';
 import { useChat } from '@app/hooks/useChat';
 import { useChatContext } from '@app/hooks/useChatContext';
 import { useAgentMode } from '@app/hooks/useAgentMode';
+import { getActiveTab } from '@app/services/tab-bridge';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@app/types/mode';
 import { SessionStatus } from '@shared/types';
 import type { PageSource } from '@shared/types';
 
 const NOOP = () => {};
-const DEFAULT_CONTEXT_MODE = ChatContextSendMode.WithoutPageContext;
 
 function resolveChatPageSource(
   persistedPageSource: PageSource | null | undefined,
@@ -46,9 +46,20 @@ function toActivePageSource(
   return { url: chip.url, title: chip.title, faviconUrl: chip.faviconUrl };
 }
 
+async function fetchChatContextSource(): Promise<PageSource | null> {
+  try {
+    const tab = await getActiveTab();
+    if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return null;
+    return { url: tab.url, title: tab.title, faviconUrl: tab.favIconUrl };
+  } catch {
+    return null;
+  }
+}
+
 export function useMainPageState() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [contextMode, setContextMode] = useState<ChatContextSendMode>(DEFAULT_CONTEXT_MODE);
+  const [chatContextSource, setChatContextSource] = useState<PageSource | null>(null);
+  const contextMode = chatContextSource ? ChatContextSendMode.WithPageContext : ChatContextSendMode.WithoutPageContext;
 
   const { status, progress, error, retry, download, serviceRef } = usePromptSession();
 
@@ -59,6 +70,11 @@ export function useMainPageState() {
 
   const initialMessages = activeChat?.messages ?? [];
   const hasInitialMessages = initialMessages.length > 0;
+
+  useEffect(() => {
+    if (hasInitialMessages) return;
+    fetchChatContextSource().then(setChatContextSource);
+  }, [activeChatId, hasInitialMessages]);
 
   const {
     mode, agentContextChip, agentContextChipVisible,
@@ -94,7 +110,7 @@ export function useMainPageState() {
     serviceRef.current.destroySession();
     createChat();
     restorePreferredMode();
-    setContextMode(DEFAULT_CONTEXT_MODE);
+    setChatContextSource(null);
   }, [createChat, restorePreferredMode, serviceRef]);
 
   const handleClearChat = useCallback(() => {
@@ -105,8 +121,16 @@ export function useMainPageState() {
     createChat();
     deleteChat(chatIdToDelete);
     restorePreferredMode();
-    setContextMode(DEFAULT_CONTEXT_MODE);
+    setChatContextSource(null);
   }, [activeChatId, createChat, deleteChat, restorePreferredMode, serviceRef, stop, streaming]);
+
+  const dismissChatContext = useCallback(() => {
+    setChatContextSource(null);
+  }, []);
+
+  const addChatContext = useCallback(() => {
+    fetchChatContextSource().then(setChatContextSource);
+  }, []);
 
   return {
     NOOP,
@@ -117,9 +141,10 @@ export function useMainPageState() {
     status, progress, error,
     mode, agentContextChip, agentContextChipVisible,
     agentChipAnimationKey, chatPageSource, chatContextAnimationKey,
-    messageListPageSource, agentNotice, contextMode, inputDockRef,
+    chatContextSource, messageListPageSource, agentNotice, contextMode, inputDockRef,
     toggleSidebar, closeSidebar, handleNewChat, handleClearChat,
+    dismissChatContext, addChatContext,
     selectChat, deleteChat, send, stop, retry, download,
-    handleModeChange, setContextMode,
+    handleModeChange,
   };
 }

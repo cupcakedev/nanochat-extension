@@ -15,6 +15,7 @@ interface InputDockProps {
   agentContextChipVisible: boolean;
   agentChipAnimationKey: number;
   chatPageSource?: PageSource;
+  chatContextSource: PageSource | null;
   chatContextAnimationKey: number;
   agentNotice: string | null;
   onSend: (message: string, images?: string[], options?: ChatSendOptions) => void;
@@ -22,18 +23,24 @@ interface InputDockProps {
   streaming: boolean;
   disabled: boolean;
   contextMode: ChatContextSendMode;
-  onContextModeChange: (mode: ChatContextSendMode) => void;
+  onDismissChatContext: () => void;
+  onAddChatContext: () => void;
 }
 
-const shouldShowContextChip = (
+function resolveContextChip(
   mode: ChatMode,
-  chip: AgentContextChipType | null,
-  visible: boolean,
+  agentChip: AgentContextChipType | null,
+  agentVisible: boolean,
+  chatContextSource: PageSource | null,
   chatPageSource?: PageSource,
-): boolean => {
-  if (mode === ChatMode.Chat) return Boolean(chatPageSource);
-  return requiresPageContext(mode) && chip !== null && visible;
-};
+): { show: boolean; title: string; favicon: string; dismissable: boolean } {
+  if (mode === ChatMode.Agent) {
+    const show = requiresPageContext(mode) && agentChip !== null && agentVisible;
+    return { show, title: agentChip?.title ?? '', favicon: agentChip?.faviconUrl ?? '', dismissable: false };
+  }
+  const source = chatContextSource ?? chatPageSource;
+  return { show: Boolean(source), title: source?.title ?? '', favicon: source?.faviconUrl ?? '', dismissable: Boolean(chatContextSource) };
+}
 
 export const InputDock = memo(({
   dockRef,
@@ -42,6 +49,7 @@ export const InputDock = memo(({
   agentContextChipVisible,
   agentChipAnimationKey,
   chatPageSource,
+  chatContextSource,
   chatContextAnimationKey,
   agentNotice,
   onSend,
@@ -49,21 +57,21 @@ export const InputDock = memo(({
   streaming,
   disabled,
   contextMode,
-  onContextModeChange,
+  onDismissChatContext,
+  onAddChatContext,
 }: InputDockProps) => {
-  const showContextChip = shouldShowContextChip(mode, agentContextChip, agentContextChipVisible, chatPageSource);
-  const contextTitle = mode === ChatMode.Chat ? (chatPageSource?.title ?? '') : (agentContextChip?.title ?? '');
-  const contextFavicon = mode === ChatMode.Chat ? (chatPageSource?.faviconUrl ?? '') : (agentContextChip?.faviconUrl ?? '');
+  const chip = resolveContextChip(mode, agentContextChip, agentContextChipVisible, chatContextSource, chatPageSource);
   const contextAnimationKey = mode === ChatMode.Chat ? chatContextAnimationKey : agentChipAnimationKey;
-  const showContextToggle = mode !== ChatMode.Agent;
+  const showAddContext = mode !== ChatMode.Agent && !chatContextSource;
 
   return (
     <div ref={dockRef} className="absolute bottom-0 left-0 right-0 z-20 px-6 pt-3 pb-4">
-      {showContextChip && (
+      {chip.show && (
         <AgentContextChip
-          title={contextTitle}
-          faviconUrl={contextFavicon}
+          title={chip.title}
+          faviconUrl={chip.favicon}
           animationKey={contextAnimationKey}
+          onDismiss={chip.dismissable ? onDismissChatContext : undefined}
         />
       )}
       {agentNotice && <AgentNotice message={agentNotice} />}
@@ -75,8 +83,8 @@ export const InputDock = memo(({
         placeholder="Ask anything..."
         mode={mode}
         contextMode={contextMode}
-        onContextModeChange={onContextModeChange}
-        showContextToggle={showContextToggle}
+        showAddContext={showAddContext}
+        onAddContext={onAddChatContext}
       />
     </div>
   );

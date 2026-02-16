@@ -4,9 +4,10 @@ interface AgentContextChipProps {
   title: string;
   faviconUrl: string;
   animationKey: number;
+  onDismiss?: () => void;
 }
 
-export const AgentContextChip = memo(({ title, faviconUrl, animationKey }: AgentContextChipProps) => (
+export const AgentContextChip = memo(({ title, faviconUrl, animationKey, onDismiss }: AgentContextChipProps) => (
   <div className="mx-auto mb-4 w-full max-w-3xl">
     <div
       key={animationKey}
@@ -25,6 +26,16 @@ export const AgentContextChip = memo(({ title, faviconUrl, animationKey }: Agent
       )}
       <span className="text-neutral-500 shrink-0">In context:</span>
       <span className="truncate text-neutral-800">{title}</span>
+      {onDismiss && (
+        <button
+          onClick={onDismiss}
+          className="shrink-0 ml-0.5 flex items-center justify-center w-4 h-4 rounded-full text-neutral-500 hover:text-neutral-800 hover:bg-neutral-200/40 transition-colors"
+        >
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <path d="M1 1l6 6M7 1L1 7" />
+          </svg>
+        </button>
+      )}
     </div>
   </div>
 ));

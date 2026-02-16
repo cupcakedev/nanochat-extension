@@ -14,8 +14,8 @@ interface ChatInputProps {
   placeholder?: string;
   mode: ChatMode;
   contextMode: ChatContextSendMode;
-  onContextModeChange: (mode: ChatContextSendMode) => void;
-  showContextToggle: boolean;
+  showAddContext: boolean;
+  onAddContext: () => void;
 }
 
 export const ChatInput = memo(
@@ -27,8 +27,8 @@ export const ChatInput = memo(
     placeholder = 'Type a message...',
     mode,
     contextMode,
-    onContextModeChange,
-    showContextToggle,
+    showAddContext,
+    onAddContext,
   }: ChatInputProps) => {
     const [value, setValue] = useState('');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -148,9 +148,8 @@ export const ChatInput = memo(
             fileInputRef={fileInputRef}
             onFileChange={handleFileChange}
             composerDisabled={composerDisabled}
-            contextMode={contextMode}
-            onContextModeChange={onContextModeChange}
-            showContextToggle={showContextToggle}
+            showAddContext={showAddContext}
+            onAddContext={onAddContext}
             streaming={streaming}
             onStop={onStop}
             onSendIntent={handleSendIntent}
