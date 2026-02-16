@@ -82,7 +82,15 @@ export function useChat(
 
     if (mode === ChatMode.Agent) {
       const setters = { setMessages, setStreaming, setDevTraceItems, setContextUsage, setChatContextChipSourceOverride, onMessagesChange };
-      await executeInteractiveStep(text, userMessage, assistantMessage, mode, interactiveRefs, setters);
+      const abortController = new AbortController();
+      abortRef.current = abortController;
+      try {
+        await executeInteractiveStep(text, userMessage, assistantMessage, mode, interactiveRefs, setters, abortController.signal);
+      } finally {
+        if (abortRef.current === abortController) {
+          abortRef.current = null;
+        }
+      }
       return;
     }
 

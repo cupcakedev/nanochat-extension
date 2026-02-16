@@ -39,6 +39,12 @@ export interface InteractiveSetters {
   ) => void;
 }
 
+function isAbortError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.name === 'AbortError') return true;
+  return /aborted|cancelled/i.test(error.message);
+}
+
 function createProgressHandler(
   enabled: boolean,
   setDevTraceItems: InteractiveSetters['setDevTraceItems'],
@@ -60,6 +66,7 @@ export async function executeInteractiveStep(
   mode: ChatMode,
   refs: InteractiveRefs,
   setters: InteractiveSetters,
+  signal?: AbortSignal,
 ): Promise<void> {
   setters.setChatContextChipSourceOverride(undefined);
   const isDevTraceEnabled = shouldEnableDevTrace(mode);
@@ -71,7 +78,15 @@ export async function executeInteractiveStep(
   setters.setStreaming(true);
 
   try {
-    const result = await runPageInteractionStep(text, onProgress ? { onProgress } : undefined);
+    const result = await runPageInteractionStep(
+      text,
+      onProgress || signal
+        ? {
+          ...(onProgress ? { onProgress } : {}),
+          ...(signal ? { signal } : {}),
+        }
+        : undefined,
+    );
     const usage = extractInteractionUsage(result);
     const completedMessages = setAssistantCompletion(
       baseMessages,
@@ -82,13 +97,26 @@ export async function executeInteractiveStep(
     setters.setContextUsage(usage ? toContextUsage(usage) : null);
     setters.onMessagesChange?.(completedMessages, usage, refs.pageSourceRef.current ?? undefined);
   } catch (error) {
+    if (isAbortError(error)) {
+      if (isDevTraceEnabled) {
+        setters.setDevTraceItems((prev) =>
+          appendTraceItem(prev as DevTraceItem[], toLineTraceItem('[stopped] User interrupted agent run')),
+        );
+      }
+      const completedMessages = setAssistantCompletion(baseMessages, 'Stopped.');
+      setters.setMessages(completedMessages);
+      setters.setContextUsage(null);
+      setters.onMessagesChange?.(completedMessages, undefined, refs.pageSourceRef.current ?? undefined);
+      return;
+    }
+
     if (isDevTraceEnabled) {
       setters.setDevTraceItems((prev) =>
         appendTraceItem(prev as DevTraceItem[], toLineTraceItem(`[error] ${extractErrorMessage(error)}`)),
       );
     }
     const completedMessages = setAssistantCompletion(
-      [...refs.messagesRef.current, userMessage, assistantMessage],
+      baseMessages,
       `Error: ${extractErrorMessage(error)}`,
     );
     setters.setMessages(completedMessages);
