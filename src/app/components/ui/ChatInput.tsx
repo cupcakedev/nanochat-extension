@@ -1,23 +1,21 @@
 import { memo, useCallback, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
-import { SendIcon } from '@app/components/icons/SendIcon';
-import { StopIcon } from '@app/components/icons/StopIcon';
-import { ImageIcon } from '@app/components/icons/ImageIcon';
 import { useImageAttachments } from '@app/hooks/useImageAttachments';
 import { useTextareaAutoResize } from '@app/hooks/useTextareaAutoResize';
-import type { ChatMode } from '@app/types/mode';
-import { ModeSwitcher } from './ModeSwitcher';
-import { ActionButton } from './ActionButton';
+import type { ChatContextSendMode, ChatMode, ChatSendOptions } from '@app/types/mode';
+import { toSendOptions } from '@app/services/chat-send-options';
 import { ImagePreviewList } from './ImagePreviewList';
+import { ChatInputFooter } from './ChatInputFooter';
 
 interface ChatInputProps {
-  onSend: (message: string, images?: string[]) => void;
+  onSend: (message: string, images?: string[], options?: ChatSendOptions) => void;
   onStop?: () => void;
   disabled?: boolean;
   streaming?: boolean;
   placeholder?: string;
   mode: ChatMode;
-  modeLocked?: boolean;
-  onModeChange: (mode: ChatMode) => void;
+  contextMode: ChatContextSendMode;
+  onContextModeChange: (mode: ChatContextSendMode) => void;
+  showContextToggle: boolean;
 }
 
 export const ChatInput = memo(
@@ -28,31 +26,38 @@ export const ChatInput = memo(
     streaming = false,
     placeholder = 'Type a message...',
     mode,
-    modeLocked = false,
-    onModeChange,
+    contextMode,
+    onContextModeChange,
+    showContextToggle,
   }: ChatInputProps) => {
     const [value, setValue] = useState('');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { images, addImages, removeImage, clearImages } = useImageAttachments();
+    const composerDisabled = disabled || streaming;
 
     useTextareaAutoResize(value, textareaRef);
 
-    const handleSend = useCallback(() => {
-      const trimmed = value.trim();
-      if (!trimmed && !images.length) return;
-      onSend(trimmed, images.length ? images : undefined);
+    const clearComposer = useCallback(() => {
       setValue('');
       clearImages();
-    }, [clearImages, images, onSend, value]);
+    }, [clearImages]);
+
+    const handleSendIntent = useCallback(() => {
+      const text = value.trim();
+      if (!text && !images.length) return;
+      const imgs = images.length ? [...images] : undefined;
+      onSend(text, imgs, toSendOptions(mode, contextMode));
+      clearComposer();
+    }, [clearComposer, contextMode, images, mode, onSend, value]);
 
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key !== 'Enter' || e.shiftKey) return;
         e.preventDefault();
-        handleSend();
+        handleSendIntent();
       },
-      [handleSend],
+      [handleSendIntent],
     );
 
     const handlePaste = useCallback(
@@ -72,7 +77,7 @@ export const ChatInput = memo(
       [addImages],
     );
 
-    const canSend = value.trim() || images.length;
+    const canSend = Boolean(value.trim() || images.length);
 
     return (
       <div className="w-full max-w-3xl mx-auto">
@@ -87,7 +92,7 @@ export const ChatInput = memo(
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              disabled={disabled || streaming}
+              disabled={composerDisabled}
               placeholder={placeholder}
               rows={1}
               className="w-full resize-none border-none bg-transparent px-0 py-0 text-base leading-snug
@@ -96,40 +101,18 @@ export const ChatInput = memo(
                 h-auto"
             />
           </div>
-          <div className="px-3 pt-1.5 pb-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-5">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={disabled || streaming}
-                  className="flex items-center justify-center w-12 h-12 rounded-[12px] [&_svg]:w-5 [&_svg]:h-5
-                    text-neutral-400 hover:text-neutral-700 transition-colors
-                    disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Attach image"
-                >
-                  <ImageIcon />
-                </button>
-                <ModeSwitcher mode={mode} modeLocked={modeLocked} onModeChange={onModeChange} />
-              </div>
-              {streaming ? (
-                <ActionButton onClick={onStop} variant="stop">
-                  <StopIcon />
-                </ActionButton>
-              ) : (
-                <ActionButton onClick={handleSend} disabled={disabled || !canSend} variant="send">
-                  <SendIcon />
-                </ActionButton>
-              )}
-            </div>
-          </div>
+          <ChatInputFooter
+            fileInputRef={fileInputRef}
+            onFileChange={handleFileChange}
+            composerDisabled={composerDisabled}
+            contextMode={contextMode}
+            onContextModeChange={onContextModeChange}
+            showContextToggle={showContextToggle}
+            streaming={streaming}
+            onStop={onStop}
+            onSendIntent={handleSendIntent}
+            canSend={canSend}
+          />
         </div>
       </div>
     );

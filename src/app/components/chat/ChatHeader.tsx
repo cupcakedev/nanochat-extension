@@ -3,6 +3,8 @@ import { MenuIcon } from '@app/components/icons/MenuIcon';
 import { PlusIcon } from '@app/components/icons/PlusIcon';
 import { TrashIcon } from '@app/components/icons/TrashIcon';
 import { ModelStatusBar } from '@app/components/status/ModelStatusBar';
+import { ModeDropdown } from '@app/components/ui/ModeDropdown';
+import type { ChatMode } from '@app/types/mode';
 import type { LoadingProgress, SessionStatus } from '@shared/types';
 
 interface ChatHeaderProps {
@@ -14,6 +16,9 @@ interface ChatHeaderProps {
   progress: LoadingProgress | null;
   error: string | null;
   onRetry: () => void;
+  mode: ChatMode;
+  modeLocked: boolean;
+  onModeChange: (mode: ChatMode) => void;
 }
 
 const HEADER_BUTTON_CLASS =
@@ -33,15 +38,21 @@ export const ChatHeader = memo(({
   progress,
   error,
   onRetry,
+  mode,
+  modeLocked,
+  onModeChange,
 }: ChatHeaderProps) => (
   <>
-    <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
-      <button onClick={onToggleSidebar} className={HEADER_BUTTON_CLASS}>
-        <MenuIcon />
-      </button>
-      <button onClick={onNewChat} className={HEADER_BUTTON_CLASS}>
-        <PlusIcon />
-      </button>
+    <div className="absolute top-4 left-4 z-20 flex gap-6">
+      <div className="flex flex-col gap-2">
+        <button onClick={onToggleSidebar} className={HEADER_BUTTON_CLASS}>
+          <MenuIcon />
+        </button>
+        <button onClick={onNewChat} className={HEADER_BUTTON_CLASS}>
+          <PlusIcon />
+        </button>
+      </div>
+      <ModeDropdown mode={mode} modeLocked={modeLocked} onModeChange={onModeChange} />
     </div>
     <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
       <button
