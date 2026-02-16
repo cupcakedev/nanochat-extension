@@ -1,6 +1,7 @@
 import { memo, useCallback, useRef, useState } from 'react';
 import { useOutsideClick } from '@app/hooks/useOutsideClick';
-import type { ChatMode } from '@app/types/mode';
+import { BadgeChip } from './BadgeChip';
+import { ChatMode } from '@app/types/mode';
 
 interface ModeDropdownProps {
   mode: ChatMode;
@@ -15,8 +16,8 @@ interface ModeOption {
 }
 
 const MODE_OPTIONS: ModeOption[] = [
-  { value: 'chat', label: 'Chat' },
-  { value: 'agent', label: 'Agent', badge: 'Beta' },
+  { value: ChatMode.Chat, label: 'Chat' },
+  { value: ChatMode.Agent, label: 'Agent', badge: 'Beta' },
 ];
 
 function findOption(m: ChatMode): ModeOption {
@@ -59,9 +60,7 @@ export const ModeDropdown = memo(({ mode, modeLocked, onModeChange }: ModeDropdo
         <span className={`flex items-center gap-2 ${modeLocked ? 'opacity-60' : ''}`}>
           {findOption(mode).label}
           {findOption(mode).badge && (
-            <span className="px-1.5 py-0.5 rounded-[6px] text-[10px] leading-none font-medium bg-brand-500/20 text-brand-300">
-              {findOption(mode).badge}
-            </span>
+            <BadgeChip>{findOption(mode).badge}</BadgeChip>
           )}
         </span>
         <svg
@@ -89,11 +88,7 @@ export const ModeDropdown = memo(({ mode, modeLocked, onModeChange }: ModeDropdo
             >
               <span className="flex items-center gap-2">
                 {opt.label}
-                {opt.badge && (
-                  <span className="px-1.5 py-0.5 rounded-[6px] text-[10px] leading-none font-medium bg-brand-500/20 text-brand-300">
-                    {opt.badge}
-                  </span>
-                )}
+                {opt.badge && <BadgeChip>{opt.badge}</BadgeChip>}
               </span>
             </button>
           ))}
