@@ -63,7 +63,7 @@ export function useMainPageState() {
   const {
     mode, agentContextChip, agentContextChipVisible,
     agentNotice, agentChipAnimationKey,
-    handleModeChange, showAgentUnavailable, resetAgentState, inputDockRef,
+    handleModeChange, showAgentUnavailable, restorePreferredMode, inputDockRef,
   } = useAgentMode(serviceRef, hasInitialMessages);
 
   const activePageSource = toActivePageSource(mode, agentContextChip);
@@ -93,9 +93,9 @@ export function useMainPageState() {
   const handleNewChat = useCallback(() => {
     serviceRef.current.destroySession();
     createChat();
-    resetAgentState();
+    restorePreferredMode();
     setContextMode(DEFAULT_CONTEXT_MODE);
-  }, [createChat, resetAgentState, serviceRef]);
+  }, [createChat, restorePreferredMode, serviceRef]);
 
   const handleClearChat = useCallback(() => {
     if (!activeChatId) return;
@@ -104,9 +104,9 @@ export function useMainPageState() {
     const chatIdToDelete = activeChatId;
     createChat();
     deleteChat(chatIdToDelete);
-    resetAgentState();
+    restorePreferredMode();
     setContextMode(DEFAULT_CONTEXT_MODE);
-  }, [activeChatId, createChat, deleteChat, resetAgentState, serviceRef, stop, streaming]);
+  }, [activeChatId, createChat, deleteChat, restorePreferredMode, serviceRef, stop, streaming]);
 
   return {
     NOOP,

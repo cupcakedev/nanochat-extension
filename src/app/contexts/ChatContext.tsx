@@ -33,12 +33,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadAllChats().then((storedChats) => {
-      const active = ensureActiveChat(storedChats);
-      const initialChats = storedChats.length > 0 ? storedChats : [active];
-      chatsRef.current = new Map(initialChats.map((chat) => [chat.id, chat]));
+      chatsRef.current = new Map(storedChats.map((chat) => [chat.id, chat]));
+      const fresh = createNewChat();
+      chatsRef.current.set(fresh.id, fresh);
       setChatSummaries(buildSummaries(chatsRef.current));
-      setActiveChatId(active.id);
-      setActiveChat(active);
+      setActiveChatId(fresh.id);
+      setActiveChat(fresh);
       setLoaded(true);
     });
   }, []);
