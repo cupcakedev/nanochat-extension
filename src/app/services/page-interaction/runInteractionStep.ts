@@ -3,6 +3,7 @@ import {
   executeAction,
   getActiveTab,
   getInteractionSnapshot,
+  openExtensionPageInTab,
   openUrlInTab,
   waitForTabSettled,
 } from '@app/services/tab-bridge';
@@ -13,6 +14,7 @@ import type {
   InteractionExecutionResult,
   InteractiveElementSnapshotItem,
   InteractionRunStatus,
+  InteractionSnapshotPayload,
   PageInteractionStepResult,
 } from '@shared/types';
 import { buildInteractionPrompt } from './prompt';
@@ -44,6 +46,11 @@ import {
 
 const AGENT_MAX_STEPS = 12;
 const AGENT_VIEWPORT_SEGMENTS = 1;
+const AGENT_PLACEHOLDER_PAGE_PATH = 'src/placeholder.html';
+const CONTENT_CONNECTION_ERROR_MESSAGES = [
+  'Could not establish connection. Receiving end does not exist.',
+  'The message port closed before a response was received.',
+];
 
 interface PromptDecisionResult {
   decision: ParsedInteractionDecision;
@@ -129,6 +136,27 @@ function mustStopRetrying(current: number, next: number): boolean {
 
 function extractErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isContentConnectionUnavailableError(error: unknown): boolean {
+  const message = extractErrorMessage(error);
+  return CONTENT_CONNECTION_ERROR_MESSAGES.some((needle) => message.includes(needle));
+}
+
+function buildSyntheticSnapshot(params: {
+  pageUrl: string;
+  pageTitle: string;
+  viewportWidth: number;
+  viewportHeight: number;
+}): InteractionSnapshotPayload {
+  return {
+    pageUrl: params.pageUrl,
+    pageTitle: params.pageTitle,
+    scrollY: 0,
+    viewportWidth: params.viewportWidth,
+    viewportHeight: params.viewportHeight,
+    interactiveElements: [],
+  };
 }
 
 function emitProgressLine(options: InteractionRunOptions | undefined, line: string): void {
@@ -416,30 +444,74 @@ export async function runPageInteractionStep(
   let totalRetries = 0;
 
   for (let stepNumber = 1; stepNumber <= AGENT_MAX_STEPS; stepNumber += 1) {
-    const activeTab = await getActiveTab();
+    let activeTab = await getActiveTab();
     lastTabId = activeTab.tabId;
     await waitForTabSettled(activeTab.tabId, {
       maxWaitMs: INTERACTION_TAB_SETTLE_MAX_WAIT_MS,
       pollIntervalMs: INTERACTION_TAB_SETTLE_POLL_MS,
       stableIdleMs: INTERACTION_TAB_SETTLE_IDLE_MS,
     });
-    const snapshot = await getInteractionSnapshot(activeTab.tabId, {
-      maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
-      viewportOnly: true,
-      viewportSegments: AGENT_VIEWPORT_SEGMENTS,
-    });
+
+    let snapshot: InteractionSnapshotPayload;
+    let capture: Awaited<ReturnType<typeof captureStackedViewport>>;
+    try {
+      snapshot = await getInteractionSnapshot(activeTab.tabId, {
+        maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
+        viewportOnly: true,
+        viewportSegments: AGENT_VIEWPORT_SEGMENTS,
+      });
+      const baseViewportHeight = Math.max(1, Math.round(snapshot.viewportHeight / AGENT_VIEWPORT_SEGMENTS));
+      capture = await captureStackedViewport({
+        windowId: activeTab.windowId,
+        tabId: activeTab.tabId,
+        baseScrollY: snapshot.scrollY,
+        viewportHeight: baseViewportHeight,
+        viewportSegments: AGENT_VIEWPORT_SEGMENTS,
+        settleMs: INTERACTION_CAPTURE_SETTLE_MS,
+      });
+    } catch (error) {
+      if (!isContentConnectionUnavailableError(error)) throw error;
+
+      const placeholderUrl = chrome.runtime.getURL(AGENT_PLACEHOLDER_PAGE_PATH);
+      if (!isSameDestination(activeTab.url, placeholderUrl)) {
+        const placeholderOpenResult = await openExtensionPageInTab(activeTab.tabId, AGENT_PLACEHOLDER_PAGE_PATH);
+        emitProgressLine(
+          options,
+          `[${stepNumber}] recovery | content connection unavailable, opened placeholder ${placeholderOpenResult.finalUrl}`,
+        );
+      } else {
+        emitProgressLine(
+          options,
+          `[${stepNumber}] recovery | content connection unavailable, keeping placeholder page`,
+        );
+      }
+
+      await waitForTabSettled(activeTab.tabId, {
+        maxWaitMs: INTERACTION_TAB_SETTLE_MAX_WAIT_MS,
+        pollIntervalMs: INTERACTION_TAB_SETTLE_POLL_MS,
+        stableIdleMs: INTERACTION_TAB_SETTLE_IDLE_MS,
+      });
+      activeTab = await getActiveTab();
+      lastTabId = activeTab.tabId;
+      capture = await captureStackedViewport({
+        windowId: activeTab.windowId,
+        tabId: activeTab.tabId,
+        baseScrollY: 0,
+        viewportHeight: 1,
+        viewportSegments: 1,
+        settleMs: INTERACTION_CAPTURE_SETTLE_MS,
+      });
+      snapshot = buildSyntheticSnapshot({
+        pageUrl: activeTab.url || placeholderUrl,
+        pageTitle: activeTab.title || 'NanoChat',
+        viewportWidth: capture.canvas.width,
+        viewportHeight: capture.canvas.height,
+      });
+    }
+
     emitProgressLine(options, formatObserveLine(stepNumber, snapshot.pageUrl, snapshot.interactiveElements.length));
     lastPageUrl = snapshot.pageUrl;
     lastPageTitle = snapshot.pageTitle;
-    const baseViewportHeight = Math.max(1, Math.round(snapshot.viewportHeight / AGENT_VIEWPORT_SEGMENTS));
-    const capture = await captureStackedViewport({
-      windowId: activeTab.windowId,
-      tabId: activeTab.tabId,
-      baseScrollY: snapshot.scrollY,
-      viewportHeight: baseViewportHeight,
-      viewportSegments: AGENT_VIEWPORT_SEGMENTS,
-      settleMs: INTERACTION_CAPTURE_SETTLE_MS,
-    });
 
     const decision = await requestPlannerDecision({
       task,

@@ -190,11 +190,11 @@ function normalizeUrl(url: string): string {
   return `https://${trimmed}`;
 }
 
-function waitForTabComplete(tabId: number, timeoutMs: number): Promise<void> {
+function waitForTabComplete(tabId: number, timeoutMs: number, contextLabel = 'openUrl'): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => {
       chrome.tabs.onUpdated.removeListener(handleUpdate);
-      reject(new Error('Timed out waiting for page load after openUrl'));
+      reject(new Error(`Timed out waiting for page load after ${contextLabel}`));
     }, timeoutMs);
 
     const handleUpdate = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
@@ -209,13 +209,28 @@ function waitForTabComplete(tabId: number, timeoutMs: number): Promise<void> {
   });
 }
 
+async function updateTabUrlAndWait(tabId: number, targetUrl: string, contextLabel: string): Promise<{ finalUrl: string }> {
+  const updated = await chrome.tabs.update(tabId, { url: targetUrl });
+  if (!updated?.id) throw new Error('Failed to update active tab URL');
+  await waitForTabComplete(updated.id, 15000, contextLabel);
+  const tab = await chrome.tabs.get(updated.id);
+  return { finalUrl: tab.url ?? targetUrl };
+}
+
 export async function openUrlInTab(tabId: number, url: string): Promise<{ finalUrl: string }> {
   const targetUrl = normalizeUrl(url);
   logger.info('openUrlInTab:request', { tabId, url: targetUrl });
-  const updated = await chrome.tabs.update(tabId, { url: targetUrl });
-  if (!updated?.id) throw new Error('Failed to update active tab URL');
-  await waitForTabComplete(updated.id, 15000);
-  const tab = await chrome.tabs.get(updated.id);
-  logger.info('openUrlInTab:response', { tabId: updated.id, url: tab.url });
-  return { finalUrl: tab.url ?? targetUrl };
+  const result = await updateTabUrlAndWait(tabId, targetUrl, 'openUrl');
+  logger.info('openUrlInTab:response', { tabId, url: result.finalUrl });
+  return result;
+}
+
+export async function openExtensionPageInTab(tabId: number, pagePath: string): Promise<{ finalUrl: string }> {
+  const normalizedPath = pagePath.trim().replace(/^\/+/, '');
+  if (!normalizedPath) throw new Error('openExtensionPageInTab received empty pagePath');
+  const targetUrl = chrome.runtime.getURL(normalizedPath);
+  logger.info('openExtensionPageInTab:request', { tabId, url: targetUrl });
+  const result = await updateTabUrlAndWait(tabId, targetUrl, 'openExtensionPage');
+  logger.info('openExtensionPageInTab:response', { tabId, url: result.finalUrl });
+  return result;
 }

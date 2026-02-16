@@ -77,6 +77,7 @@ function buildVerifierPrompt(params: {
     'Mark complete=true only if the current page state proves that the task is fully completed now.',
     'If task asks to open a target page/item, complete=true only when user is already on that target page/item URL (or exact equivalent destination).',
     'Do not accept intermediate states as complete (for example homepage, search results, category page, or partially completed forms) unless task explicitly requests that intermediate state.',
+    'If Current URL is an extension placeholder page (for example /src/placeholder.html), complete must be false.',
     'If plannerFinalAnswer suggests a different URL than Current URL, complete must be false.',
     'If recent history includes failed/not-executed actions that are still relevant to the goal, complete must be false.',
     'If there is any ambiguity, uncertainty, or missing proof, return complete=false with medium/low confidence.',
