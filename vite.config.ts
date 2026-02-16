@@ -4,12 +4,13 @@ import webExtension from 'vite-plugin-web-extension';
 import { resolve } from 'path';
 
 export default defineConfig(({ mode }) => ({
-	plugins: [
-		react(),
-		webExtension({
-			disableAutoLaunch: true,
-		}),
-	],
+		plugins: [
+			react(),
+			webExtension({
+				disableAutoLaunch: true,
+				additionalInputs: ['src/placeholder.html'],
+			}),
+		],
 	build:
 		mode === 'development'
 			? {
