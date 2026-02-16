@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PromptAPIService } from '@app/services/prompt-api';
-import type { LoadingProgress, SessionStatus } from '@shared/types';
+import { SessionStatus } from '@shared/types';
+import type { LoadingProgress } from '@shared/types';
 
 export function usePromptSession() {
   const serviceRef = useRef<PromptAPIService>(new PromptAPIService());
   const initRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
-  const [status, setStatus] = useState<SessionStatus>('idle');
+  const [status, setStatus] = useState<SessionStatus>(SessionStatus.Idle);
   const [progress, setProgress] = useState<LoadingProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const createSession = useCallback(async () => {
-    setStatus('loading');
+    setStatus(SessionStatus.Loading);
     setError(null);
     setProgress(null);
 
@@ -20,15 +21,15 @@ export function usePromptSession() {
 
     try {
       await serviceRef.current.createSession((p) => setProgress(p), abortController.signal);
-      setStatus('ready');
+      setStatus(SessionStatus.Ready);
     } catch (err) {
       if (abortController.signal.aborted) {
-        setStatus('needs-download');
+        setStatus(SessionStatus.NeedsDownload);
         return;
       }
       const message = err instanceof Error ? err.message : 'Failed to initialize model';
       setError(message);
-      setStatus('error');
+      setStatus(SessionStatus.Error);
     } finally {
       setProgress(null);
       abortRef.current = null;
@@ -36,7 +37,7 @@ export function usePromptSession() {
   }, []);
 
   const checkAndInit = useCallback(async () => {
-    setStatus('loading');
+    setStatus(SessionStatus.Loading);
     setError(null);
 
     try {
@@ -44,12 +45,12 @@ export function usePromptSession() {
 
       if (availability === 'unavailable') {
         setError('Gemini Nano is not available in this browser. Chrome 138+ required.');
-        setStatus('error');
+        setStatus(SessionStatus.Error);
         return;
       }
 
       if (availability === 'downloadable' || availability === 'downloading') {
-        setStatus('needs-download');
+        setStatus(SessionStatus.NeedsDownload);
         return;
       }
 
@@ -57,7 +58,7 @@ export function usePromptSession() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to initialize model';
       setError(message);
-      setStatus('error');
+      setStatus(SessionStatus.Error);
     }
   }, [createSession]);
 

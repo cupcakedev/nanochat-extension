@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { MessageRole } from '@shared/types';
 import type { ChatMessage } from '@shared/types';
 import { TypingIndicator } from '@app/components/ui/TypingIndicator';
 import { MarkdownContent } from './MarkdownContent';
@@ -22,7 +23,7 @@ const renderImageList = (images: string[], imageClassName: string) => (
 );
 
 export const MessageBubble = memo(({ message, streaming = false }: MessageBubbleProps) => {
-  const isUser = message.role === 'user';
+  const isUser = message.role === MessageRole.User;
   const isEmpty = !message.content;
 
   if (isUser) {

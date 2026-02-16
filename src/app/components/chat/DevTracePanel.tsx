@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
+import { DevTraceKind } from '@app/types/dev-trace';
 import type { DevTraceItem } from '@app/types/dev-trace';
 
 interface DevTracePanelProps {
@@ -7,7 +8,7 @@ interface DevTracePanelProps {
 }
 
 function renderTraceItem(item: DevTraceItem) {
-  if (item.kind === 'line') {
+  if (item.kind === DevTraceKind.Line) {
     return (
       <p key={item.id} className="whitespace-pre-wrap break-words">
         {item.line}

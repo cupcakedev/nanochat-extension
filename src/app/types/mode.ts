@@ -1,11 +1,17 @@
-export type ChatMode = 'chat' | 'agent';
+export enum ChatMode {
+  Chat = 'chat',
+  Agent = 'agent',
+}
 
-export type ChatContextSendMode = 'without-page-context' | 'with-page-context';
+export enum ChatContextSendMode {
+  WithoutPageContext = 'without-page-context',
+  WithPageContext = 'with-page-context',
+}
 
 export interface ChatSendOptions {
   chatContextSendMode?: ChatContextSendMode;
 }
 
 export function requiresPageContext(mode: ChatMode): boolean {
-  return mode === 'agent';
+  return mode === ChatMode.Agent;
 }

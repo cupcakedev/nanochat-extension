@@ -4,8 +4,8 @@ import { AgentContextChip } from './AgentContextChip';
 import { AgentNotice } from './AgentNotice';
 import { ChatInput } from '@app/components/ui/ChatInput';
 import type { AgentContextChip as AgentContextChipType } from '@app/hooks/useAgentMode';
-import type { ChatContextSendMode, ChatMode, ChatSendOptions } from '@app/types/mode';
-import { requiresPageContext } from '@app/types/mode';
+import { ChatMode, requiresPageContext } from '@app/types/mode';
+import type { ChatContextSendMode, ChatSendOptions } from '@app/types/mode';
 import type { PageSource } from '@shared/types';
 
 interface InputDockProps {
@@ -31,7 +31,7 @@ const shouldShowContextChip = (
   visible: boolean,
   chatPageSource?: PageSource,
 ): boolean => {
-  if (mode === 'chat') return Boolean(chatPageSource);
+  if (mode === ChatMode.Chat) return Boolean(chatPageSource);
   return requiresPageContext(mode) && chip !== null && visible;
 };
 
@@ -52,10 +52,10 @@ export const InputDock = memo(({
   onContextModeChange,
 }: InputDockProps) => {
   const showContextChip = shouldShowContextChip(mode, agentContextChip, agentContextChipVisible, chatPageSource);
-  const contextTitle = mode === 'chat' ? (chatPageSource?.title ?? '') : (agentContextChip?.title ?? '');
-  const contextFavicon = mode === 'chat' ? (chatPageSource?.faviconUrl ?? '') : (agentContextChip?.faviconUrl ?? '');
-  const contextAnimationKey = mode === 'chat' ? chatContextAnimationKey : agentChipAnimationKey;
-  const showContextToggle = mode !== 'agent';
+  const contextTitle = mode === ChatMode.Chat ? (chatPageSource?.title ?? '') : (agentContextChip?.title ?? '');
+  const contextFavicon = mode === ChatMode.Chat ? (chatPageSource?.faviconUrl ?? '') : (agentContextChip?.faviconUrl ?? '');
+  const contextAnimationKey = mode === ChatMode.Chat ? chatContextAnimationKey : agentChipAnimationKey;
+  const showContextToggle = mode !== ChatMode.Agent;
 
   return (
     <div ref={dockRef} className="absolute bottom-0 left-0 right-0 z-20 px-6 pt-3 pb-4">

@@ -1,9 +1,9 @@
 export type { MessageType, ExtensionMessage, MessageResponseMap } from './messages';
 
+export { MessageRole, SessionStatus } from './chat';
 export type {
   ChatMessage,
   LoadingProgress,
-  SessionStatus,
   TokenStats,
   Chat,
   ChatSummary,

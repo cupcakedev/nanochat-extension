@@ -1,12 +1,17 @@
+export enum DevTraceKind {
+  Line = 'line',
+  Screenshot = 'screenshot',
+}
+
 export interface DevTraceLineItem {
   id: string;
-  kind: 'line';
+  kind: DevTraceKind.Line;
   line: string;
 }
 
 export interface DevTraceScreenshotItem {
   id: string;
-  kind: 'screenshot';
+  kind: DevTraceKind.Screenshot;
   stepNumber: number;
   imageDataUrl: string;
   width: number;

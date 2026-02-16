@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef } from 'react';
+import { MessageRole } from '@shared/types';
 import type { ChatMessage, PageSource } from '@shared/types';
 import { MessageBubble } from './MessageBubble';
 import { SourceBadge } from './SourceBadge';
@@ -15,12 +16,12 @@ function isActiveStreamingMessage(
   totalMessages: number,
   streaming: boolean,
 ): boolean {
-  return streaming && index === totalMessages - 1 && message.role === 'assistant';
+  return streaming && index === totalMessages - 1 && message.role === MessageRole.Assistant;
 }
 
 function findLastAssistantIndex(messages: ChatMessage[]): number {
   for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === 'assistant') return i;
+    if (messages[i].role === MessageRole.Assistant) return i;
   }
   return -1;
 }

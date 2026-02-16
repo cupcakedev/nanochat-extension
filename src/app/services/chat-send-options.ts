@@ -1,6 +1,7 @@
-import type { ChatContextSendMode, ChatMode, ChatSendOptions } from '@app/types/mode';
+import { ChatMode } from '@app/types/mode';
+import type { ChatContextSendMode, ChatSendOptions } from '@app/types/mode';
 
 export function toSendOptions(mode: ChatMode, sendMode?: ChatContextSendMode): ChatSendOptions | undefined {
-  if (mode !== 'chat' || !sendMode) return undefined;
+  if (mode !== ChatMode.Chat || !sendMode) return undefined;
   return { chatContextSendMode: sendMode };
 }

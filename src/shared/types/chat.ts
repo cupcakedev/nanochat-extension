@@ -1,6 +1,11 @@
+export enum MessageRole {
+  User = 'user',
+  Assistant = 'assistant',
+}
+
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: MessageRole;
   content: string;
   images?: string[];
   timestamp: number;
@@ -11,7 +16,13 @@ export interface LoadingProgress {
   text: string;
 }
 
-export type SessionStatus = 'idle' | 'needs-download' | 'loading' | 'ready' | 'error';
+export enum SessionStatus {
+  Idle = 'idle',
+  NeedsDownload = 'needs-download',
+  Loading = 'loading',
+  Ready = 'ready',
+  Error = 'error',
+}
 
 export interface TokenStats {
   tokenCount: number;
