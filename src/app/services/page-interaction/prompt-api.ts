@@ -37,6 +37,7 @@ const INTERACTION_PLAN_SCHEMA = {
 interface PromptRequestOptions {
   responseConstraint: unknown;
   omitResponseConstraintInput: boolean;
+  signal?: AbortSignal;
 }
 
 export interface TextImagePromptResult {
@@ -64,8 +65,8 @@ function buildPromptInput(prompt: string, bitmap: ImageBitmap) {
   }] as const;
 }
 
-function buildPromptOptions(): PromptRequestOptions {
-  return { responseConstraint: INTERACTION_PLAN_SCHEMA, omitResponseConstraintInput: true };
+function buildPromptOptions(signal?: AbortSignal): PromptRequestOptions {
+  return { responseConstraint: INTERACTION_PLAN_SCHEMA, omitResponseConstraintInput: true, signal };
 }
 
 async function measureInputUsage(session: LanguageModel, input: unknown, options: PromptRequestOptions): Promise<number | null> {
@@ -114,17 +115,29 @@ export function isInputTooLargeError(error: unknown): boolean {
   return /input is too large/i.test(message);
 }
 
-export async function runTextImagePrompt(prompt: string, imageCanvas: HTMLCanvasElement): Promise<TextImagePromptResult> {
+export async function runTextImagePrompt(
+  prompt: string,
+  imageCanvas: HTMLCanvasElement,
+  signal?: AbortSignal,
+): Promise<TextImagePromptResult> {
+  if (signal?.aborted) {
+    const aborted = new Error('Prompt request aborted');
+    aborted.name = 'AbortError';
+    throw aborted;
+  }
   const availability = await LanguageModel.availability(TEXT_IMAGE_LANGUAGE_OPTIONS);
   if (availability === 'unavailable') {
     throw new Error('Chrome Prompt API is unavailable in this browser profile');
   }
 
-  const session = await LanguageModel.create(TEXT_IMAGE_LANGUAGE_OPTIONS);
+  const session = await LanguageModel.create({
+    ...TEXT_IMAGE_LANGUAGE_OPTIONS,
+    ...(signal ? { signal } : {}),
+  });
   const sessionAny = session as unknown as { inputUsage?: unknown; inputQuota?: unknown };
   const bitmap = await createImageBitmap(imageCanvas);
   const input = buildPromptInput(prompt, bitmap);
-  const options = buildPromptOptions();
+  const options = buildPromptOptions(signal);
   const sessionInputUsageBefore = toNumber(sessionAny.inputUsage);
   const sessionInputQuota = toNumber(sessionAny.inputQuota);
 
@@ -154,23 +167,32 @@ function buildTextPromptInput(prompt: string) {
   }] as const;
 }
 
-function buildPromptOptionsWithSchema(schema: unknown): PromptRequestOptions {
-  return { responseConstraint: schema, omitResponseConstraintInput: true };
+function buildPromptOptionsWithSchema(schema: unknown, signal?: AbortSignal): PromptRequestOptions {
+  return { responseConstraint: schema, omitResponseConstraintInput: true, signal };
 }
 
 export async function runTextPromptWithConstraint(
   prompt: string,
   responseConstraint: unknown,
+  signal?: AbortSignal,
 ): Promise<TextImagePromptResult> {
+  if (signal?.aborted) {
+    const aborted = new Error('Prompt request aborted');
+    aborted.name = 'AbortError';
+    throw aborted;
+  }
   const availability = await LanguageModel.availability(TEXT_LANGUAGE_OPTIONS);
   if (availability === 'unavailable') {
     throw new Error('Chrome Prompt API is unavailable in this browser profile');
   }
 
-  const session = await LanguageModel.create(TEXT_LANGUAGE_OPTIONS);
+  const session = await LanguageModel.create({
+    ...TEXT_LANGUAGE_OPTIONS,
+    ...(signal ? { signal } : {}),
+  });
   const sessionAny = session as unknown as { inputUsage?: unknown; inputQuota?: unknown };
   const input = buildTextPromptInput(prompt);
-  const options = buildPromptOptionsWithSchema(responseConstraint);
+  const options = buildPromptOptionsWithSchema(responseConstraint, signal);
   const sessionInputUsageBefore = toNumber(sessionAny.inputUsage);
   const sessionInputQuota = toNumber(sessionAny.inputQuota);
 

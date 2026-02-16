@@ -51,6 +51,7 @@ const CONTENT_CONNECTION_ERROR_MESSAGES = [
   'Could not establish connection. Receiving end does not exist.',
   'The message port closed before a response was received.',
 ];
+const DONE_LOOP_RECOVERY_THRESHOLD = 2;
 
 interface PromptDecisionResult {
   decision: ParsedInteractionDecision;
@@ -87,6 +88,7 @@ export type InteractionProgressEvent =
 
 export interface InteractionRunOptions {
   onProgress?: (event: InteractionProgressEvent) => void;
+  signal?: AbortSignal;
 }
 
 type ExecutableInteractionPlan = InteractionActionPlan & {
@@ -136,6 +138,24 @@ function mustStopRetrying(current: number, next: number): boolean {
 
 function extractErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function createAbortError(): Error {
+  const error = new Error('Agent run aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+function isAbortError(error: unknown): boolean {
+  if (error instanceof Error) {
+    if (error.name === 'AbortError') return true;
+    if (/aborted|cancelled/i.test(error.message)) return true;
+  }
+  return false;
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw createAbortError();
 }
 
 function isContentConnectionUnavailableError(error: unknown): boolean {
@@ -260,6 +280,71 @@ function buildDoneStatusNavigationPlans(params: {
   return [];
 }
 
+function compactKeyPart(value: string | null | undefined, maxChars = 220): string {
+  if (!value) return '';
+  const compacted = value.replace(/\s+/g, ' ').trim();
+  return compacted.length <= maxChars ? compacted : compacted.slice(0, maxChars);
+}
+
+function countMeaningfulExecutions(executions: InteractionExecutionResult[]): number {
+  return executions.reduce((count, execution) => (
+    count + (execution.requestedAction === 'unknown' ? 0 : 1)
+  ), 0);
+}
+
+function buildVerificationCacheKey(params: {
+  task: string;
+  pageUrl: string;
+  pageTitle: string;
+  plannerFinalAnswer: string | null;
+  plannerReason: string | null;
+  meaningfulExecutionCount: number;
+}): string {
+  return [
+    compactKeyPart(params.task, 260),
+    normalizeComparableUrl(params.pageUrl),
+    compactKeyPart(params.pageTitle, 160),
+    compactKeyPart(params.plannerFinalAnswer, 220),
+    compactKeyPart(params.plannerReason, 180),
+    String(params.meaningfulExecutionCount),
+  ].join('|');
+}
+
+function buildDoneLoopKey(params: {
+  task: string;
+  pageUrl: string;
+  finalAnswer: string | null;
+  reason: string | null;
+  meaningfulExecutionCount: number;
+}): string {
+  return [
+    compactKeyPart(params.task, 260),
+    normalizeComparableUrl(params.pageUrl),
+    compactKeyPart(params.finalAnswer, 220),
+    compactKeyPart(params.reason, 180),
+    String(params.meaningfulExecutionCount),
+  ].join('|');
+}
+
+function buildStuckDoneRecoveryPlans(params: {
+  task: string;
+  currentUrl: string;
+}): InteractionActionPlan[] {
+  const queryBase = compactKeyPart(params.task, 280) || 'site search';
+  let query = queryBase;
+  try {
+    const url = new URL(params.currentUrl);
+    if (/^https?:$/i.test(url.protocol) && url.hostname.trim()) {
+      query = `${queryBase} site:${url.hostname}`;
+    }
+  } catch {
+    // Keep generic query when URL is not parseable.
+  }
+
+  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  return [toRecoveryOpenUrlPlan(searchUrl, 'Stuck done-loop recovery via search navigation')];
+}
+
 function toExecutionFromAction(
   plan: ExecutableInteractionPlan,
   response: Awaited<ReturnType<typeof executeAction>>,
@@ -285,25 +370,34 @@ function toExecutionFromOpenUrl(plan: InteractionActionPlan, finalUrl: string): 
   };
 }
 
-async function executeSinglePlan(tabId: number, plan: InteractionActionPlan): Promise<InteractionExecutionResult> {
+async function executeSinglePlan(
+  tabId: number,
+  plan: InteractionActionPlan,
+  signal?: AbortSignal,
+): Promise<InteractionExecutionResult> {
+  throwIfAborted(signal);
   if (plan.action === 'openUrl') {
     if (!plan.url) return fallbackExecution(plan, 'openUrl action requires URL');
     try {
       const result = await openUrlInTab(tabId, plan.url);
+      throwIfAborted(signal);
       return toExecutionFromOpenUrl(plan, result.finalUrl);
     } catch (error) {
+      if (isAbortError(error)) throw error;
       const message = error instanceof Error ? error.message : 'openUrl failed';
       return fallbackExecution(plan, message);
     }
   }
 
   if (isExecutableAction(plan)) {
+    throwIfAborted(signal);
     const response = await executeAction(
       tabId,
       plan.action,
       plan.index,
       plan.action === 'type' ? plan.text ?? '' : null,
     );
+    throwIfAborted(signal);
     return toExecutionFromAction(plan, response);
   }
 
@@ -322,11 +416,13 @@ function shouldStopAfterExecution(execution: InteractionExecutionResult): boolea
 async function executePlannedActions(
   tabId: number,
   plans: InteractionActionPlan[],
+  signal?: AbortSignal,
 ): Promise<InteractionExecutionResult[]> {
   const executions: InteractionExecutionResult[] = [];
 
   for (const plan of plans) {
-    const execution = await executeSinglePlan(tabId, plan);
+    throwIfAborted(signal);
+    const execution = await executeSinglePlan(tabId, plan, signal);
     executions.push(execution);
     if (shouldStopAfterExecution(execution)) break;
   }
@@ -345,11 +441,13 @@ async function requestPlannerDecision(params: {
   baseCanvas: HTMLCanvasElement;
   viewport: { width: number; height: number };
   onProgress?: InteractionRunOptions['onProgress'];
+  signal?: AbortSignal;
 }): Promise<PromptDecisionResult> {
   let elementLimit = Math.max(1, params.elements.length);
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt <= INTERACTION_PROMPT_MAX_RETRY_ATTEMPTS; attempt += 1) {
+    throwIfAborted(params.signal);
     const promptElements = params.elements.slice(0, Math.max(1, elementLimit));
     const prompt = buildInteractionPrompt({
       task: params.task,
@@ -364,7 +462,7 @@ async function requestPlannerDecision(params: {
     const emittedScreenshot = emitProgressScreenshot(params.onProgress, params.stepNumber, annotatedCanvas);
 
     try {
-      const runResult = await runTextImagePrompt(prompt, annotatedCanvas);
+      const runResult = await runTextImagePrompt(prompt, annotatedCanvas, params.signal);
       return {
         decision: parseInteractionDecision(runResult.output),
         rawResponse: runResult.output,
@@ -381,6 +479,7 @@ async function requestPlannerDecision(params: {
         imageHeight: annotatedCanvas.height,
       };
     } catch (error) {
+      if (isAbortError(error)) throw error;
       lastError = error;
       if (!isInputTooLargeError(error)) throw error;
       const nextElementLimit = nextPromptElementLimit(elementLimit);
@@ -428,6 +527,7 @@ export async function runPageInteractionStep(
   userInstruction: string,
   options?: InteractionRunOptions,
 ): Promise<PageInteractionStepResult> {
+  throwIfAborted(options?.signal);
   const task = normalizeInstruction(userInstruction);
   const allPlans: InteractionActionPlan[] = [];
   const allExecutions: InteractionExecutionResult[] = [];
@@ -442,8 +542,12 @@ export async function runPageInteractionStep(
   let lastElementCount = 0;
   let lastPromptElementCount = 0;
   let totalRetries = 0;
+  const verificationCache = new Map<string, InteractionCompletionVerification>();
+  let lastRejectedDoneKey: string | null = null;
+  let rejectedDoneStreak = 0;
 
   for (let stepNumber = 1; stepNumber <= AGENT_MAX_STEPS; stepNumber += 1) {
+    throwIfAborted(options?.signal);
     let activeTab = await getActiveTab();
     lastTabId = activeTab.tabId;
     await waitForTabSettled(activeTab.tabId, {
@@ -451,6 +555,7 @@ export async function runPageInteractionStep(
       pollIntervalMs: INTERACTION_TAB_SETTLE_POLL_MS,
       stableIdleMs: INTERACTION_TAB_SETTLE_IDLE_MS,
     });
+    throwIfAborted(options?.signal);
 
     let snapshot: InteractionSnapshotPayload;
     let capture: Awaited<ReturnType<typeof captureStackedViewport>>;
@@ -469,7 +574,9 @@ export async function runPageInteractionStep(
         viewportSegments: AGENT_VIEWPORT_SEGMENTS,
         settleMs: INTERACTION_CAPTURE_SETTLE_MS,
       });
+      throwIfAborted(options?.signal);
     } catch (error) {
+      if (isAbortError(error)) throw error;
       if (!isContentConnectionUnavailableError(error)) throw error;
 
       const placeholderUrl = chrome.runtime.getURL(AGENT_PLACEHOLDER_PAGE_PATH);
@@ -491,6 +598,7 @@ export async function runPageInteractionStep(
         pollIntervalMs: INTERACTION_TAB_SETTLE_POLL_MS,
         stableIdleMs: INTERACTION_TAB_SETTLE_IDLE_MS,
       });
+      throwIfAborted(options?.signal);
       activeTab = await getActiveTab();
       lastTabId = activeTab.tabId;
       capture = await captureStackedViewport({
@@ -501,6 +609,7 @@ export async function runPageInteractionStep(
         viewportSegments: 1,
         settleMs: INTERACTION_CAPTURE_SETTLE_MS,
       });
+      throwIfAborted(options?.signal);
       snapshot = buildSyntheticSnapshot({
         pageUrl: activeTab.url || placeholderUrl,
         pageTitle: activeTab.title || 'NanoChat',
@@ -524,6 +633,7 @@ export async function runPageInteractionStep(
       baseCanvas: capture.canvas,
       viewport: { width: snapshot.viewportWidth, height: snapshot.viewportHeight },
       onProgress: options?.onProgress,
+      signal: options?.signal,
     });
 
     rawResponses.push(decision.rawResponse);
@@ -538,6 +648,7 @@ export async function runPageInteractionStep(
     totalRetries += decision.retryCount;
 
     if (decision.decision.status === 'done') {
+      const meaningfulExecutionCount = countMeaningfulExecutions(allExecutions);
       const doneStatusRecoveryPlans = enforceTypingFirst(
         buildDoneStatusNavigationPlans({
           currentUrl: snapshot.pageUrl,
@@ -554,7 +665,7 @@ export async function runPageInteractionStep(
         formatPlanLines(stepNumber, doneStatusRecoveryPlans).forEach((line) => emitProgressLine(options, line));
         allPlans.push(...doneStatusRecoveryPlans);
 
-        const doneStatusRecoveries = await executePlannedActions(activeTab.tabId, doneStatusRecoveryPlans);
+        const doneStatusRecoveries = await executePlannedActions(activeTab.tabId, doneStatusRecoveryPlans, options?.signal);
         formatExecutionLines(stepNumber, doneStatusRecoveries).forEach((line) => emitProgressLine(options, line));
         allExecutions.push(...doneStatusRecoveries);
 
@@ -570,27 +681,48 @@ export async function runPageInteractionStep(
           finalAnswer = 'Maximum agent steps reached';
           break;
         }
+        lastRejectedDoneKey = null;
+        rejectedDoneStreak = 0;
         continue;
       }
 
-      const verificationResult = await verifyTaskCompletion({
+      const verificationCacheKey = buildVerificationCacheKey({
         task,
         pageUrl: snapshot.pageUrl,
         pageTitle: snapshot.pageTitle,
-        history: allExecutions,
         plannerFinalAnswer: decision.decision.finalAnswer,
-      }).catch((error) => {
-        const message = `Verifier error: ${extractErrorMessage(error)}`;
-        return {
-          verification: {
-            complete: false,
-            reason: message,
-            confidence: 'low' as const,
-          },
-          rawOutput: message,
-        };
+        plannerReason: decision.decision.reason,
+        meaningfulExecutionCount,
       });
+      const cachedVerification = verificationCache.get(verificationCacheKey);
+      const verificationResult = cachedVerification
+        ? {
+          verification: cachedVerification,
+          rawOutput: '{"cached":true}',
+        }
+        : await verifyTaskCompletion({
+          task,
+          pageUrl: snapshot.pageUrl,
+          pageTitle: snapshot.pageTitle,
+          history: allExecutions,
+          plannerFinalAnswer: decision.decision.finalAnswer,
+          signal: options?.signal,
+        }).catch((error) => {
+          if (isAbortError(error)) throw error;
+          const message = `Verifier error: ${extractErrorMessage(error)}`;
+          return {
+            verification: {
+              complete: false,
+              reason: message,
+              confidence: 'low' as const,
+            },
+            rawOutput: message,
+          };
+        });
       const verification = verificationResult.verification;
+      if (!cachedVerification) {
+        verificationCache.set(verificationCacheKey, verification);
+      }
       lastVerification = verification;
       emitProgressLine(options, formatVerificationLine(stepNumber, verification));
       if (verificationResult.rawOutput) {
@@ -599,6 +731,8 @@ export async function runPageInteractionStep(
       if (verification.complete) {
         finalStatus = 'done';
         finalAnswer = decision.decision.finalAnswer ?? verification.reason;
+        lastRejectedDoneKey = null;
+        rejectedDoneStreak = 0;
         break;
       }
 
@@ -618,7 +752,7 @@ export async function runPageInteractionStep(
         formatPlanLines(stepNumber, recoveryPlans).forEach((line) => emitProgressLine(options, line));
         allPlans.push(...recoveryPlans);
 
-        const recoveryExecutions = await executePlannedActions(activeTab.tabId, recoveryPlans);
+        const recoveryExecutions = await executePlannedActions(activeTab.tabId, recoveryPlans, options?.signal);
         formatExecutionLines(stepNumber, recoveryExecutions).forEach((line) => emitProgressLine(options, line));
         allExecutions.push(...recoveryExecutions);
 
@@ -634,10 +768,54 @@ export async function runPageInteractionStep(
           finalAnswer = 'Maximum agent steps reached';
           break;
         }
+        lastRejectedDoneKey = null;
+        rejectedDoneStreak = 0;
         continue;
       }
 
       allExecutions.push(verifierExecution(verification.reason));
+      const doneLoopKey = buildDoneLoopKey({
+        task,
+        pageUrl: snapshot.pageUrl,
+        finalAnswer: decision.decision.finalAnswer,
+        reason: decision.decision.reason,
+        meaningfulExecutionCount,
+      });
+      rejectedDoneStreak = (lastRejectedDoneKey === doneLoopKey) ? (rejectedDoneStreak + 1) : 1;
+      lastRejectedDoneKey = doneLoopKey;
+      if (rejectedDoneStreak >= DONE_LOOP_RECOVERY_THRESHOLD) {
+        const stuckRecoveryPlans = buildStuckDoneRecoveryPlans({
+          task,
+          currentUrl: snapshot.pageUrl,
+        });
+        emitProgressLine(
+          options,
+          `[${stepNumber}] recovery | repeated done-loop detected, forcing actions=${stuckRecoveryPlans.length}`,
+        );
+        formatPlanLines(stepNumber, stuckRecoveryPlans).forEach((line) => emitProgressLine(options, line));
+        allPlans.push(...stuckRecoveryPlans);
+
+        const stuckRecoveryExecutions = await executePlannedActions(activeTab.tabId, stuckRecoveryPlans, options?.signal);
+        formatExecutionLines(stepNumber, stuckRecoveryExecutions).forEach((line) => emitProgressLine(options, line));
+        allExecutions.push(...stuckRecoveryExecutions);
+
+        if (!stuckRecoveryExecutions.length) {
+          finalStatus = 'fail';
+          finalAnswer = 'Done-loop recovery produced no executable actions';
+          break;
+        }
+
+        const lastStuckRecoveryExecution = stuckRecoveryExecutions[stuckRecoveryExecutions.length - 1];
+        if (!lastStuckRecoveryExecution.executed && stepNumber >= AGENT_MAX_STEPS) {
+          finalStatus = 'max-steps';
+          finalAnswer = 'Maximum agent steps reached';
+          break;
+        }
+
+        lastRejectedDoneKey = null;
+        rejectedDoneStreak = 0;
+        continue;
+      }
       if (stepNumber >= AGENT_MAX_STEPS) {
         finalStatus = 'max-steps';
         finalAnswer = verification.reason;
@@ -652,11 +830,13 @@ export async function runPageInteractionStep(
       break;
     }
 
+    lastRejectedDoneKey = null;
+    rejectedDoneStreak = 0;
     const plans = enforceTypingFirst(decision.decision.actions, task, decision.promptElements);
     formatPlanLines(stepNumber, plans).forEach((line) => emitProgressLine(options, line));
     allPlans.push(...plans);
 
-    const executions = await executePlannedActions(activeTab.tabId, plans);
+    const executions = await executePlannedActions(activeTab.tabId, plans, options?.signal);
     formatExecutionLines(stepNumber, executions).forEach((line) => emitProgressLine(options, line));
     allExecutions.push(...executions);
 

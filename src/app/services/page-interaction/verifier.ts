@@ -53,7 +53,7 @@ function normalizeComplete(value: unknown): boolean {
 function formatHistory(history: InteractionExecutionResult[]): string {
   if (!history.length) return 'none';
 
-  return history.slice(-10).map((execution, index) => {
+  return history.slice(-6).map((execution, index) => {
     const parts: string[] = [execution.requestedAction];
     if (execution.requestedIndex !== null) parts.push(`#${execution.requestedIndex}`);
     if (execution.requestedText) parts.push(`"${execution.requestedText}"`);
@@ -73,15 +73,14 @@ function buildVerifierPrompt(params: {
     'You are a strict task-completion verifier for a browser agent.',
     'Return only minified JSON and nothing else.',
     '{"complete":boolean,"reason":string,"confidence":"high|medium|low"}.',
-    'Default stance: complete=false unless completion is explicitly proven.',
-    'Mark complete=true only if the current page state proves that the task is fully completed now.',
-    'If task asks to open a target page/item, complete=true only when user is already on that target page/item URL (or exact equivalent destination).',
-    'Do not accept intermediate states as complete (for example homepage, search results, category page, or partially completed forms) unless task explicitly requests that intermediate state.',
-    'If Current URL is an extension placeholder page (for example /src/placeholder.html), complete must be false.',
-    'If plannerFinalAnswer suggests a different URL than Current URL, complete must be false.',
-    'If recent history includes failed/not-executed actions that are still relevant to the goal, complete must be false.',
-    'If there is any ambiguity, uncertainty, or missing proof, return complete=false with medium/low confidence.',
-    'Set confidence=high only when evidence is direct and unambiguous; otherwise use medium or low.',
+    'Default is complete=false.',
+    'Set complete=true only when the current page clearly proves full completion of every task requirement.',
+    'Never accept partial/intermediate states as complete unless explicitly requested.',
+    'For open/go/watch tasks, complete=true only when Current URL matches target destination.',
+    'If plannerFinalAnswer suggests another URL, complete=false.',
+    'If recent history has unresolved failed/not-executed steps relevant to task, complete=false.',
+    'If uncertain, return complete=false with medium/low confidence.',
+    'Use confidence=high only for direct, unambiguous proof.',
     `Task: ${params.task}`,
     `Current URL: ${params.pageUrl}`,
     `Current title: ${params.pageTitle}`,
@@ -109,8 +108,9 @@ export async function verifyTaskCompletion(params: {
   pageTitle: string;
   history: InteractionExecutionResult[];
   plannerFinalAnswer: string | null;
+  signal?: AbortSignal;
 }): Promise<VerificationResult> {
   const prompt = buildVerifierPrompt(params);
-  const response = await runTextPromptWithConstraint(prompt, COMPLETION_VERIFICATION_SCHEMA);
+  const response = await runTextPromptWithConstraint(prompt, COMPLETION_VERIFICATION_SCHEMA, params.signal);
   return { verification: parseVerifierOutput(response.output), rawOutput: response.output };
 }
