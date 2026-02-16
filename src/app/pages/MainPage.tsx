@@ -13,12 +13,44 @@ import { useChat } from '@app/hooks/useChat';
 import { useChatContext } from '@app/hooks/useChatContext';
 import { useAgentMode } from '@app/hooks/useAgentMode';
 import { requiresPageContext } from '@app/types/mode';
+import type { ChatContextSendMode } from '@app/types/mode';
 import type { PageSource } from '@shared/types';
 
 const NOOP = () => {};
 
+const DEFAULT_CONTEXT_MODE: ChatContextSendMode = 'without-page-context';
+
+function resolveChatPageSource(
+  persistedPageSource: PageSource | null | undefined,
+  override: PageSource | null | undefined,
+): PageSource | undefined {
+  if (override === undefined) return persistedPageSource ?? undefined;
+  return override ?? undefined;
+}
+
+function resolveMessageListPageSource(
+  mode: 'chat' | 'agent',
+  persistedPageSource: PageSource | null | undefined,
+  chatPageSource?: PageSource,
+): PageSource | undefined {
+  if (mode !== 'chat') return undefined;
+  if (chatPageSource) return undefined;
+  return persistedPageSource ?? undefined;
+}
+
+function resolveChatContextAnimationKey(
+  chatPageSource: PageSource | undefined,
+  activeChatUpdatedAt: number | undefined,
+  messageCount: number,
+): number {
+  if (!chatPageSource) return 0;
+  if (activeChatUpdatedAt) return activeChatUpdatedAt;
+  return messageCount;
+}
+
 export const MainPage = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [contextMode, setContextMode] = useState<ChatContextSendMode>(DEFAULT_CONTEXT_MODE);
 
   const { status, progress, error, retry, download, serviceRef } = usePromptSession();
 
@@ -47,12 +79,17 @@ export const MainPage = () => {
     contextUsage,
     devTraceItems,
     devTraceEnabled,
+    chatContextChipSourceOverride,
     send,
     stop,
   } = useChat(
     serviceRef, activeChatId, initialMessages,
     activeChat?.contextUsage ?? null, updateActiveChat, mode, activePageSource, showAgentUnavailable,
   );
+
+  const chatPageSource = resolveChatPageSource(activeChat?.pageSource, chatContextChipSourceOverride);
+  const messageListPageSource = resolveMessageListPageSource(mode, activeChat?.pageSource, chatPageSource);
+  const chatContextAnimationKey = resolveChatContextAnimationKey(chatPageSource, activeChat?.updatedAt, messages.length);
 
   const hasMessages = messages.length > 0;
   const isSessionLoading = status === 'loading';
@@ -67,6 +104,7 @@ export const MainPage = () => {
     serviceRef.current.destroySession();
     createChat();
     resetAgentState();
+    setContextMode(DEFAULT_CONTEXT_MODE);
   }, [createChat, resetAgentState, serviceRef]);
 
   const handleClearChat = useCallback(() => {
@@ -77,6 +115,7 @@ export const MainPage = () => {
     createChat();
     deleteChat(chatIdToDelete);
     resetAgentState();
+    setContextMode(DEFAULT_CONTEXT_MODE);
   }, [activeChatId, createChat, deleteChat, resetAgentState, serviceRef, stop, streaming]);
 
   return (
@@ -104,6 +143,9 @@ export const MainPage = () => {
               progress={progress}
               error={error}
               onRetry={retry}
+              mode={mode}
+              modeLocked={hasMessages}
+              onModeChange={handleModeChange}
             />
 
             <div className="flex-1 overflow-y-auto pb-48">
@@ -112,7 +154,7 @@ export const MainPage = () => {
                   <MessageList
                     messages={messages}
                     streaming={streaming}
-                    pageSource={mode === 'chat' ? activeChat?.pageSource : undefined}
+                    pageSource={messageListPageSource}
                   />
                   {devTraceEnabled && <DevTracePanel items={devTraceItems} streaming={streaming} />}
                   {shouldShowDevTokenStats && <TokenStats stats={tokenStats!} />}
@@ -133,13 +175,15 @@ export const MainPage = () => {
               agentContextChip={agentContextChip}
               agentContextChipVisible={agentContextChipVisible}
               agentChipAnimationKey={agentChipAnimationKey}
+              chatPageSource={chatPageSource}
+              chatContextAnimationKey={chatContextAnimationKey}
               agentNotice={agentNotice}
               onSend={send}
               onStop={stop}
               streaming={streaming}
               disabled={status !== 'ready'}
-              hasMessages={hasMessages}
-              onModeChange={handleModeChange}
+              contextMode={contextMode}
+              onContextModeChange={setContextMode}
             />
           </>
         ) : (
