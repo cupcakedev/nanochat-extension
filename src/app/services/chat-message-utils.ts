@@ -1,4 +1,7 @@
-import type { ChatMessage, TokenStats } from '@shared/types';
+import type { ChatMessage, PageSource, TokenStats } from '@shared/types';
+import { MessageRole } from '@shared/types';
+import { ChatContextSendMode } from '@app/types/mode';
+import type { ChatSendOptions } from '@app/types/mode';
 
 export interface ContextUsage {
   used: number;
@@ -26,7 +29,7 @@ export function trimLastMessageTrailingWhitespace(prev: ChatMessage[]): ChatMess
 }
 
 export function createChatMessage(
-  role: 'user' | 'assistant',
+  role: MessageRole,
   content: string,
   images?: string[],
 ): ChatMessage {
@@ -54,4 +57,31 @@ export function calculateTokenStats(tokenCount: number, startTime: number): Toke
     duration,
     tokensPerSecond: tokenCount / duration,
   };
+}
+
+export function setAssistantCompletion(
+  messages: ChatMessage[],
+  content: string,
+  images?: string[],
+): ChatMessage[] {
+  const updated = replaceLastMessageContent(messages, content);
+  if (!images?.length) return updated;
+  const next = [...updated];
+  const last = next[next.length - 1];
+  next[next.length - 1] = { ...last, images };
+  return next;
+}
+
+export function resolvePageSourceForPersist(
+  currentPageSource: PageSource | null | undefined,
+  override?: PageSource | null,
+): PageSource | null | undefined {
+  if (override !== undefined) return override;
+  return currentPageSource ?? undefined;
+}
+
+export function resolveChatContextSendMode(options?: ChatSendOptions): ChatContextSendMode {
+  return options?.chatContextSendMode === ChatContextSendMode.WithPageContext
+    ? ChatContextSendMode.WithPageContext
+    : ChatContextSendMode.WithoutPageContext;
 }

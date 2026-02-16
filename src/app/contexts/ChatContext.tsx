@@ -5,45 +5,19 @@ import {
   saveChat,
   deleteChat as deleteChatFromStorage,
   createNewChat,
-  deriveChatTitle,
-  chatToSummary,
 } from '@shared/services/chat-storage';
 import { useStorageSync } from '@app/hooks/useStorageSync';
+import {
+  buildSummaries,
+  buildUpdatedChat,
+  ensureActiveChat,
+  shouldPersistChat,
+  type ChatContextValue,
+} from './chat-context-utils';
 
-export interface ChatContextValue {
-  chatSummaries: ChatSummary[];
-  activeChatId: string | null;
-  activeChat: Chat | null;
-  loaded: boolean;
-  createChat: () => void;
-  selectChat: (id: string) => void;
-  deleteChat: (id: string) => void;
-  updateActiveChat: (
-    messages: ChatMessage[],
-    contextUsage?: { used: number; total: number },
-    pageSource?: PageSource | null,
-  ) => void;
-}
+export type { ChatContextValue };
 
 export const ChatContext = createContext<ChatContextValue | null>(null);
-
-function sortedByRecent(chats: Chat[]): Chat[] {
-  return [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
-}
-
-function buildSummaries(chats: Map<string, Chat>): ChatSummary[] {
-  return sortedByRecent([...chats.values()])
-    .filter((c) => c.messages.length > 0)
-    .map(chatToSummary);
-}
-
-function ensureActiveChat(chats: Chat[]): Chat {
-  return sortedByRecent(chats)[0] ?? createNewChat();
-}
-
-function shouldPersistChat(chat: Chat): boolean {
-  return chat.messages.length > 0;
-}
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>([]);
@@ -119,26 +93,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const existing = chatsRef.current.get(activeChatId);
       if (!existing) return;
 
-      const updated: Chat = {
-        ...existing,
-        messages,
-        title: deriveChatTitle(messages),
-        updatedAt: Date.now(),
-        ...(contextUsage ? { contextUsage } : {}),
-      };
-      if (pageSource === null) {
-        delete updated.pageSource;
-      } else if (pageSource) {
-        updated.pageSource = pageSource;
-      }
-
+      const updated = buildUpdatedChat(existing, messages, contextUsage, pageSource);
       chatsRef.current.set(activeChatId, updated);
       setActiveChat(updated);
+      skipCountRef.current++;
       if (shouldPersistChat(updated)) {
-        skipCountRef.current++;
         saveChat(updated);
       } else {
-        skipCountRef.current++;
         deleteChatFromStorage(updated.id);
       }
       rebuildSummaries();
