@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { PromptAPIService } from '@app/services/prompt-api';
-import { AgentContextUnavailableError, buildAgentSystemPrompt } from '@app/services/agent-context';
+import {
+  AgentContextUnavailableError,
+  buildAgentSystemPromptWithContext,
+} from '@app/services/agent-context';
 import {
   appendTokenToLastMessage,
   calculateTokenStats,
@@ -19,7 +22,7 @@ import {
   type InteractionProgressEvent,
 } from '@app/services/page-interaction';
 import type { DevTraceItem } from '@app/types/dev-trace';
-import type { ChatMode } from '@app/types/mode';
+import type { ChatContextSendMode, ChatMode, ChatSendOptions } from '@app/types/mode';
 import { createLogger } from '@shared/utils';
 import type { ChatMessage, PageSource, TokenStats } from '@shared/types';
 
@@ -51,8 +54,22 @@ function readDevTraceFlag(): boolean {
 }
 
 function shouldEnableDevTrace(mode: ChatMode): boolean {
-  if (mode !== 'interactive') return false;
+  if (mode !== 'agent') return false;
   return import.meta.env.DEV || readDevTraceFlag();
+}
+
+function resolvePageSourceForPersist(
+  currentPageSource: PageSource | null | undefined,
+  override?: PageSource | null,
+): PageSource | null | undefined {
+  if (override !== undefined) return override;
+  return currentPageSource ?? undefined;
+}
+
+function resolveChatContextSendMode(options?: ChatSendOptions): ChatContextSendMode {
+  return options?.chatContextSendMode === 'with-page-context'
+    ? 'with-page-context'
+    : 'without-page-context';
 }
 
 function toLineTraceItem(line: string): DevTraceItem {
@@ -82,7 +99,7 @@ export function useChat(
   onMessagesChange?: (
     messages: ChatMessage[],
     contextUsage?: { used: number; total: number },
-    pageSource?: PageSource,
+    pageSource?: PageSource | null,
   ) => void,
   mode: ChatMode = 'chat',
   pageSource?: PageSource | null,
@@ -92,6 +109,7 @@ export function useChat(
   const [streaming, setStreaming] = useState(false);
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const [devTraceItems, setDevTraceItems] = useState<DevTraceItem[]>([]);
+  const [chatContextChipSourceOverride, setChatContextChipSourceOverride] = useState<PageSource | null | undefined>(undefined);
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(
     initialContextUsage ? toContextUsage(initialContextUsage) : null,
   );
@@ -111,6 +129,7 @@ export function useChat(
     setStreaming(false);
     setTokenStats(null);
     setDevTraceItems([]);
+    setChatContextChipSourceOverride(undefined);
     setContextUsage(ctx ? toContextUsage(ctx) : null);
   }, []);
 
@@ -125,6 +144,7 @@ export function useChat(
     userMessage: ChatMessage,
     assistantMessage: ChatMessage,
   ) => {
+    setChatContextChipSourceOverride(undefined);
     const isDevTraceEnabled = shouldEnableDevTrace(mode);
     const baseMessages = [...messagesRef.current, userMessage, assistantMessage];
     const updateProgress = (event: InteractionProgressEvent) => {
@@ -173,6 +193,7 @@ export function useChat(
     userMessage: ChatMessage,
     assistantMessage: ChatMessage,
     systemPrompt: string | null,
+    pageSourceOverride?: PageSource | null,
   ) => {
     setMessages((prev) => [...prev, userMessage, assistantMessage]);
     setStreaming(true);
@@ -203,6 +224,7 @@ export function useChat(
       const usage = serviceRef.current.getContextUsage();
       const rawUsage = usage ? { used: usage.used, total: usage.total } : undefined;
       const stats = tokenCount > 0 ? calculateTokenStats(tokenCount, startTime) : null;
+      const pageSourceToPersist = resolvePageSourceForPersist(pageSourceRef.current, pageSourceOverride);
 
       setMessages(trimmedMessages);
       setStreaming(false);
@@ -217,24 +239,39 @@ export function useChat(
         tokensPerSecond: stats?.tokensPerSecond.toFixed(1),
       });
 
-      onMessagesChange?.(trimmedMessages, rawUsage, pageSourceRef.current ?? undefined);
+      onMessagesChange?.(trimmedMessages, rawUsage, pageSourceToPersist);
     }
   }, [mode, onMessagesChange, serviceRef]);
 
-  const send = useCallback(async (text: string, images?: string[]) => {
+  const send = useCallback(async (text: string, images?: string[], options?: ChatSendOptions) => {
     logger.info('send:start', { mode, textLength: text.length, imageCount: images?.length ?? 0 });
 
-    let systemPrompt: string | null = null;
+    const userMessage = createChatMessage('user', text, images);
+    const assistantMessage = createChatMessage('assistant', '');
+
     if (mode === 'agent') {
+      await sendInteractive(text, userMessage, assistantMessage);
+      return;
+    }
+
+    let systemPrompt: string | null = null;
+    let pageSourceOverride: PageSource | null | undefined = null;
+    if (resolveChatContextSendMode(options) === 'with-page-context') {
       try {
-        systemPrompt = await buildAgentSystemPrompt();
+        const contextPrompt = await buildAgentSystemPromptWithContext();
+        systemPrompt = contextPrompt.systemPrompt;
+        pageSourceOverride = {
+          url: contextPrompt.tab.url,
+          title: contextPrompt.tab.title,
+          faviconUrl: contextPrompt.tab.favIconUrl,
+        };
+        setChatContextChipSourceOverride(pageSourceOverride);
       } catch (error) {
         if (error instanceof AgentContextUnavailableError) {
           onAgentContextUnavailable?.(error.message);
           return;
         }
 
-        const userMessage = createChatMessage('user', text, images);
         const failedMessages = [
           ...messagesRef.current,
           userMessage,
@@ -246,17 +283,11 @@ export function useChat(
         onMessagesChange?.(failedMessages, undefined, pageSourceRef.current ?? undefined);
         return;
       }
+    } else {
+      setChatContextChipSourceOverride(null);
     }
 
-    const userMessage = createChatMessage('user', text, images);
-    const assistantMessage = createChatMessage('assistant', '');
-
-    if (mode === 'interactive') {
-      await sendInteractive(text, userMessage, assistantMessage);
-      return;
-    }
-
-    await sendChat(userMessage, assistantMessage, systemPrompt);
+    await sendChat(userMessage, assistantMessage, systemPrompt, pageSourceOverride);
   }, [mode, onAgentContextUnavailable, onMessagesChange, sendChat, sendInteractive]);
 
   const stop = useCallback(() => {
@@ -275,6 +306,7 @@ export function useChat(
     contextUsage,
     devTraceItems,
     devTraceEnabled,
+    chatContextChipSourceOverride,
     send,
     stop,
     clear,

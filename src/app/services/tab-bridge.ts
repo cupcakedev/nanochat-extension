@@ -168,7 +168,7 @@ export async function clearHighlights(tabId: number): Promise<void> {
 
 export async function captureScreenshot(windowId: number): Promise<string> {
   logger.info('captureScreenshot:request', { windowId });
-  const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'png' });
+  const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg' });
   logger.info('captureScreenshot:response', { windowId, dataUrlLength: dataUrl.length });
   return dataUrl;
 }

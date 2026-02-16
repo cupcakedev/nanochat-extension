@@ -6,7 +6,7 @@ import { getActiveTab, getPageContent } from './tab-bridge';
 const logger = createLogger('agent-context');
 
 export const AGENT_CONTEXT_UNAVAILABLE_MESSAGE =
-  'Agent and Interactive modes work only on regular web pages. Open a website tab and try again.';
+  'Page context is available only on regular web pages. Open a website tab and try again.';
 
 export class AgentContextUnavailableError extends Error {
   constructor(message = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) {
@@ -61,7 +61,7 @@ export async function getAgentPageContext(
   const tab = await getActiveTab();
   logger.info('Active tab', { tabId: tab.tabId, url: tab.url, title: tab.title });
 
-  let content: string;
+  let content = '';
   try {
     content = await getPageContent(tab.tabId, pageContentOptions);
     ensureContentAvailable(content);
@@ -69,18 +69,26 @@ export async function getAgentPageContext(
   } catch (err) {
     const errorMessage = getErrorMessage(err);
     if (isExpectedPageContextError(errorMessage)) {
-      logger.info('Page context unavailable in current tab', { tabId: tab.tabId, url: tab.url });
+      logger.info('Page context unavailable in current tab (service page)', { tabId: tab.tabId, url: tab.url });
     } else {
       logger.warn('Page context fetch failed', { tabId: tab.tabId, url: tab.url, reason: errorMessage });
     }
-    if (err instanceof AgentContextUnavailableError) throw err;
-    throw new AgentContextUnavailableError();
+    return { tab, content: '' };
   }
 
   return { tab, content };
 }
 
 function buildSystemPromptFromPageContext(tab: ActiveTab, content: string): string {
+  if (!content.trim()) {
+    return [
+      'You are a helpful AI assistant. The user\'s current tab is a service page where page content is not accessible.',
+      '',
+      `Current tab URL: ${tab.url}`,
+      '',
+      'You can help the user by navigating to a web page using the open_url action, or answer general questions.',
+    ].join('\n');
+  }
   return [
     'You are a helpful AI assistant with access to the user\'s current web page.',
     '',
