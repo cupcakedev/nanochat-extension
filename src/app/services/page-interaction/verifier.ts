@@ -62,17 +62,10 @@ function formatHistory(history: InteractionExecutionResult[]): string {
   }).join('\n');
 }
 
-function truncateContent(content: string): string {
-  const normalized = content.replace(/\s+/g, ' ').trim();
-  if (normalized.length <= 3000) return normalized;
-  return normalized.slice(0, 3000);
-}
-
 function buildVerifierPrompt(params: {
   task: string;
   pageUrl: string;
   pageTitle: string;
-  pageContent: string;
   history: InteractionExecutionResult[];
   plannerFinalAnswer: string | null;
 }): string {
@@ -80,14 +73,19 @@ function buildVerifierPrompt(params: {
     'You are a strict task-completion verifier for a browser agent.',
     'Return only minified JSON and nothing else.',
     '{"complete":boolean,"reason":string,"confidence":"high|medium|low"}.',
-    'Mark complete=true only if the current page state proves that the task is already completed.',
-    'If task asks to open a target page/item, complete=true only when user is already on that target page/item.',
+    'Default stance: complete=false unless completion is explicitly proven.',
+    'Mark complete=true only if the current page state proves that the task is fully completed now.',
+    'If task asks to open a target page/item, complete=true only when user is already on that target page/item URL (or exact equivalent destination).',
+    'Do not accept intermediate states as complete (for example homepage, search results, category page, or partially completed forms) unless task explicitly requests that intermediate state.',
+    'If plannerFinalAnswer suggests a different URL than Current URL, complete must be false.',
+    'If recent history includes failed/not-executed actions that are still relevant to the goal, complete must be false.',
+    'If there is any ambiguity, uncertainty, or missing proof, return complete=false with medium/low confidence.',
+    'Set confidence=high only when evidence is direct and unambiguous; otherwise use medium or low.',
     `Task: ${params.task}`,
     `Current URL: ${params.pageUrl}`,
     `Current title: ${params.pageTitle}`,
     `Agent final answer candidate: ${params.plannerFinalAnswer ?? 'none'}`,
     `Recent execution history:\n${formatHistory(params.history)}`,
-    `Visible page text excerpt:\n${truncateContent(params.pageContent) || 'none'}`,
   ].join('\n\n');
 }
 
@@ -108,7 +106,6 @@ export async function verifyTaskCompletion(params: {
   task: string;
   pageUrl: string;
   pageTitle: string;
-  pageContent: string;
   history: InteractionExecutionResult[];
   plannerFinalAnswer: string | null;
 }): Promise<VerificationResult> {

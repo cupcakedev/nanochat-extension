@@ -1,4 +1,4 @@
-import { captureScreenshot } from '@app/services/tab-bridge';
+import { captureScreenshot, setInteractionScroll } from '@app/services/tab-bridge';
 
 export interface ViewportCaptureResult {
   canvas: HTMLCanvasElement;
@@ -36,4 +36,57 @@ export async function captureVisibleViewport(
   const dataUrl = await captureScreenshot(windowId);
   const image = await decodeImage(dataUrl);
   return { dataUrl, canvas: drawImageToCanvas(image) };
+}
+
+function stitchVerticalCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElement {
+  if (!canvases.length) throw new Error('No viewport captures available for stitching');
+
+  const width = Math.max(...canvases.map((canvas) => canvas.width));
+  const height = canvases.reduce((sum, canvas) => sum + canvas.height, 0);
+  const stitched = document.createElement('canvas');
+  stitched.width = width;
+  stitched.height = height;
+
+  const context = stitched.getContext('2d');
+  if (!context) throw new Error('Unable to create stitched screenshot canvas');
+
+  let offsetY = 0;
+  canvases.forEach((canvas) => {
+    context.drawImage(canvas, 0, offsetY);
+    offsetY += canvas.height;
+  });
+  return stitched;
+}
+
+export async function captureStackedViewport(params: {
+  windowId: number;
+  tabId: number;
+  baseScrollY: number;
+  viewportHeight: number;
+  viewportSegments: number;
+  settleMs: number;
+}): Promise<ViewportCaptureResult> {
+  const segments = Math.max(1, Math.floor(params.viewportSegments));
+  if (segments <= 1) {
+    return captureVisibleViewport(params.windowId, params.settleMs);
+  }
+
+  const canvases: HTMLCanvasElement[] = [];
+  try {
+    for (let segment = 0; segment < segments; segment += 1) {
+      await setInteractionScroll(params.tabId, params.baseScrollY + params.viewportHeight * segment);
+      if (params.settleMs > 0) await pause(params.settleMs);
+      const dataUrl = await captureScreenshot(params.windowId);
+      const image = await decodeImage(dataUrl);
+      canvases.push(drawImageToCanvas(image));
+    }
+  } finally {
+    await setInteractionScroll(params.tabId, params.baseScrollY).catch(() => undefined);
+  }
+
+  const stitchedCanvas = stitchVerticalCanvases(canvases);
+  return {
+    canvas: stitchedCanvas,
+    dataUrl: stitchedCanvas.toDataURL('image/png'),
+  };
 }

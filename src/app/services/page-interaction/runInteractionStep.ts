@@ -3,7 +3,6 @@ import {
   executeAction,
   getActiveTab,
   getInteractionSnapshot,
-  getPageContent,
   openUrlInTab,
   waitForTabSettled,
 } from '@app/services/tab-bridge';
@@ -18,7 +17,7 @@ import type {
 } from '@shared/types';
 import { buildInteractionPrompt } from './prompt';
 import { parseInteractionDecision, type ParsedInteractionDecision } from './parser';
-import { captureVisibleViewport } from './capture';
+import { captureStackedViewport } from './capture';
 import { annotateInteractionCanvas } from './annotate-canvas';
 import { enforceTypingFirst } from './guards';
 import { estimateTokens, isInputTooLargeError, runTextImagePrompt } from './prompt-api';
@@ -44,8 +43,7 @@ import {
 } from './constants';
 
 const AGENT_MAX_STEPS = 12;
-const PAGE_TEXT_MAX_CHARS = 2800;
-const PAGE_TEXT_MIN_CHARS = 600;
+const AGENT_VIEWPORT_SEGMENTS = 1;
 
 interface PromptDecisionResult {
   decision: ParsedInteractionDecision;
@@ -127,12 +125,6 @@ function nextPromptElementLimit(current: number): number {
 
 function mustStopRetrying(current: number, next: number): boolean {
   return next < 6 || next >= current;
-}
-
-function sanitizePageContent(content: string, maxChars: number): string {
-  const normalized = content.replace(/\s+/g, ' ').trim();
-  if (!normalized) return '';
-  return normalized.length <= maxChars ? normalized : normalized.slice(0, maxChars);
 }
 
 function extractErrorMessage(error: unknown): string {
@@ -220,6 +212,26 @@ function buildRejectedDoneRecoveryPlans(params: {
   return [];
 }
 
+function buildDoneStatusNavigationPlans(params: {
+  currentUrl: string;
+  decision: ParsedInteractionDecision;
+}): InteractionActionPlan[] {
+  const aiActions = keepExecutableRecoveryActions(params.decision.actions);
+  if (aiActions.length > 0) return aiActions;
+
+  const finalAnswerUrl = extractFirstHttpUrlCandidate(params.decision.finalAnswer);
+  if (finalAnswerUrl && !isSameDestination(params.currentUrl, finalAnswerUrl)) {
+    return [toRecoveryOpenUrlPlan(finalAnswerUrl, 'Planner marked done with off-page finalAnswer URL')];
+  }
+
+  const reasonUrl = extractFirstHttpUrlCandidate(params.decision.reason);
+  if (reasonUrl && !isSameDestination(params.currentUrl, reasonUrl)) {
+    return [toRecoveryOpenUrlPlan(reasonUrl, 'Planner marked done with off-page reason URL')];
+  }
+
+  return [];
+}
+
 function toExecutionFromAction(
   plan: ExecutableInteractionPlan,
   response: Awaited<ReturnType<typeof executeAction>>,
@@ -300,7 +312,6 @@ async function requestPlannerDecision(params: {
   maxSteps: number;
   pageUrl: string;
   pageTitle: string;
-  pageContent: string;
   history: InteractionExecutionResult[];
   elements: InteractiveElementSnapshotItem[];
   baseCanvas: HTMLCanvasElement;
@@ -308,19 +319,16 @@ async function requestPlannerDecision(params: {
   onProgress?: InteractionRunOptions['onProgress'];
 }): Promise<PromptDecisionResult> {
   let elementLimit = Math.max(1, params.elements.length);
-  let pageTextLimit = PAGE_TEXT_MAX_CHARS;
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt <= INTERACTION_PROMPT_MAX_RETRY_ATTEMPTS; attempt += 1) {
     const promptElements = params.elements.slice(0, Math.max(1, elementLimit));
-    const pageContentExcerpt = sanitizePageContent(params.pageContent, pageTextLimit);
     const prompt = buildInteractionPrompt({
       task: params.task,
       stepNumber: params.stepNumber,
       maxSteps: params.maxSteps,
       pageUrl: params.pageUrl,
       pageTitle: params.pageTitle,
-      pageContentExcerpt,
       history: params.history,
       elements: promptElements,
     });
@@ -348,9 +356,8 @@ async function requestPlannerDecision(params: {
       lastError = error;
       if (!isInputTooLargeError(error)) throw error;
       const nextElementLimit = nextPromptElementLimit(elementLimit);
-      if (mustStopRetrying(elementLimit, nextElementLimit) && pageTextLimit <= PAGE_TEXT_MIN_CHARS) throw error;
-      elementLimit = mustStopRetrying(elementLimit, nextElementLimit) ? elementLimit : nextElementLimit;
-      pageTextLimit = Math.max(PAGE_TEXT_MIN_CHARS, Math.floor(pageTextLimit * INTERACTION_PROMPT_RETRY_SHRINK_FACTOR));
+      if (mustStopRetrying(elementLimit, nextElementLimit)) throw error;
+      elementLimit = nextElementLimit;
     }
   }
 
@@ -419,12 +426,20 @@ export async function runPageInteractionStep(
     const snapshot = await getInteractionSnapshot(activeTab.tabId, {
       maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
       viewportOnly: true,
+      viewportSegments: AGENT_VIEWPORT_SEGMENTS,
     });
     emitProgressLine(options, formatObserveLine(stepNumber, snapshot.pageUrl, snapshot.interactiveElements.length));
     lastPageUrl = snapshot.pageUrl;
     lastPageTitle = snapshot.pageTitle;
-    const capture = await captureVisibleViewport(activeTab.windowId, INTERACTION_CAPTURE_SETTLE_MS);
-    const pageContent = await getPageContent(activeTab.tabId, { showIndicator: false }).catch(() => '');
+    const baseViewportHeight = Math.max(1, Math.round(snapshot.viewportHeight / AGENT_VIEWPORT_SEGMENTS));
+    const capture = await captureStackedViewport({
+      windowId: activeTab.windowId,
+      tabId: activeTab.tabId,
+      baseScrollY: snapshot.scrollY,
+      viewportHeight: baseViewportHeight,
+      viewportSegments: AGENT_VIEWPORT_SEGMENTS,
+      settleMs: INTERACTION_CAPTURE_SETTLE_MS,
+    });
 
     const decision = await requestPlannerDecision({
       task,
@@ -432,7 +447,6 @@ export async function runPageInteractionStep(
       maxSteps: AGENT_MAX_STEPS,
       pageUrl: snapshot.pageUrl,
       pageTitle: snapshot.pageTitle,
-      pageContent,
       history: allExecutions,
       elements: snapshot.interactiveElements,
       baseCanvas: capture.canvas,
@@ -452,11 +466,45 @@ export async function runPageInteractionStep(
     totalRetries += decision.retryCount;
 
     if (decision.decision.status === 'done') {
+      const doneStatusRecoveryPlans = enforceTypingFirst(
+        buildDoneStatusNavigationPlans({
+          currentUrl: snapshot.pageUrl,
+          decision: decision.decision,
+        }),
+        task,
+        decision.promptElements,
+      );
+      if (doneStatusRecoveryPlans.length > 0) {
+        emitProgressLine(
+          options,
+          `[${stepNumber}] recovery | done status has off-page target, forcing actions=${doneStatusRecoveryPlans.length}`,
+        );
+        formatPlanLines(stepNumber, doneStatusRecoveryPlans).forEach((line) => emitProgressLine(options, line));
+        allPlans.push(...doneStatusRecoveryPlans);
+
+        const doneStatusRecoveries = await executePlannedActions(activeTab.tabId, doneStatusRecoveryPlans);
+        formatExecutionLines(stepNumber, doneStatusRecoveries).forEach((line) => emitProgressLine(options, line));
+        allExecutions.push(...doneStatusRecoveries);
+
+        if (!doneStatusRecoveries.length) {
+          finalStatus = 'fail';
+          finalAnswer = 'Done-status recovery produced no executable actions';
+          break;
+        }
+
+        const lastDoneStatusRecovery = doneStatusRecoveries[doneStatusRecoveries.length - 1];
+        if (!lastDoneStatusRecovery.executed && stepNumber >= AGENT_MAX_STEPS) {
+          finalStatus = 'max-steps';
+          finalAnswer = 'Maximum agent steps reached';
+          break;
+        }
+        continue;
+      }
+
       const verificationResult = await verifyTaskCompletion({
         task,
         pageUrl: snapshot.pageUrl,
         pageTitle: snapshot.pageTitle,
-        pageContent,
         history: allExecutions,
         plannerFinalAnswer: decision.decision.finalAnswer,
       }).catch((error) => {

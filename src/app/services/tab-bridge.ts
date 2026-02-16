@@ -129,7 +129,7 @@ export async function setAgentIndicatorPosition(
 
 export async function getInteractionSnapshot(
   tabId: number,
-  options?: { maxElements?: number; viewportOnly?: boolean },
+  options?: { maxElements?: number; viewportOnly?: boolean; viewportSegments?: number },
 ): Promise<InteractionSnapshotPayload> {
   logger.info('getInteractionSnapshot:request', { tabId, ...options });
   const response = await sendMessageToTab<'GET_INTERACTION_SNAPSHOT'>(tabId, {
@@ -142,6 +142,16 @@ export async function getInteractionSnapshot(
     pageUrl: response.pageUrl,
   });
   return response;
+}
+
+export async function setInteractionScroll(tabId: number, top: number): Promise<number> {
+  logger.info('setInteractionScroll:request', { tabId, top });
+  const response = await sendMessageToTab<'SET_INTERACTION_SCROLL'>(tabId, {
+    type: 'SET_INTERACTION_SCROLL',
+    payload: { top },
+  });
+  logger.info('setInteractionScroll:response', { tabId, top: response.top });
+  return response.top;
 }
 
 export async function executeAction(

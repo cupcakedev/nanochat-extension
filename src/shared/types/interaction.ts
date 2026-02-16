@@ -28,6 +28,7 @@ export interface InteractiveElementSnapshotItem {
 export interface InteractionSnapshotPayload {
   pageUrl: string;
   pageTitle: string;
+  scrollY: number;
   viewportWidth: number;
   viewportHeight: number;
   interactiveElements: InteractiveElementSnapshotItem[];

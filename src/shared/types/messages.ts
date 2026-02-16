@@ -9,6 +9,7 @@ export type MessageType =
   | 'GET_PAGE_CONTENT'
   | 'SET_AGENT_INDICATOR_POSITION'
   | 'GET_INTERACTION_SNAPSHOT'
+  | 'SET_INTERACTION_SCROLL'
   | 'EXECUTE_INTERACTION_ACTION'
   | 'CLEAR_INTERACTION_HIGHLIGHTS';
 
@@ -25,7 +26,11 @@ export interface SetAgentIndicatorPositionMessage extends BaseMessage<'SET_AGENT
 }
 
 export interface GetInteractionSnapshotMessage extends BaseMessage<'GET_INTERACTION_SNAPSHOT'> {
-  payload?: { maxElements?: number; viewportOnly?: boolean };
+  payload?: { maxElements?: number; viewportOnly?: boolean; viewportSegments?: number };
+}
+
+export interface SetInteractionScrollMessage extends BaseMessage<'SET_INTERACTION_SCROLL'> {
+  payload: { top: number };
 }
 
 export interface ExecuteInteractionActionMessage extends BaseMessage<'EXECUTE_INTERACTION_ACTION'> {
@@ -39,6 +44,7 @@ export type ExtensionMessage =
   | GetPageContentMessage
   | SetAgentIndicatorPositionMessage
   | GetInteractionSnapshotMessage
+  | SetInteractionScrollMessage
   | ExecuteInteractionActionMessage
   | ClearInteractionHighlightsMessage;
 
@@ -47,6 +53,7 @@ export interface MessageResponseMap {
   GET_PAGE_CONTENT: { content: string };
   SET_AGENT_INDICATOR_POSITION: { ok: boolean };
   GET_INTERACTION_SNAPSHOT: InteractionSnapshotPayload;
+  SET_INTERACTION_SCROLL: { top: number };
   EXECUTE_INTERACTION_ACTION: ExecuteActionResponse;
   CLEAR_INTERACTION_HIGHLIGHTS: { cleared: boolean };
 }

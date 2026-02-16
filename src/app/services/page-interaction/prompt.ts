@@ -46,7 +46,6 @@ export function buildInteractionPrompt(params: {
   maxSteps: number;
   pageUrl: string;
   pageTitle: string;
-  pageContentExcerpt: string;
   history: InteractionExecutionResult[];
   elements: InteractiveElementSnapshotItem[];
 }): string {
@@ -57,17 +56,30 @@ export function buildInteractionPrompt(params: {
     'Return only minified JSON and nothing else.',
     '{"status":"continue|done|fail","finalAnswer":string|null,"reason":string|null,"actions":[{"action":"openUrl|click|type|done|unknown","index":number|null,"text":string|null,"url":string|null,"reason":string|null,"confidence":"high|medium|low"}]}.',
     'Goal: complete the user task safely and efficiently.',
+    'Default stance: status=continue. Escalate to status=done only with explicit evidence from current page state.',
     'If goal is achieved now, set status=done, finalAnswer filled, actions=[].',
     'If impossible or blocked, set status=fail, reason filled, actions=[].',
     'If more work is needed, set status=continue and provide 1 to 4 actions.',
-    'Never set status=done from intent or assumption. Use only current page evidence.',
+    'Never set status=done from intent, hope, or assumption. Use only current page evidence.',
+    'Completion checklist before status=done (all items must be true):',
+    '- The requested end state is visible now on the current page (not just likely after another click).',
+    '- For navigation tasks, Current URL already matches the requested destination page/item.',
+    '- For interaction tasks (search/apply/fill/open result/etc.), the final requested outcome is already reached, not an intermediate step.',
+    '- Recent history does not contain unresolved failed/not-executed actions needed for task completion.',
+    'If any checklist item is uncertain, set status=continue and output next corrective action.',
     'If finalAnswer contains a URL that is different from Current URL, status must be continue and actions must start with openUrl to that URL.',
     'For tasks that ask to open/go/watch a target page or item, status=done is allowed only when Current URL already matches that destination.',
+    'Search results pages are usually intermediate state; treat them as done only if user explicitly asked to stay on search results.',
     'Actions are executed in listed order.',
-    'Use openUrl with absolute http/https URL for navigation.',
+    'Decision policy: if task asks to go/open/watch a target page/site/item and Current URL is not that destination, choose openUrl first.',
+    'Action semantics:',
+    '- openUrl: global navigation to another page/site. Use it when destination URL is known or can be reasonably inferred from task (for example service names like YouTube/Google/GitHub). URL must be absolute http/https.',
+    '- click: interact with an existing on-page control from indexed elements (links, buttons, tabs, results). Do not use click as a substitute for direct navigation when openUrl is available.',
+    '- type: enter text into an indexed editable element. text must be non-empty.',
+    '- done: only when current visible state proves final completion. Never use done to stop early or because no idea remains.',
+    '- unknown: use only when no safe actionable step is available.',
     'If openUrl is needed, return only openUrl in actions for that loop step.',
-    'Use click only with a valid index from indexed elements.',
-    'Use type only with a valid index and non-empty text.',
+    'Use click/type only with a valid index from indexed elements.',
     'If instruction has multi-intent (for example type then click/search), output multiple actions in that order.',
     'Never choose disabled=true targets.',
     'Do not repeat failed actions unchanged more than once.',
@@ -76,7 +88,6 @@ export function buildInteractionPrompt(params: {
     `Current URL: ${params.pageUrl}`,
     `Current title: ${params.pageTitle}`,
     `Recent execution history:\n${formatExecutionHistory(params.history)}`,
-    `Visible page text excerpt:\n${params.pageContentExcerpt || 'none'}`,
     'Indexed interactive elements:',
     elementLines.join('\n'),
   ].join('\n\n');

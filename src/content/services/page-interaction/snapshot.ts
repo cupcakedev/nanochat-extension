@@ -13,6 +13,8 @@ const INTERACTIVE_ROLES = new Set([
 ]);
 
 const DEFAULT_MAX_ELEMENTS = 50;
+const DEFAULT_VIEWPORT_SEGMENTS = 1;
+const MAX_VIEWPORT_SEGMENTS = 2;
 const PRIORITY_SELECTORS = [
   'a#video-title[href*="/watch"]',
   'a#thumbnail[href*="/watch"]',
@@ -86,7 +88,7 @@ function getAriaLabel(element: HTMLElement): string | null {
   return normalizeText(element.getAttribute('aria-label')) ?? normalizeText(element.getAttribute('title'));
 }
 
-function toSummary(element: HTMLElement, index: number): InteractiveElementSnapshotItem {
+function toSummary(element: HTMLElement, index: number, yOffset = 0): InteractiveElementSnapshotItem {
   const rect = element.getBoundingClientRect();
   return {
     index,
@@ -102,7 +104,7 @@ function toSummary(element: HTMLElement, index: number): InteractiveElementSnaps
     disabled: isDisabled(element),
     rect: {
       x: Math.round(rect.left),
-      y: Math.round(rect.top),
+      y: Math.round(rect.top + yOffset),
       width: Math.round(rect.width),
       height: Math.round(rect.height),
     },
@@ -165,14 +167,116 @@ function collectInteractiveElements(maxElements: number, viewportOnly: boolean):
   ).slice(0, Math.max(1, maxElements));
 }
 
-export function extractInteractionSnapshot(maxElements = DEFAULT_MAX_ELEMENTS, viewportOnly = true): InteractionSnapshotPayload {
+function currentScrollY(): number {
+  return Math.max(0, Math.round(window.scrollY || window.pageYOffset || 0));
+}
+
+function scrollToY(top: number): number {
+  const nextTop = Math.max(0, Math.round(top));
+  window.scrollTo({ top: nextTop, left: window.scrollX, behavior: 'auto' });
+  return currentScrollY();
+}
+
+function normalizeViewportSegments(viewportSegments: number | undefined): number {
+  if (typeof viewportSegments !== 'number' || !Number.isFinite(viewportSegments)) {
+    return DEFAULT_VIEWPORT_SEGMENTS;
+  }
+  const rounded = Math.floor(viewportSegments);
+  return Math.min(MAX_VIEWPORT_SEGMENTS, Math.max(DEFAULT_VIEWPORT_SEGMENTS, rounded));
+}
+
+interface SegmentCapture {
+  elements: HTMLElement[];
+  summaries: Omit<InteractiveElementSnapshotItem, 'index'>[];
+}
+
+function collectSegmentCapture(
+  maxElements: number,
+  viewportOnly: boolean,
+  yOffset: number,
+): SegmentCapture {
   const elements = collectInteractiveElements(maxElements, viewportOnly);
-  applyInteractionHighlights(elements);
+  return {
+    elements,
+    summaries: elements.map((element) => {
+      const summary = toSummary(element, 0, yOffset);
+      return {
+        tag: summary.tag,
+        role: summary.role,
+        inputType: summary.inputType,
+        text: summary.text,
+        ariaLabel: summary.ariaLabel,
+        placeholder: summary.placeholder,
+        name: summary.name,
+        id: summary.id,
+        href: summary.href,
+        disabled: summary.disabled,
+        rect: summary.rect,
+      };
+    }),
+  };
+}
+
+function mergeSegmentCaptures(
+  segments: SegmentCapture[],
+  maxElements: number,
+): { elements: HTMLElement[]; summaries: InteractiveElementSnapshotItem[] } {
+  const seen = new Set<HTMLElement>();
+  const elements: HTMLElement[] = [];
+  const summaries: InteractiveElementSnapshotItem[] = [];
+
+  for (const segment of segments) {
+    for (let index = 0; index < segment.elements.length; index += 1) {
+      const element = segment.elements[index];
+      if (seen.has(element)) continue;
+      seen.add(element);
+      elements.push(element);
+      summaries.push({
+        index: summaries.length + 1,
+        ...segment.summaries[index],
+      });
+      if (summaries.length >= maxElements) {
+        return { elements, summaries };
+      }
+    }
+  }
+
+  return { elements, summaries };
+}
+
+export function extractInteractionSnapshot(
+  maxElements = DEFAULT_MAX_ELEMENTS,
+  viewportOnly = true,
+  viewportSegments = DEFAULT_VIEWPORT_SEGMENTS,
+): InteractionSnapshotPayload {
+  const normalizedMaxElements = Math.max(1, maxElements);
+  const segmentsToCapture = viewportOnly ? normalizeViewportSegments(viewportSegments) : 1;
+  const initialScrollY = currentScrollY();
+  const baseViewportHeight = window.innerHeight;
+
+  const perSegmentLimit = Math.max(1, Math.ceil(normalizedMaxElements / segmentsToCapture));
+  const segments: SegmentCapture[] = [];
+  for (let segment = 0; segment < segmentsToCapture; segment += 1) {
+    if (segment > 0) {
+      scrollToY(initialScrollY + baseViewportHeight * segment);
+    }
+    segments.push(
+      collectSegmentCapture(perSegmentLimit, viewportOnly, baseViewportHeight * segment),
+    );
+  }
+
+  if (segmentsToCapture > 1) {
+    scrollToY(initialScrollY);
+  }
+
+  const merged = mergeSegmentCaptures(segments, normalizedMaxElements);
+  applyInteractionHighlights(merged.elements);
   return {
     pageUrl: location.href,
     pageTitle: document.title,
+    scrollY: initialScrollY,
     viewportWidth: window.innerWidth,
-    viewportHeight: window.innerHeight,
-    interactiveElements: elements.map((element, index) => toSummary(element, index + 1)),
+    viewportHeight: baseViewportHeight * segmentsToCapture,
+    interactiveElements: merged.summaries,
   };
 }

@@ -4,6 +4,7 @@ import {
   extractInteractionSnapshot,
   executeInteractionAction,
   clearInteractionHighlights,
+  setInteractionScrollTop,
 } from './services/page-interaction';
 import {
   pulseAgentConnectionIndicator,
@@ -52,8 +53,13 @@ const handleMessage: MessageHandler = (message, _sender, sendResponse) => {
         extractInteractionSnapshot(
           message.payload?.maxElements,
           message.payload?.viewportOnly,
+          message.payload?.viewportSegments,
         ),
       );
+      return;
+
+    case 'SET_INTERACTION_SCROLL':
+      sendResponse({ top: setInteractionScrollTop(message.payload.top) });
       return;
 
     case 'EXECUTE_INTERACTION_ACTION':
