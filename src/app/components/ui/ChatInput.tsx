@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState, type KeyboardEvent, type ClipboardEvent } from 'react';
+import { memo, useCallback, useRef, useState, type KeyboardEvent, type ClipboardEvent, type DragEvent } from 'react';
 import { useImageAttachments } from '@app/hooks/useImageAttachments';
 import { useTextareaAutoResize } from '@app/hooks/useTextareaAutoResize';
 import type { ChatContextSendMode, ChatMode, ChatSendOptions } from '@app/types/mode';
@@ -33,7 +33,7 @@ export const ChatInput = memo(
     const [value, setValue] = useState('');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { images, addImages, removeImage, clearImages } = useImageAttachments();
+    const { images, addImages, addImageFromDrop, removeImage, clearImages } = useImageAttachments();
     const composerDisabled = disabled || streaming;
 
     useTextareaAutoResize(value, textareaRef);
@@ -77,11 +77,54 @@ export const ChatInput = memo(
       [addImages],
     );
 
+    const [dragging, setDragging] = useState(false);
+    const dragCounterRef = useRef(0);
+
+    const handleDragEnter = useCallback((e: DragEvent) => {
+      e.preventDefault();
+      dragCounterRef.current += 1;
+      const types = e.dataTransfer.types;
+      if (types.includes('Files') || types.includes('text/uri-list') || types.includes('text/html')) {
+        setDragging(true);
+      }
+    }, []);
+
+    const handleDragOver = useCallback((e: DragEvent) => {
+      e.preventDefault();
+    }, []);
+
+    const handleDragLeave = useCallback((e: DragEvent) => {
+      e.preventDefault();
+      dragCounterRef.current -= 1;
+      if (dragCounterRef.current <= 0) {
+        dragCounterRef.current = 0;
+        setDragging(false);
+      }
+    }, []);
+
+    const handleDrop = useCallback(
+      (e: DragEvent) => {
+        e.preventDefault();
+        dragCounterRef.current = 0;
+        setDragging(false);
+        addImageFromDrop(e.dataTransfer);
+      },
+      [addImageFromDrop],
+    );
+
     const canSend = Boolean(value.trim() || images.length);
 
     return (
-      <div className="w-full max-w-3xl mx-auto">
-        <div className="rounded-[24px] bg-neutral-100/80 backdrop-blur-xl border border-white/5 transition-all duration-300">
+      <div
+        className="w-full max-w-3xl mx-auto"
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <div className={`rounded-[24px] bg-neutral-100/80 backdrop-blur-xl border transition-all duration-200 ${
+          dragging ? 'border-brand-800/60 ring-1 ring-brand-800/30' : 'border-white/5'
+        }`}>
           {images.length > 0 && (
             <ImagePreviewList images={images} onRemove={removeImage} />
           )}
