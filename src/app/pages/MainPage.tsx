@@ -8,10 +8,12 @@ import { ContextBar } from '@app/components/chat/ContextBar';
 import { DevTracePanel } from '@app/components/chat/DevTracePanel';
 import { OnboardingScreen } from '@app/components/status/OnboardingScreen';
 import { useMainPageState } from '@app/hooks/useMainPageState';
+import { useScrolled } from '@app/hooks/useScrolled';
 import { SessionStatus } from '@shared/types';
 
 export const MainPage = () => {
   const state = useMainPageState();
+  const { scrolled, scrollRef } = useScrolled();
 
   return (
     <div className="relative h-screen flex flex-row bg-neutral-bg overflow-hidden">
@@ -32,8 +34,6 @@ export const MainPage = () => {
             <ChatHeader
               onToggleSidebar={state.toggleSidebar}
               onNewChat={state.handleNewChat}
-              onClearChat={state.handleClearChat}
-              activeChatId={state.activeChatId}
               status={state.status}
               progress={state.progress}
               error={state.error}
@@ -41,9 +41,10 @@ export const MainPage = () => {
               mode={state.mode}
               modeLocked={state.hasMessages}
               onModeChange={state.handleModeChange}
+              scrolled={scrolled}
             />
 
-            <div className="flex-1 overflow-y-auto pb-48">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto pb-48">
               {state.hasMessages ? (
                 <div className="max-w-3xl mx-auto w-full pt-14 px-4">
                   <MessageList
