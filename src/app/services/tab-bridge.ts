@@ -98,6 +98,17 @@ export async function getActiveTab(): Promise<ActiveTab> {
   return result;
 }
 
+export async function getTabById(tabId: number): Promise<ActiveTab> {
+  const tab = await chrome.tabs.get(tabId);
+  return {
+    tabId: tab.id!,
+    windowId: tab.windowId,
+    url: tab.url ?? '',
+    title: tab.title ?? '',
+    favIconUrl: tab.favIconUrl ?? '',
+  };
+}
+
 export interface GetPageContentOptions {
   indicatorBottomOffset?: number;
   showIndicator?: boolean;

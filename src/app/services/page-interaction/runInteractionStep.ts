@@ -2,11 +2,13 @@ import {
   clearHighlights,
   executeAction,
   getActiveTab,
+  getTabById,
   getInteractionSnapshot,
   openExtensionPageInTab,
   openUrlInTab,
   waitForTabSettled,
 } from '@app/services/tab-bridge';
+import { createLogger } from '@shared/utils';
 import type {
   ExecutableInteractionAction,
   InteractionActionPlan,
@@ -22,7 +24,7 @@ import { parseInteractionDecision, type ParsedInteractionDecision } from './pars
 import { captureStackedViewport } from './capture';
 import { annotateInteractionCanvas } from './annotate-canvas';
 import { enforceTypingFirst } from './guards';
-import { estimateTokens, isInputTooLargeError, runTextImagePrompt } from './prompt-api';
+import { estimateTokens, isInputTooLargeError, isPromptTimeoutError, runTextImagePrompt } from './prompt-api';
 import { verifyTaskCompletion } from './verifier';
 import {
   formatExecutionLines,
@@ -52,6 +54,46 @@ const CONTENT_CONNECTION_ERROR_MESSAGES = [
   'The message port closed before a response was received.',
 ];
 const DONE_LOOP_RECOVERY_THRESHOLD = 2;
+const EXPLORATION_POSITIVE_KEYWORDS = [
+  'similar',
+  'related',
+  'more',
+  'shop',
+  'discover',
+  'collection',
+  'category',
+  'product',
+  'items',
+  'sneaker',
+  'shoe',
+  'men',
+  'women',
+  'kids',
+  'next',
+  'continue',
+  'view',
+  'details',
+];
+const EXPLORATION_NEGATIVE_KEYWORDS = [
+  'cookie',
+  'consent',
+  'privacy',
+  'terms',
+  'accept',
+  'reject',
+  'close',
+  'dismiss',
+  'sign in',
+  'login',
+  'register',
+  'newsletter',
+  'subscribe',
+  'language',
+  'country',
+  'region',
+];
+
+const logger = createLogger('interaction-step');
 
 interface PromptDecisionResult {
   decision: ParsedInteractionDecision;
@@ -313,15 +355,11 @@ function buildVerificationCacheKey(params: {
 function buildDoneLoopKey(params: {
   task: string;
   pageUrl: string;
-  finalAnswer: string | null;
-  reason: string | null;
   meaningfulExecutionCount: number;
 }): string {
   return [
     compactKeyPart(params.task, 260),
     normalizeComparableUrl(params.pageUrl),
-    compactKeyPart(params.finalAnswer, 220),
-    compactKeyPart(params.reason, 180),
     String(params.meaningfulExecutionCount),
   ].join('|');
 }
@@ -343,6 +381,100 @@ function buildStuckDoneRecoveryPlans(params: {
 
   const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
   return [toRecoveryOpenUrlPlan(searchUrl, 'Stuck done-loop recovery via search navigation')];
+}
+
+function splitTaskTokens(task: string): string[] {
+  return task
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3);
+}
+
+function isLikelyClickableElement(element: InteractiveElementSnapshotItem): boolean {
+  if (element.disabled) return false;
+  if (element.href) return true;
+  const tag = element.tag.toLowerCase();
+  if (tag === 'a' || tag === 'button' || tag === 'summary') return true;
+  const role = element.role?.toLowerCase() ?? '';
+  return role.includes('button')
+    || role.includes('link')
+    || role.includes('tab')
+    || role.includes('menuitem')
+    || role.includes('option');
+}
+
+function buildElementTextForScoring(element: InteractiveElementSnapshotItem): string {
+  return [
+    element.text,
+    element.ariaLabel,
+    element.placeholder,
+    element.name,
+    element.id,
+    element.href,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function computeExplorationClickScore(element: InteractiveElementSnapshotItem, taskTokens: string[]): number {
+  if (!isLikelyClickableElement(element)) return -1000;
+  const elementText = buildElementTextForScoring(element);
+  let score = 0;
+
+  if (element.href) score += 4;
+  if (element.tag.toLowerCase() === 'a') score += 2;
+  if (element.tag.toLowerCase() === 'button') score += 2;
+  if (element.role?.toLowerCase().includes('link')) score += 2;
+  if (element.role?.toLowerCase().includes('button')) score += 2;
+
+  for (const keyword of EXPLORATION_POSITIVE_KEYWORDS) {
+    if (elementText.includes(keyword)) score += 2;
+  }
+  for (const keyword of EXPLORATION_NEGATIVE_KEYWORDS) {
+    if (elementText.includes(keyword)) score -= 4;
+  }
+  for (const token of taskTokens) {
+    if (elementText.includes(token)) score += 2;
+  }
+
+  if (!elementText.trim()) score -= 2;
+  return score;
+}
+
+function buildExplorationClickKey(pageUrl: string, index: number): string {
+  return `${normalizeComparableUrl(pageUrl)}#${index}`;
+}
+
+function buildRejectedDoneExplorationPlans(params: {
+  task: string;
+  currentUrl: string;
+  elements: InteractiveElementSnapshotItem[];
+  attemptedClickKeys: Set<string>;
+}): InteractionActionPlan[] {
+  const taskTokens = splitTaskTokens(params.task);
+  let best: { element: InteractiveElementSnapshotItem; score: number } | null = null;
+
+  for (const element of params.elements) {
+    const clickKey = buildExplorationClickKey(params.currentUrl, element.index);
+    if (params.attemptedClickKeys.has(clickKey)) continue;
+    const score = computeExplorationClickScore(element, taskTokens);
+    if (score < 1) continue;
+    if (!best || score > best.score) {
+      best = { element, score };
+    }
+  }
+
+  if (!best) return [];
+  return [{
+    action: 'click',
+    index: best.element.index,
+    text: null,
+    url: null,
+    reason: `Verifier rejected done; exploratory on-page click at index ${best.element.index}.`,
+    confidence: best.score >= 8 ? 'high' : 'medium',
+  }];
 }
 
 function toExecutionFromAction(
@@ -448,6 +580,13 @@ async function requestPlannerDecision(params: {
 
   for (let attempt = 0; attempt <= INTERACTION_PROMPT_MAX_RETRY_ATTEMPTS; attempt += 1) {
     throwIfAborted(params.signal);
+    logger.info('planner:attempt:start', {
+      stepNumber: params.stepNumber,
+      attempt: attempt + 1,
+      maxAttempts: INTERACTION_PROMPT_MAX_RETRY_ATTEMPTS + 1,
+      elementLimit,
+      pageUrl: params.pageUrl,
+    });
     const promptElements = params.elements.slice(0, Math.max(1, elementLimit));
     const prompt = buildInteractionPrompt({
       task: params.task,
@@ -462,7 +601,18 @@ async function requestPlannerDecision(params: {
     const emittedScreenshot = emitProgressScreenshot(params.onProgress, params.stepNumber, annotatedCanvas);
 
     try {
+      logger.info('planner:model:request', {
+        stepNumber: params.stepNumber,
+        attempt: attempt + 1,
+        promptLength: prompt.length,
+        promptElementCount: promptElements.length,
+      });
       const runResult = await runTextImagePrompt(prompt, annotatedCanvas, params.signal);
+      logger.info('planner:model:response', {
+        stepNumber: params.stepNumber,
+        attempt: attempt + 1,
+        outputLength: runResult.output.length,
+      });
       return {
         decision: parseInteractionDecision(runResult.output),
         rawResponse: runResult.output,
@@ -481,10 +631,28 @@ async function requestPlannerDecision(params: {
     } catch (error) {
       if (isAbortError(error)) throw error;
       lastError = error;
+      if (isPromptTimeoutError(error)) {
+        emitProgressLine(
+          { onProgress: params.onProgress },
+          `[${params.stepNumber}] planner timeout on attempt ${attempt + 1}, retrying`,
+        );
+        logger.warn('planner:attempt:timeout', {
+          stepNumber: params.stepNumber,
+          attempt: attempt + 1,
+          message: extractErrorMessage(error),
+        });
+        continue;
+      }
       if (!isInputTooLargeError(error)) throw error;
       const nextElementLimit = nextPromptElementLimit(elementLimit);
       if (mustStopRetrying(elementLimit, nextElementLimit)) throw error;
       elementLimit = nextElementLimit;
+      logger.warn('planner:attempt:retry-shrink', {
+        stepNumber: params.stepNumber,
+        attempt: attempt + 1,
+        previousElementLimit: promptElements.length,
+        nextElementLimit: elementLimit,
+      });
     }
   }
 
@@ -529,6 +697,7 @@ export async function runPageInteractionStep(
 ): Promise<PageInteractionStepResult> {
   throwIfAborted(options?.signal);
   const task = normalizeInstruction(userInstruction);
+  const pinnedTab = await getActiveTab();
   const allPlans: InteractionActionPlan[] = [];
   const allExecutions: InteractionExecutionResult[] = [];
   const rawResponses: string[] = [];
@@ -538,17 +707,18 @@ export async function runPageInteractionStep(
   let lastDecision: PromptDecisionResult | null = null;
   let lastPageUrl = '';
   let lastPageTitle = '';
-  let lastTabId: number | null = null;
+  let lastTabId: number | null = pinnedTab.tabId;
   let lastElementCount = 0;
   let lastPromptElementCount = 0;
   let totalRetries = 0;
   const verificationCache = new Map<string, InteractionCompletionVerification>();
+  const attemptedRejectedDoneClickKeys = new Set<string>();
   let lastRejectedDoneKey: string | null = null;
   let rejectedDoneStreak = 0;
 
   for (let stepNumber = 1; stepNumber <= AGENT_MAX_STEPS; stepNumber += 1) {
     throwIfAborted(options?.signal);
-    let activeTab = await getActiveTab();
+    const activeTab = { ...pinnedTab };
     lastTabId = activeTab.tabId;
     await waitForTabSettled(activeTab.tabId, {
       maxWaitMs: INTERACTION_TAB_SETTLE_MAX_WAIT_MS,
@@ -599,11 +769,10 @@ export async function runPageInteractionStep(
         stableIdleMs: INTERACTION_TAB_SETTLE_IDLE_MS,
       });
       throwIfAborted(options?.signal);
-      activeTab = await getActiveTab();
-      lastTabId = activeTab.tabId;
+      const recoveredTab = await getTabById(pinnedTab.tabId);
       capture = await captureStackedViewport({
-        windowId: activeTab.windowId,
-        tabId: activeTab.tabId,
+        windowId: recoveredTab.windowId,
+        tabId: recoveredTab.tabId,
         baseScrollY: 0,
         viewportHeight: 1,
         viewportSegments: 1,
@@ -611,8 +780,8 @@ export async function runPageInteractionStep(
       });
       throwIfAborted(options?.signal);
       snapshot = buildSyntheticSnapshot({
-        pageUrl: activeTab.url || placeholderUrl,
-        pageTitle: activeTab.title || 'NanoChat',
+        pageUrl: recoveredTab.url || placeholderUrl,
+        pageTitle: recoveredTab.title || 'NanoChat',
         viewportWidth: capture.canvas.width,
         viewportHeight: capture.canvas.height,
       });
@@ -773,12 +942,44 @@ export async function runPageInteractionStep(
         continue;
       }
 
+      const explorationPlans = buildRejectedDoneExplorationPlans({
+        task,
+        currentUrl: snapshot.pageUrl,
+        elements: snapshot.interactiveElements,
+        attemptedClickKeys: attemptedRejectedDoneClickKeys,
+      });
+      if (explorationPlans.length > 0) {
+        emitProgressLine(
+          options,
+          `[${stepNumber}] recovery | verifier rejected done, forcing exploratory click actions=${explorationPlans.length}`,
+        );
+        formatPlanLines(stepNumber, explorationPlans).forEach((line) => emitProgressLine(options, line));
+        allPlans.push(...explorationPlans);
+
+        const explorationExecutions = await executePlannedActions(activeTab.tabId, explorationPlans, options?.signal);
+        formatExecutionLines(stepNumber, explorationExecutions).forEach((line) => emitProgressLine(options, line));
+        allExecutions.push(...explorationExecutions);
+
+        for (const plan of explorationPlans) {
+          if (plan.action === 'click' && plan.index !== null) {
+            attemptedRejectedDoneClickKeys.add(buildExplorationClickKey(snapshot.pageUrl, plan.index));
+          }
+        }
+
+        if (!explorationExecutions.length) {
+          finalStatus = 'fail';
+          finalAnswer = 'Exploration recovery produced no executable actions';
+          break;
+        }
+        lastRejectedDoneKey = null;
+        rejectedDoneStreak = 0;
+        continue;
+      }
+
       allExecutions.push(verifierExecution(verification.reason));
       const doneLoopKey = buildDoneLoopKey({
         task,
         pageUrl: snapshot.pageUrl,
-        finalAnswer: decision.decision.finalAnswer,
-        reason: decision.decision.reason,
         meaningfulExecutionCount,
       });
       rejectedDoneStreak = (lastRejectedDoneKey === doneLoopKey) ? (rejectedDoneStreak + 1) : 1;

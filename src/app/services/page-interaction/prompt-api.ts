@@ -1,3 +1,11 @@
+import { createLogger } from '@shared/utils';
+import {
+  INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
+  INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
+} from './constants';
+
+const logger = createLogger('interaction-prompt');
+
 const TEXT_IMAGE_LANGUAGE_OPTIONS = {
   expectedInputs: [{ type: 'text' as const, languages: ['en'] }, { type: 'image' as const }],
   expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
@@ -47,6 +55,63 @@ export interface TextImagePromptResult {
   sessionInputUsageAfter: number | null;
   sessionInputQuota: number | null;
   sessionInputQuotaRemaining: number | null;
+}
+
+function createTimeoutError(scope: string, timeoutMs: number): Error {
+  const error = new Error(`${scope} timed out after ${timeoutMs}ms`);
+  error.name = 'TimeoutError';
+  return error;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, scope: string): Promise<T> {
+  if (timeoutMs <= 0) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const timerId = globalThis.setTimeout(() => {
+      reject(createTimeoutError(scope, timeoutMs));
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        globalThis.clearTimeout(timerId);
+        resolve(value);
+      },
+      (error) => {
+        globalThis.clearTimeout(timerId);
+        reject(error);
+      },
+    );
+  });
+}
+
+function deriveRequestSignal(
+  baseSignal: AbortSignal | undefined,
+  timeoutMs: number,
+): { signal: AbortSignal | undefined; cleanup: () => void } {
+  if (timeoutMs <= 0 && !baseSignal) return { signal: undefined, cleanup: () => undefined };
+  if (timeoutMs <= 0) return { signal: baseSignal, cleanup: () => undefined };
+
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => {
+    controller.abort(createTimeoutError('Prompt request', timeoutMs));
+  }, timeoutMs);
+
+  const onBaseAbort = () => {
+    if (!controller.signal.aborted) controller.abort(baseSignal?.reason);
+  };
+
+  if (baseSignal) {
+    if (baseSignal.aborted) {
+      onBaseAbort();
+    } else {
+      baseSignal.addEventListener('abort', onBaseAbort, { once: true });
+    }
+  }
+
+  const cleanup = () => {
+    globalThis.clearTimeout(timeoutId);
+    if (baseSignal) baseSignal.removeEventListener('abort', onBaseAbort);
+  };
+
+  return { signal: controller.signal, cleanup };
 }
 
 function toNumber(value: unknown): number | null {
@@ -115,35 +180,60 @@ export function isInputTooLargeError(error: unknown): boolean {
   return /input is too large/i.test(message);
 }
 
+export function isPromptTimeoutError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.name === 'TimeoutError') return true;
+  return /timed out/i.test(error.message);
+}
+
 export async function runTextImagePrompt(
   prompt: string,
   imageCanvas: HTMLCanvasElement,
   signal?: AbortSignal,
 ): Promise<TextImagePromptResult> {
+  logger.info('[input][text+image]', prompt);
   if (signal?.aborted) {
     const aborted = new Error('Prompt request aborted');
     aborted.name = 'AbortError';
     throw aborted;
   }
-  const availability = await LanguageModel.availability(TEXT_IMAGE_LANGUAGE_OPTIONS);
+
+  const availability = await withTimeout(
+    LanguageModel.availability(TEXT_IMAGE_LANGUAGE_OPTIONS),
+    INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
+    'Prompt availability',
+  );
   if (availability === 'unavailable') {
     throw new Error('Chrome Prompt API is unavailable in this browser profile');
   }
 
-  const session = await LanguageModel.create({
-    ...TEXT_IMAGE_LANGUAGE_OPTIONS,
-    ...(signal ? { signal } : {}),
-  });
+  const { signal: requestSignal, cleanup } = deriveRequestSignal(signal, INTERACTION_PLANNER_PROMPT_TIMEOUT_MS);
+  const session = await withTimeout(
+    LanguageModel.create({
+      ...TEXT_IMAGE_LANGUAGE_OPTIONS,
+      ...(requestSignal ? { signal: requestSignal } : {}),
+    }),
+    INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
+    'Prompt session create',
+  );
   const sessionAny = session as unknown as { inputUsage?: unknown; inputQuota?: unknown };
   const bitmap = await createImageBitmap(imageCanvas);
   const input = buildPromptInput(prompt, bitmap);
-  const options = buildPromptOptions(signal);
+  const options = buildPromptOptions(requestSignal);
   const sessionInputUsageBefore = toNumber(sessionAny.inputUsage);
   const sessionInputQuota = toNumber(sessionAny.inputQuota);
 
   try {
-    const measuredInputTokens = await measureInputUsage(session, input, options);
-    const output = await promptOnce(session, input, options);
+    const measuredInputTokens = await withTimeout(
+      measureInputUsage(session, input, options),
+      INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
+      'Prompt input measurement',
+    );
+    const output = await withTimeout(
+      promptOnce(session, input, options),
+      INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
+      'Prompt generation',
+    );
     const sessionInputUsageAfter = toNumber(sessionAny.inputUsage);
     const usage = sessionInputUsageAfter ?? sessionInputUsageBefore;
     return {
@@ -155,6 +245,7 @@ export async function runTextImagePrompt(
       sessionInputQuotaRemaining: remainingQuota(sessionInputQuota, usage),
     };
   } finally {
+    cleanup();
     bitmap.close();
     session.destroy();
   }
@@ -176,29 +267,48 @@ export async function runTextPromptWithConstraint(
   responseConstraint: unknown,
   signal?: AbortSignal,
 ): Promise<TextImagePromptResult> {
+  logger.info('[input][text]', prompt);
   if (signal?.aborted) {
     const aborted = new Error('Prompt request aborted');
     aborted.name = 'AbortError';
     throw aborted;
   }
-  const availability = await LanguageModel.availability(TEXT_LANGUAGE_OPTIONS);
+
+  const availability = await withTimeout(
+    LanguageModel.availability(TEXT_LANGUAGE_OPTIONS),
+    INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
+    'Prompt availability',
+  );
   if (availability === 'unavailable') {
     throw new Error('Chrome Prompt API is unavailable in this browser profile');
   }
 
-  const session = await LanguageModel.create({
-    ...TEXT_LANGUAGE_OPTIONS,
-    ...(signal ? { signal } : {}),
-  });
+  const { signal: requestSignal, cleanup } = deriveRequestSignal(signal, INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS);
+  const session = await withTimeout(
+    LanguageModel.create({
+      ...TEXT_LANGUAGE_OPTIONS,
+      ...(requestSignal ? { signal: requestSignal } : {}),
+    }),
+    INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
+    'Prompt session create',
+  );
   const sessionAny = session as unknown as { inputUsage?: unknown; inputQuota?: unknown };
   const input = buildTextPromptInput(prompt);
-  const options = buildPromptOptionsWithSchema(responseConstraint, signal);
+  const options = buildPromptOptionsWithSchema(responseConstraint, requestSignal);
   const sessionInputUsageBefore = toNumber(sessionAny.inputUsage);
   const sessionInputQuota = toNumber(sessionAny.inputQuota);
 
   try {
-    const measuredInputTokens = await measureInputUsage(session, input, options);
-    const output = await promptOnce(session, input, options);
+    const measuredInputTokens = await withTimeout(
+      measureInputUsage(session, input, options),
+      INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
+      'Prompt input measurement',
+    );
+    const output = await withTimeout(
+      promptOnce(session, input, options),
+      INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
+      'Prompt generation',
+    );
     const sessionInputUsageAfter = toNumber(sessionAny.inputUsage);
     const usage = sessionInputUsageAfter ?? sessionInputUsageBefore;
     return {
@@ -210,6 +320,7 @@ export async function runTextPromptWithConstraint(
       sessionInputQuotaRemaining: remainingQuota(sessionInputQuota, usage),
     };
   } finally {
+    cleanup();
     session.destroy();
   }
 }
