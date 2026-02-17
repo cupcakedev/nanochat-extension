@@ -46,7 +46,7 @@ export const ChatInputFooter = memo(
     onSendIntent,
     canSend,
   }: ChatInputFooterProps) => (
-    <div className="px-3 pt-1.5 pb-2.5">
+    <div className="px-3 pb-2.5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <input
@@ -75,7 +75,7 @@ export const ChatInputFooter = memo(
               transition-colors"
             >
               <GlobeIcon />
-              <span>Add page</span>
+              <span>Add page in context</span>
             </button>
           )}
         </div>
