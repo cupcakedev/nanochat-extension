@@ -1,7 +1,12 @@
 import { memo } from 'react';
 
-export const DownloadIcon = memo(() => (
-  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-brand-400">
+interface DownloadIconProps {
+  size?: number;
+  className?: string;
+}
+
+export const DownloadIcon = memo(({ size = 28, className = "text-brand-400" }: DownloadIconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
     <path
       d="M12 2L12 16M12 16L7 11M12 16L17 11"
       stroke="currentColor"
