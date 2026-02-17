@@ -6,52 +6,59 @@ import { isElementUserVisible } from './visibility';
 const INTERACTIVE_TAGS = new Set([
   'a',
   'button',
+  'details',
+  'embed',
   'input',
-  'textarea',
+  'label',
+  'menu',
+  'menuitem',
+  'object',
   'select',
+  'textarea',
   'option',
   'summary',
-  'label',
-  'details',
 ]);
 
 const INTERACTIVE_ROLES = new Set([
   'button',
+  'menu',
+  'menuitem',
   'link',
   'checkbox',
   'radio',
+  'slider',
   'switch',
-  'menuitem',
   'tab',
+  'tabpanel',
   'textbox',
   'combobox',
+  'grid',
+  'listbox',
   'option',
+  'progressbar',
+  'scrollbar',
   'searchbox',
+  'tree',
+  'treeitem',
   'spinbutton',
-  'slider',
+  'tooltip',
+  'a-button-inner',
+  'a-dropdown-button',
+  'click',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'a-button-text',
+  'button-text',
+  'button-icon',
+  'button-icon-only',
+  'button-text-icon-only',
+  'dropdown',
 ]);
 
+const INTERACTIVE_DATA_ACTIONS = new Set(['a-dropdown-select', 'a-dropdown-button']);
 const DEFAULT_MAX_ELEMENTS = 50;
 const DEFAULT_VIEWPORT_SEGMENTS = 1;
 const MAX_VIEWPORT_SEGMENTS = 2;
-const PRIORITY_SELECTORS = [
-  'a#video-title[href*="/watch"]',
-  'a#thumbnail[href*="/watch"]',
-  'a[href*="/watch"]',
-];
-const BASE_SELECTORS = [
-  'a[href]',
-  'button',
-  "input:not([type='hidden'])",
-  'select',
-  'textarea',
-  'summary',
-  'label[for]',
-  '[role]',
-  '[tabindex]',
-  "[contenteditable='true']",
-  '[onclick]',
-];
 
 function normalizeText(value: string | null | undefined, max = 140): string | null {
   if (!value) return null;
@@ -77,11 +84,30 @@ function isInteractiveElement(element: HTMLElement): boolean {
   const tag = element.tagName.toLowerCase();
   if (tag === 'body' || tag === 'html') return false;
   if (INTERACTIVE_TAGS.has(tag)) return true;
-  const role = element.getAttribute('role')?.toLowerCase() ?? '';
-  if (INTERACTIVE_ROLES.has(role)) return true;
-  if (element.tabIndex >= 0) return true;
+  const role = element.getAttribute('role')?.toLowerCase();
+  if (role && INTERACTIVE_ROLES.has(role)) return true;
+  const ariaRole = element.getAttribute('aria-role')?.toLowerCase();
+  if (ariaRole && INTERACTIVE_ROLES.has(ariaRole)) return true;
+  const tabIndex = element.getAttribute('tabindex');
+  if (tabIndex !== null && tabIndex !== '-1') return true;
+  const dataAction = element.getAttribute('data-action')?.toLowerCase();
+  if (dataAction && INTERACTIVE_DATA_ACTIONS.has(dataAction)) return true;
+  if (
+    element.hasAttribute('aria-expanded') ||
+    element.hasAttribute('aria-pressed') ||
+    element.hasAttribute('aria-selected') ||
+    element.hasAttribute('aria-checked')
+  )
+    return true;
   if (element.isContentEditable) return true;
-  if (element.hasAttribute('onclick')) return true;
+  if (element.hasAttribute('onclick') || element.onclick !== null) return true;
+  if (
+    element.hasAttribute('ng-click') ||
+    element.hasAttribute('@click') ||
+    element.hasAttribute('v-on:click')
+  )
+    return true;
+  if (element.draggable || element.getAttribute('draggable') === 'true') return true;
   return window.getComputedStyle(element).cursor === 'pointer';
 }
 
@@ -137,27 +163,15 @@ function toSummary(
   };
 }
 
-function pushSelectorMatches(
-  root: ParentNode,
-  selectors: string[],
-  seen: Set<HTMLElement>,
-  result: HTMLElement[],
-): void {
-  selectors.forEach((selector) => {
-    root.querySelectorAll<HTMLElement>(selector).forEach((element) => {
-      if (seen.has(element)) return;
-      seen.add(element);
-      result.push(element);
-    });
-  });
-}
-
 function queryCandidates(): HTMLElement[] {
   const seen = new Set<HTMLElement>();
   const result: HTMLElement[] = [];
   collectSearchRoots().forEach((root) => {
-    pushSelectorMatches(root, PRIORITY_SELECTORS, seen, result);
-    pushSelectorMatches(root, BASE_SELECTORS, seen, result);
+    root.querySelectorAll<HTMLElement>('*').forEach((element) => {
+      if (seen.has(element)) return;
+      seen.add(element);
+      result.push(element);
+    });
   });
   return result;
 }
@@ -188,64 +202,10 @@ function sortByPriorityAndPosition(elements: HTMLElement[]): HTMLElement[] {
   });
 }
 
-function rectContains(outer: DOMRect, inner: DOMRect): boolean {
-  const tolerance = 1;
-  const contains =
-    outer.left - tolerance <= inner.left &&
-    outer.top - tolerance <= inner.top &&
-    outer.right + tolerance >= inner.right &&
-    outer.bottom + tolerance >= inner.bottom;
-  if (!contains) return false;
-
-  const outerArea = Math.max(0, outer.width) * Math.max(0, outer.height);
-  const innerArea = Math.max(0, inner.width) * Math.max(0, inner.height);
-  return outerArea > innerArea + 4;
-}
-
-function isOuterInteractiveElement(
-  outer: HTMLElement,
-  inner: HTMLElement,
-  outerRect: DOMRect,
-  innerRect: DOMRect,
-): boolean {
-  if (outer === inner) return false;
-  if (outer.contains(inner)) return true;
-  return rectContains(outerRect, innerRect);
-}
-
-function removeNestedInteractiveElements(elements: HTMLElement[]): HTMLElement[] {
-  const rects = elements.map((element) => element.getBoundingClientRect());
-  const filtered: HTMLElement[] = [];
-
-  for (let index = 0; index < elements.length; index += 1) {
-    const element = elements[index];
-    const elementRect = rects[index];
-    let isOuter = false;
-
-    for (let nestedIndex = 0; nestedIndex < elements.length; nestedIndex += 1) {
-      if (index === nestedIndex) continue;
-      if (
-        isOuterInteractiveElement(element, elements[nestedIndex], elementRect, rects[nestedIndex])
-      ) {
-        isOuter = true;
-        break;
-      }
-    }
-
-    if (!isOuter) {
-      filtered.push(element);
-    }
-  }
-
-  return filtered;
-}
-
 function collectInteractiveElements(maxElements: number, viewportOnly: boolean): HTMLElement[] {
-  return removeNestedInteractiveElements(
-    sortByPriorityAndPosition(
-      queryCandidates().filter(
-        (element) => isInteractiveElement(element) && isElementUserVisible(element, viewportOnly),
-      ),
+  return sortByPriorityAndPosition(
+    queryCandidates().filter(
+      (element) => isInteractiveElement(element) && isElementUserVisible(element, viewportOnly),
     ),
   ).slice(0, Math.max(1, maxElements));
 }
@@ -316,7 +276,7 @@ function mergeSegmentCaptures(
     }
   }
 
-  const elements = removeNestedInteractiveElements(orderedUniqueElements).slice(0, maxElements);
+  const elements = orderedUniqueElements.slice(0, maxElements);
   const summaries = elements.map((element, index) => ({
     index: index + 1,
     ...summaryByElement.get(element)!,
