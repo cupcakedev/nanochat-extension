@@ -12,21 +12,56 @@ function truncate(value: string | null | undefined, max: number): string | null 
   return normalized.length <= max ? normalized : normalized.slice(0, max);
 }
 
-function createElementLine(element: InteractiveElementSnapshotItem): string {
-  const parts: string[] = [`[${element.index}] <${element.tag}>`];
-  if (element.role) parts.push(`role=${truncate(element.role, 32)}`);
-  if (element.inputType) parts.push(`type=${truncate(element.inputType, 32)}`);
-  if (element.text) parts.push(`text="${truncate(element.text, 100)}"`);
-  if (element.ariaLabel) parts.push(`aria="${truncate(element.ariaLabel, 100)}"`);
-  if (element.placeholder) parts.push(`placeholder="${truncate(element.placeholder, 80)}"`);
-  if (element.name) parts.push(`name="${truncate(element.name, 80)}"`);
-  if (element.id) parts.push(`id="${truncate(element.id, 80)}"`);
-  if (element.href) parts.push(`href="${truncate(element.href, 180)}"`);
-  parts.push(`disabled=${element.disabled ? 'true' : 'false'}`);
-  parts.push(
-    `rect=${element.rect.x},${element.rect.y},${element.rect.width},${element.rect.height}`,
+function normalizeComparable(value: string | null | undefined): string | null {
+  const normalized = compact(value);
+  return normalized ? normalized.toLowerCase() : null;
+}
+
+function escapeAttribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function escapeTextContent(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function buildOpeningTag(element: InteractiveElementSnapshotItem, innerContent: string): string {
+  const attributes: string[] = [];
+  if (element.role) attributes.push(`role="${escapeAttribute(truncate(element.role, 32) ?? '')}"`);
+  if (element.inputType)
+    attributes.push(`type="${escapeAttribute(truncate(element.inputType, 32) ?? '')}"`);
+  const ariaValue = truncate(element.ariaLabel, 120);
+  if (
+    ariaValue &&
+    normalizeComparable(ariaValue) !== normalizeComparable(truncate(innerContent, 120))
+  ) {
+    attributes.push(`aria="${escapeAttribute(ariaValue)}"`);
+  }
+  if (element.placeholder)
+    attributes.push(`placeholder="${escapeAttribute(truncate(element.placeholder, 80) ?? '')}"`);
+  if (element.name) attributes.push(`name="${escapeAttribute(truncate(element.name, 80) ?? '')}"`);
+  if (element.id) attributes.push(`id="${escapeAttribute(truncate(element.id, 80) ?? '')}"`);
+  if (element.href) attributes.push(`href="${escapeAttribute(truncate(element.href, 180) ?? '')}"`);
+  return attributes.length > 0 ? `<${element.tag} ${attributes.join(' ')}>` : `<${element.tag}>`;
+}
+
+function getInnerContent(element: InteractiveElementSnapshotItem): string {
+  return (
+    truncate(element.text, 120) ??
+    truncate(element.ariaLabel, 120) ??
+    truncate(element.placeholder, 80) ??
+    truncate(element.name, 80) ??
+    truncate(element.id, 80) ??
+    truncate(element.href, 120) ??
+    element.tag
   );
-  return parts.join(' | ');
+}
+
+function createElementLine(element: InteractiveElementSnapshotItem): string {
+  const innerContent = getInnerContent(element);
+  const openingTag = buildOpeningTag(element, innerContent);
+  const content = escapeTextContent(innerContent);
+  return `[${element.index}] ${openingTag}${content}</${element.tag}>`;
 }
 
 function formatHistoryLine(execution: InteractionExecutionResult, index: number): string {
@@ -75,7 +110,6 @@ export function buildInteractionPrompt(params: {
     'Use scrollDown to scroll the page down by one viewport height to reveal more content or elements.',
     'Use scrollUp to scroll back up. Neither requires an index.',
     'Use click/type only with valid index values from the elements list below.',
-    'Never choose disabled=true targets.',
     'Do not repeat failed actions unchanged.',
     'If no indexed interactive elements are available and the task is not complete, use openUrl to navigate.',
     `Task: ${params.task}`,

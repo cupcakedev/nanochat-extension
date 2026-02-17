@@ -64,7 +64,7 @@ function drawElementOverlay(
   scaleX: number,
   scaleY: number,
   color: string,
-): void {
+): { labelX: number; labelY: number } {
   const x = Math.round(element.rect.x * scaleX);
   const y = Math.round(element.rect.y * scaleY);
   const width = Math.max(1, Math.round(element.rect.width * scaleX));
@@ -78,7 +78,7 @@ function drawElementOverlay(
 
   const labelX = Math.max(0, x + Math.max(0, width - 36));
   const labelY = Math.max(0, y - 22);
-  drawLabel(context, element.index, labelX, labelY, color);
+  return { labelX, labelY };
 }
 
 export function annotateInteractionCanvas(
@@ -92,9 +92,16 @@ export function annotateInteractionCanvas(
 
   const scaleX = resolveScale(canvas.width, viewport.width);
   const scaleY = resolveScale(canvas.height, viewport.height);
+  const labels: Array<{ index: number; x: number; y: number; color: string }> = [];
+
   elements.forEach((element, position) => {
     const color = HIGHLIGHT_COLORS[position % HIGHLIGHT_COLORS.length];
-    drawElementOverlay(context, element, scaleX, scaleY, color);
+    const { labelX, labelY } = drawElementOverlay(context, element, scaleX, scaleY, color);
+    labels.push({ index: element.index, x: labelX, y: labelY, color });
+  });
+
+  labels.forEach((label) => {
+    drawLabel(context, label.index, label.x, label.y, label.color);
   });
 
   return canvas;

@@ -188,10 +188,64 @@ function sortByPriorityAndPosition(elements: HTMLElement[]): HTMLElement[] {
   });
 }
 
+function rectContains(outer: DOMRect, inner: DOMRect): boolean {
+  const tolerance = 1;
+  const contains =
+    outer.left - tolerance <= inner.left &&
+    outer.top - tolerance <= inner.top &&
+    outer.right + tolerance >= inner.right &&
+    outer.bottom + tolerance >= inner.bottom;
+  if (!contains) return false;
+
+  const outerArea = Math.max(0, outer.width) * Math.max(0, outer.height);
+  const innerArea = Math.max(0, inner.width) * Math.max(0, inner.height);
+  return outerArea > innerArea + 4;
+}
+
+function isOuterInteractiveElement(
+  outer: HTMLElement,
+  inner: HTMLElement,
+  outerRect: DOMRect,
+  innerRect: DOMRect,
+): boolean {
+  if (outer === inner) return false;
+  if (outer.contains(inner)) return true;
+  return rectContains(outerRect, innerRect);
+}
+
+function removeNestedInteractiveElements(elements: HTMLElement[]): HTMLElement[] {
+  const rects = elements.map((element) => element.getBoundingClientRect());
+  const filtered: HTMLElement[] = [];
+
+  for (let index = 0; index < elements.length; index += 1) {
+    const element = elements[index];
+    const elementRect = rects[index];
+    let isOuter = false;
+
+    for (let nestedIndex = 0; nestedIndex < elements.length; nestedIndex += 1) {
+      if (index === nestedIndex) continue;
+      if (
+        isOuterInteractiveElement(element, elements[nestedIndex], elementRect, rects[nestedIndex])
+      ) {
+        isOuter = true;
+        break;
+      }
+    }
+
+    if (!isOuter) {
+      filtered.push(element);
+    }
+  }
+
+  return filtered;
+}
+
 function collectInteractiveElements(maxElements: number, viewportOnly: boolean): HTMLElement[] {
-  return sortByPriorityAndPosition(
-    queryCandidates().filter(
-      (element) => isInteractiveElement(element) && isElementUserVisible(element, viewportOnly),
+  return removeNestedInteractiveElements(
+    sortByPriorityAndPosition(
+      queryCandidates().filter(
+        (element) => isInteractiveElement(element) && isElementUserVisible(element, viewportOnly),
+      ),
     ),
   ).slice(0, Math.max(1, maxElements));
 }
@@ -250,25 +304,23 @@ function mergeSegmentCaptures(
   segments: SegmentCapture[],
   maxElements: number,
 ): { elements: HTMLElement[]; summaries: InteractiveElementSnapshotItem[] } {
-  const seen = new Set<HTMLElement>();
-  const elements: HTMLElement[] = [];
-  const summaries: InteractiveElementSnapshotItem[] = [];
+  const orderedUniqueElements: HTMLElement[] = [];
+  const summaryByElement = new Map<HTMLElement, Omit<InteractiveElementSnapshotItem, 'index'>>();
 
   for (const segment of segments) {
     for (let index = 0; index < segment.elements.length; index += 1) {
       const element = segment.elements[index];
-      if (seen.has(element)) continue;
-      seen.add(element);
-      elements.push(element);
-      summaries.push({
-        index: summaries.length + 1,
-        ...segment.summaries[index],
-      });
-      if (summaries.length >= maxElements) {
-        return { elements, summaries };
-      }
+      if (summaryByElement.has(element)) continue;
+      orderedUniqueElements.push(element);
+      summaryByElement.set(element, segment.summaries[index]);
     }
   }
+
+  const elements = removeNestedInteractiveElements(orderedUniqueElements).slice(0, maxElements);
+  const summaries = elements.map((element, index) => ({
+    index: index + 1,
+    ...summaryByElement.get(element)!,
+  }));
 
   return { elements, summaries };
 }

@@ -18,7 +18,7 @@ const PLANNER_INITIAL_PROMPTS: [
   {
     role: 'user',
     content:
-      'Task: Click the login button\nCurrent URL: https://example.com\nIndexed interactive elements:\n[1] <a> | text="Home" | href="/"\n[2] <button> | text="Login" | role=button\n[3] <a> | text="Sign up" | href="/signup"',
+      'Task: Click the login button\nCurrent URL: https://example.com\nIndexed interactive elements:\n[1] <a href="/">Home</a>\n[2] <button role="button">Login</button>\n[3] <a href="/signup">Sign up</a>',
   },
   {
     role: 'assistant',
@@ -28,7 +28,7 @@ const PLANNER_INITIAL_PROMPTS: [
   {
     role: 'user',
     content:
-      'Task: Find the pricing section\nScroll position: 0px (viewport height: 800px)\nCurrent URL: https://example.com\nIndexed interactive elements:\n[1] <a> | text="Home"\n[2] <a> | text="About"',
+      'Task: Find the pricing section\nScroll position: 0px (viewport height: 800px)\nCurrent URL: https://example.com\nIndexed interactive elements:\n[1] <a>Home</a>\n[2] <a>About</a>',
   },
   {
     role: 'assistant',
