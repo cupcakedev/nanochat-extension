@@ -3,7 +3,7 @@ import type { RefObject } from 'react';
 import { AgentContextChip } from './AgentContextChip';
 import { AgentNotice } from './AgentNotice';
 import { ChatInput } from '@app/components/ui/ChatInput';
-import type { AgentContextChip as AgentContextChipType } from '@app/hooks/useAgentMode';
+import type { AgentContextChip as AgentContextChipType } from '@app/hooks/agent';
 import { ChatMode, requiresPageContext } from '@app/types/mode';
 import type { ChatContextSendMode, ChatSendOptions } from '@app/types/mode';
 import type { PageSource } from '@shared/types';

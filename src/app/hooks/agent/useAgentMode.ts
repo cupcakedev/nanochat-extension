@@ -5,7 +5,7 @@ import { AGENT_CONTEXT_UNAVAILABLE_MESSAGE, getAgentPageContext } from '@app/ser
 import { clearTimerRef, extractAgentErrorMessage, resolveSiteTitle } from '@app/services/agent';
 import type { AgentContextChip } from '@app/services/agent';
 import { ChatMode, requiresPageContext } from '@app/types/mode';
-import { useTabChangeListener } from './useTabChangeListener';
+import { useTabChangeListener } from '@app/hooks/state/useTabChangeListener';
 
 export type { AgentContextChip };
 

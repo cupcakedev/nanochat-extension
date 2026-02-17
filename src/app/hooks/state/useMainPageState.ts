@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import { usePromptSession } from '@app/hooks/usePromptSession';
-import { useChat } from '@app/hooks/useChat';
-import { useChatContext } from '@app/hooks/useChatContext';
-import { useAgentMode } from '@app/hooks/useAgentMode';
+import { usePromptSession } from '@app/hooks/prompt';
+import { useChat } from '@app/hooks/chat';
+import { useChatContext } from '@app/hooks/chat';
+import { useAgentMode } from '@app/hooks/agent';
 import { fetchPageContextSource } from '@app/services/page';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@app/types/mode';
 import { SessionStatus } from '@shared/types';

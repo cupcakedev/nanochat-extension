@@ -6,7 +6,7 @@ import {
   deleteChat as deleteChatFromStorage,
   createNewChat,
 } from '@shared/services/chat-storage';
-import { useStorageSync } from '@app/hooks/useStorageSync';
+import { useStorageSync } from '@app/hooks/state';
 import {
   buildSummaries,
   buildUpdatedChat,

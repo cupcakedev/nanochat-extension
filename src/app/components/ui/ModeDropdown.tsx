@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useState } from 'react';
-import { useOutsideClick } from '@app/hooks/useOutsideClick';
+import { useOutsideClick } from '@app/hooks/ui';
 import { BadgeChip } from './BadgeChip';
 import { ChatMode } from '@app/types/mode';
 

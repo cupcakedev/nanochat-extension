@@ -7,8 +7,8 @@ import {
   type ClipboardEvent,
   type DragEvent,
 } from 'react';
-import { useImageAttachments } from '@app/hooks/useImageAttachments';
-import { useTextareaAutoResize } from '@app/hooks/useTextareaAutoResize';
+import { useImageAttachments } from '@app/hooks/chat';
+import { useTextareaAutoResize } from '@app/hooks/ui';
 import type { ChatContextSendMode, ChatMode, ChatSendOptions } from '@app/types/mode';
 import { toSendOptions } from '@app/services/chat';
 import { ImagePreviewList } from './ImagePreviewList';

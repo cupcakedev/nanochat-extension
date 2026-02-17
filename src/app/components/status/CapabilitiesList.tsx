@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { useAutoRotation } from '@app/hooks/useAutoRotation';
+import { useAutoRotation } from '@app/hooks/ui';
 import { CAPABILITIES, CAPABILITIES_ROTATION_INTERVAL } from './capabilitiesData';
 
 function visibilityClass(isVisible: boolean): string {
