@@ -18,6 +18,7 @@ interface InputDockProps {
   chatContextSource: PageSource | null;
   chatContextAnimationKey: number;
   agentNotice: string | null;
+  contextNotice: string | null;
   onSend: (message: string, images?: string[], options?: ChatSendOptions) => void;
   onStop: () => void;
   streaming: boolean;
@@ -52,6 +53,7 @@ export const InputDock = memo(({
   chatContextSource,
   chatContextAnimationKey,
   agentNotice,
+  contextNotice,
   onSend,
   onStop,
   streaming,
@@ -75,6 +77,7 @@ export const InputDock = memo(({
         />
       )}
       {agentNotice && <AgentNotice message={agentNotice} />}
+      {contextNotice && <AgentNotice message={contextNotice} />}
       <ChatInput
         onSend={onSend}
         onStop={onStop}

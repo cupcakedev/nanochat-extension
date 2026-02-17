@@ -1,7 +1,8 @@
+import { useCallback } from 'react';
 import { Sidebar } from '@app/components/sidebar/Sidebar';
 import { ChatHeader } from '@app/components/chat/ChatHeader';
 import { InputDock } from '@app/components/chat/InputDock';
-import { EmptyState } from '@app/components/ui/EmptyState';
+import { WelcomeScreen } from '@app/components/chat/WelcomeScreen';
 import { MessageList } from '@app/components/chat/MessageList';
 import { TokenStats } from '@app/components/chat/TokenStats';
 import { ContextBar } from '@app/components/chat/ContextBar';
@@ -9,11 +10,26 @@ import { DevTracePanel } from '@app/components/chat/DevTracePanel';
 import { OnboardingScreen } from '@app/components/status/OnboardingScreen';
 import { useMainPageState } from '@app/hooks/useMainPageState';
 import { useScrolled } from '@app/hooks/useScrolled';
+import { useTemporaryNotice } from '@app/hooks/useTemporaryNotice';
+import { toSendOptions } from '@app/services/chat-send-options';
 import { SessionStatus } from '@shared/types';
 
 export const MainPage = () => {
   const state = useMainPageState();
   const { scrolled, scrollRef } = useScrolled();
+  const { notice: contextNotice, showNotice: showContextNotice } = useTemporaryNotice();
+
+  const hasPageContext = Boolean(state.chatContextSource ?? state.chatPageSource);
+
+  const handleSuggestionClick = useCallback(
+    (prompt: string) => state.send(prompt, undefined, toSendOptions(state.mode, state.contextMode)),
+    [state.send, state.mode, state.contextMode],
+  );
+
+  const handleContextRequired = useCallback(
+    () => showContextNotice('This feature requires a webpage. Open a website and try again.'),
+    [showContextNotice],
+  );
 
   return (
     <div className="relative h-screen flex flex-row bg-neutral-bg overflow-hidden">
@@ -57,9 +73,11 @@ export const MainPage = () => {
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center">
-                  <EmptyState
-                    title="Welcome to NanoChat"
-                    description="Start a conversation by typing a message below"
+                  <WelcomeScreen
+                    mode={state.mode}
+                    hasPageContext={hasPageContext}
+                    onSuggestionClick={handleSuggestionClick}
+                    onContextRequired={handleContextRequired}
                   />
                 </div>
               )}
@@ -75,6 +93,7 @@ export const MainPage = () => {
               chatContextSource={state.chatContextSource}
               chatContextAnimationKey={state.chatContextAnimationKey}
               agentNotice={state.agentNotice}
+              contextNotice={contextNotice}
               onSend={state.send}
               onStop={state.stop}
               streaming={state.streaming}
