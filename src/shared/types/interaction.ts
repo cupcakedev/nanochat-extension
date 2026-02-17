@@ -93,6 +93,12 @@ export interface PageInteractionDebugInput {
   sessionInputQuota: number | null;
   sessionInputQuotaRemaining: number | null;
   interactiveElements: InteractiveElementSnapshotItem[];
+  plannerMemoryState?: {
+    evaluationPreviousGoal: string;
+    memory: string;
+    nextGoal: string;
+  } | null;
+  plannerMemoryTimeline?: string[];
 }
 
 export interface InteractionCompletionVerification {

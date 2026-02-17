@@ -3,7 +3,7 @@ import type {
   InteractionExecutionResult,
   InteractiveElementSnapshotItem,
 } from '@shared/types';
-import type { ParsedInteractionDecision } from './parser';
+import type { ParsedInteractionCurrentState, ParsedInteractionDecision } from './parser';
 
 export interface PromptDecisionResult {
   decision: ParsedInteractionDecision;
@@ -53,12 +53,16 @@ export interface PlannerRequestParams {
   viewportHeight: number;
   history: InteractionExecutionResult[];
   elements: InteractiveElementSnapshotItem[];
+  modelMemoryState: ParsedInteractionCurrentState | null;
+  modelMemoryTimeline: string[];
   strategyHints?: PlannerStrategyHints;
   baseCanvas: HTMLCanvasElement;
   viewport: { width: number; height: number };
   onProgress?: InteractionRunOptions['onProgress'];
   signal?: AbortSignal;
 }
+
+export type PlannerModelMemorySnapshot = ParsedInteractionCurrentState;
 
 export interface PlannerStrategyHints {
   evaluationPreviousGoal: string;

@@ -16,7 +16,7 @@ import type {
 } from '@shared/types';
 import { captureStackedViewport } from './capture';
 import { enforceTypingFirst } from './guards';
-import { estimateTokens } from './prompt-api';
+import { estimateTokens, resetInteractionPromptSessions, warmInteractionPromptSessions } from './prompt-api';
 import { verifyTaskCompletion } from './verifier';
 import {
   formatExecutionLines,
@@ -66,6 +66,7 @@ import {
   throwIfAborted,
 } from './run-step-utils';
 import type { InteractionRunOptions, PromptDecisionResult } from './run-step-types';
+import type { PlannerModelMemorySnapshot } from './run-step-types';
 
 export type {
   InteractionProgressEvent,
@@ -78,33 +79,58 @@ const AGENT_MAX_STEPS = 12;
 const AGENT_VIEWPORT_SEGMENTS = 1;
 const AGENT_PLACEHOLDER_PAGE_PATH = 'src/placeholder.html';
 
+function compactMemoryValue(value: string, maxChars: number): string {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxChars) return normalized;
+  return `${normalized.slice(0, maxChars)}...`;
+}
+
+function toMemoryTimelineLine(
+  stepNumber: number,
+  pageUrl: string,
+  state: PlannerModelMemorySnapshot,
+): string {
+  return [
+    `step=${stepNumber}`,
+    `url=${pageUrl}`,
+    `eval=${compactMemoryValue(state.evaluationPreviousGoal, 120)}`,
+    `memory=${compactMemoryValue(state.memory, 180)}`,
+    `next=${compactMemoryValue(state.nextGoal, 120)}`,
+  ].join(' | ');
+}
+
 export async function runPageInteractionStep(
   userInstruction: string,
   options?: InteractionRunOptions,
 ): Promise<PageInteractionStepResult> {
   throwIfAborted(options?.signal);
-  const task = normalizeInstruction(userInstruction);
-  const pinnedTab = await getActiveTab();
-  const allPlans: InteractionActionPlan[] = [];
-  const allExecutions: InteractionExecutionResult[] = [];
-  const rawResponses: string[] = [];
-  let finalStatus: InteractionRunStatus = 'continue';
-  let finalAnswer: string | null = null;
-  let lastVerification: InteractionCompletionVerification | null = null;
-  let lastDecision: PromptDecisionResult | null = null;
-  let lastPageUrl = '';
-  let lastPageTitle = '';
-  let lastTabId: number | null = pinnedTab.tabId;
-  let lastElementCount = 0;
-  let lastPromptElementCount = 0;
-  let totalRetries = 0;
-  const verificationCache = new Map<string, InteractionCompletionVerification>();
-  const attemptedRejectedDoneClickKeys = new Set<string>();
-  let lastRejectedDoneKey: string | null = null;
-  let rejectedDoneStreak = 0;
-  const strategyState = createInteractionStrategyState(task);
+  resetInteractionPromptSessions();
+  try {
+    await warmInteractionPromptSessions();
+    const task = normalizeInstruction(userInstruction);
+    const pinnedTab = await getActiveTab();
+    const allPlans: InteractionActionPlan[] = [];
+    const allExecutions: InteractionExecutionResult[] = [];
+    const rawResponses: string[] = [];
+    let finalStatus: InteractionRunStatus = 'continue';
+    let finalAnswer: string | null = null;
+    let lastVerification: InteractionCompletionVerification | null = null;
+    let lastDecision: PromptDecisionResult | null = null;
+    let lastPageUrl = '';
+    let lastPageTitle = '';
+    let lastTabId: number | null = pinnedTab.tabId;
+    let lastElementCount = 0;
+    let lastPromptElementCount = 0;
+    let totalRetries = 0;
+    let plannerMemoryState: PlannerModelMemorySnapshot | null = null;
+    const plannerMemoryTimeline: string[] = [];
+    const verificationCache = new Map<string, InteractionCompletionVerification>();
+    const attemptedRejectedDoneClickKeys = new Set<string>();
+    let lastRejectedDoneKey: string | null = null;
+    let rejectedDoneStreak = 0;
+    const strategyState = createInteractionStrategyState(task);
 
-  for (let stepNumber = 1; stepNumber <= AGENT_MAX_STEPS; stepNumber += 1) {
+    for (let stepNumber = 1; stepNumber <= AGENT_MAX_STEPS; stepNumber += 1) {
     throwIfAborted(options?.signal);
     const activeTab = { ...pinnedTab };
     lastTabId = activeTab.tabId;
@@ -211,12 +237,28 @@ export async function runPageInteractionStep(
       viewportHeight: snapshot.viewportHeight,
       history: allExecutions,
       elements: snapshot.interactiveElements,
+      modelMemoryState: plannerMemoryState,
+      modelMemoryTimeline: plannerMemoryTimeline,
       strategyHints,
       baseCanvas: capture.canvas,
       viewport: { width: snapshot.viewportWidth, height: snapshot.viewportHeight },
       onProgress: options?.onProgress,
       signal: options?.signal,
     });
+    plannerMemoryState = decision.decision.currentState;
+    const memoryLine = toMemoryTimelineLine(
+      stepNumber,
+      snapshot.pageUrl,
+      decision.decision.currentState,
+    );
+    const lastMemoryLine =
+      plannerMemoryTimeline.length > 0 ? plannerMemoryTimeline[plannerMemoryTimeline.length - 1] : null;
+    if (memoryLine !== lastMemoryLine) {
+      plannerMemoryTimeline.push(memoryLine);
+      if (plannerMemoryTimeline.length > 12) {
+        plannerMemoryTimeline.splice(0, plannerMemoryTimeline.length - 12);
+      }
+    }
 
     rawResponses.push(decision.rawResponse);
     emitProgressLine(
@@ -531,53 +573,58 @@ export async function runPageInteractionStep(
     }
   }
 
-  if (finalStatus === 'continue') {
-    finalStatus = 'max-steps';
-    finalAnswer = finalAnswer ?? 'Maximum agent steps reached before completion';
-  }
+    if (finalStatus === 'continue') {
+      finalStatus = 'max-steps';
+      finalAnswer = finalAnswer ?? 'Maximum agent steps reached before completion';
+    }
 
-  if (!lastDecision) {
-    throw new Error('Agent did not produce any planning result');
-  }
+    if (!lastDecision) {
+      throw new Error('Agent did not produce any planning result');
+    }
 
-  const completion = resolveCompletion(
-    finalStatus,
-    lastDecision.decision,
-    allExecutions,
-    finalAnswer,
-  );
-  emitProgressLine(options, formatFinalLine(completion.status, completion.finalAnswer));
-  if (lastTabId !== null) {
-    await clearHighlights(lastTabId).catch(() => undefined);
-  }
+    const completion = resolveCompletion(
+      finalStatus,
+      lastDecision.decision,
+      allExecutions,
+      finalAnswer,
+    );
+    emitProgressLine(options, formatFinalLine(completion.status, completion.finalAnswer));
+    if (lastTabId !== null) {
+      await clearHighlights(lastTabId).catch(() => undefined);
+    }
 
-  return {
-    status: completion.status,
-    finalAnswer: completion.finalAnswer,
-    verification: lastVerification,
-    plans: allPlans,
-    executions: allExecutions,
-    rawResponse: rawResponses.join('\n'),
-    screenshotDataUrl: lastDecision.screenshotDataUrl,
-    debugInput: {
-      pageUrl: lastPageUrl,
-      pageTitle: lastPageTitle,
-      instruction: task,
-      prompt: lastDecision.prompt,
-      promptTokens: estimateTokens(lastDecision.prompt),
-      measuredInputTokens: lastDecision.measuredInputTokens,
-      sessionInputUsageBefore: lastDecision.sessionInputUsageBefore,
-      sessionInputUsageAfter: lastDecision.sessionInputUsageAfter,
-      sessionInputQuota: lastDecision.sessionInputQuota,
-      sessionInputQuotaRemaining: lastDecision.sessionInputQuotaRemaining,
-      interactiveElements: lastDecision.promptElements,
-    },
-    captureMeta: {
-      imageWidth: lastDecision.imageWidth,
-      imageHeight: lastDecision.imageHeight,
-      elementCount: lastElementCount,
-      promptElementCount: lastPromptElementCount,
-      retryCount: totalRetries,
-    },
-  };
+    return {
+      status: completion.status,
+      finalAnswer: completion.finalAnswer,
+      verification: lastVerification,
+      plans: allPlans,
+      executions: allExecutions,
+      rawResponse: rawResponses.join('\n'),
+      screenshotDataUrl: lastDecision.screenshotDataUrl,
+      debugInput: {
+        pageUrl: lastPageUrl,
+        pageTitle: lastPageTitle,
+        instruction: task,
+        prompt: lastDecision.prompt,
+        promptTokens: estimateTokens(lastDecision.prompt),
+        measuredInputTokens: lastDecision.measuredInputTokens,
+        sessionInputUsageBefore: lastDecision.sessionInputUsageBefore,
+        sessionInputUsageAfter: lastDecision.sessionInputUsageAfter,
+        sessionInputQuota: lastDecision.sessionInputQuota,
+        sessionInputQuotaRemaining: lastDecision.sessionInputQuotaRemaining,
+        interactiveElements: lastDecision.promptElements,
+        plannerMemoryState,
+        plannerMemoryTimeline,
+      },
+      captureMeta: {
+        imageWidth: lastDecision.imageWidth,
+        imageHeight: lastDecision.imageHeight,
+        elementCount: lastElementCount,
+        promptElementCount: lastPromptElementCount,
+        retryCount: totalRetries,
+      },
+    };
+  } finally {
+    resetInteractionPromptSessions();
+  }
 }

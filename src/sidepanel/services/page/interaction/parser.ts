@@ -7,10 +7,17 @@ import type {
 
 const MAX_ACTIONS_PER_PLAN = 4;
 
+export interface ParsedInteractionCurrentState {
+  evaluationPreviousGoal: string;
+  memory: string;
+  nextGoal: string;
+}
+
 export interface ParsedInteractionDecision {
   status: Exclude<InteractionRunStatus, 'max-steps'>;
   finalAnswer: string | null;
   reason: string | null;
+  currentState: ParsedInteractionCurrentState;
   actions: InteractionActionPlan[];
 }
 
@@ -34,6 +41,11 @@ function normalizeTextValue(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeStateTextValue(value: unknown, fallback: string): string {
+  const normalized = normalizeTextValue(value);
+  return normalized ?? fallback;
 }
 
 function normalizeStatus(value: unknown): Exclude<InteractionRunStatus, 'max-steps'> {
@@ -147,11 +159,35 @@ function readActions(root: Record<string, unknown>): InteractionActionPlan[] {
   return root.actions.slice(0, MAX_ACTIONS_PER_PLAN).map(normalizeActionPlan);
 }
 
+function readCurrentState(root: Record<string, unknown>): ParsedInteractionCurrentState {
+  const raw =
+    (root.currentState && typeof root.currentState === 'object'
+      ? (root.currentState as Record<string, unknown>)
+      : null) ??
+    (root.current_state && typeof root.current_state === 'object'
+      ? (root.current_state as Record<string, unknown>)
+      : null) ??
+    {};
+
+  return {
+    evaluationPreviousGoal: normalizeStateTextValue(
+      raw.evaluationPreviousGoal ?? raw.evaluation_previous_goal,
+      'Unknown - no prior planner state available.',
+    ),
+    memory: normalizeStateTextValue(raw.memory, 'No long-term memory recorded yet.'),
+    nextGoal: normalizeStateTextValue(
+      raw.nextGoal ?? raw.next_goal,
+      'Continue with the most direct safe action.',
+    ),
+  };
+}
+
 export function parseInteractionDecision(rawText: string): ParsedInteractionDecision {
   const root = readRoot(rawText);
   const status = normalizeStatus(root.status);
   const finalAnswer = normalizeTextValue(root.finalAnswer);
   const reason = normalizeTextValue(root.reason);
+  const currentState = readCurrentState(root);
   const actions = readActions(root);
 
   if (status === 'continue' && actions.length === 0) {
@@ -159,9 +195,10 @@ export function parseInteractionDecision(rawText: string): ParsedInteractionDeci
       status: 'fail',
       finalAnswer: finalAnswer ?? null,
       reason: reason ?? 'Planner returned no actions for continue status',
+      currentState,
       actions: [],
     };
   }
 
-  return { status, finalAnswer, reason, actions };
+  return { status, finalAnswer, reason, currentState, actions };
 }

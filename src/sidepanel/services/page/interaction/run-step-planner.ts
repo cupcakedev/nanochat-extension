@@ -17,6 +17,7 @@ import {
 } from './run-step-utils';
 
 const logger = createLogger('interaction-step:planner');
+const MAX_INITIAL_PROMPT_ELEMENTS = 64;
 
 function nextPromptElementLimit(current: number): number {
   return Math.floor(current * INTERACTION_PROMPT_RETRY_SHRINK_FACTOR);
@@ -29,7 +30,7 @@ function mustStopRetrying(current: number, next: number): boolean {
 export async function requestPlannerDecision(
   params: PlannerRequestParams,
 ): Promise<PromptDecisionResult> {
-  let elementLimit = Math.max(1, params.elements.length);
+  let elementLimit = Math.max(1, Math.min(MAX_INITIAL_PROMPT_ELEMENTS, params.elements.length));
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt <= INTERACTION_PROMPT_MAX_RETRY_ATTEMPTS; attempt += 1) {
@@ -53,6 +54,8 @@ export async function requestPlannerDecision(
       viewportHeight: params.viewportHeight,
       history: params.history,
       elements: promptElements,
+      modelMemoryState: params.modelMemoryState,
+      modelMemoryTimeline: params.modelMemoryTimeline,
       strategyHints: params.strategyHints,
     });
     const annotatedCanvas = annotateInteractionCanvas(

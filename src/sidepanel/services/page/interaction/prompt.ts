@@ -1,5 +1,5 @@
 import type { InteractionExecutionResult, InteractiveElementSnapshotItem } from '@shared/types';
-import type { PlannerStrategyHints } from './run-step-types';
+import type { PlannerModelMemorySnapshot, PlannerStrategyHints } from './run-step-types';
 
 function compact(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -75,7 +75,12 @@ function formatHistoryLine(execution: InteractionExecutionResult, index: number)
 
 function formatExecutionHistory(history: InteractionExecutionResult[]): string {
   if (!history.length) return 'none';
-  return history.slice(-6).map(formatHistoryLine).join('\n');
+  return history.slice(-4).map(formatHistoryLine).join('\n');
+}
+
+function formatModelMemoryTimeline(timeline: string[]): string {
+  if (!timeline.length) return 'none';
+  return timeline.slice(-3).map((line, index) => `${index + 1}. ${line}`).join('\n');
 }
 
 export function buildInteractionPrompt(params: {
@@ -88,6 +93,8 @@ export function buildInteractionPrompt(params: {
   viewportHeight: number;
   history: InteractionExecutionResult[];
   elements: InteractiveElementSnapshotItem[];
+  modelMemoryState: PlannerModelMemorySnapshot | null;
+  modelMemoryTimeline: string[];
   strategyHints?: PlannerStrategyHints;
 }): string {
   const elementLines = params.elements.map(createElementLine);
@@ -99,44 +106,35 @@ export function buildInteractionPrompt(params: {
       : 'none';
   const strategySection = params.strategyHints
     ? [
-        'Planner strategy state:',
-        `Previous goal evaluation: ${params.strategyHints.evaluationPreviousGoal}`,
-        `Working memory: ${params.strategyHints.memory}`,
-        `Next goal: ${params.strategyHints.nextGoal}`,
-        `Hard constraints:\n${strategyConstraints}`,
+        'Strategy:',
+        `Eval: ${params.strategyHints.evaluationPreviousGoal}`,
+        `Memory: ${params.strategyHints.memory}`,
+        `Next: ${params.strategyHints.nextGoal}`,
+        `Constraints:\n${strategyConstraints}`,
       ]
     : [];
+  const memoryState = params.modelMemoryState ?? {
+    evaluationPreviousGoal: 'Unknown - first planner step for this run.',
+    memory: 'No long-term memory recorded yet.',
+    nextGoal: 'Find the most direct safe action.',
+  };
 
   return [
-    'You are a browser agent planner running inside an execution loop.',
-    'Return only minified JSON and nothing else.',
-    '{"status":"continue|done|fail","finalAnswer":string|null,"reason":string|null,"actions":[{"action":"openUrl|click|type|scrollDown|scrollUp|done|unknown","index":number|null,"text":string|null,"url":string|null,"reason":string|null,"confidence":"high|medium|low"}]}.',
-    'Goal: complete the user task safely and efficiently.',
-    'If the goal is fully achieved on the current page, set status=done with finalAnswer filled.',
-    'If the task is impossible or blocked, set status=fail with reason filled.',
-    'If more work is needed, set status=continue and provide 1 to 4 actions.',
-    'Never set status=done from intent or assumption alone. Use current page evidence.',
-    'For open/go/watch tasks, status=done only when Current URL already matches the target destination.',
-    'If finalAnswer contains a URL different from Current URL, status must be continue and actions must include a concrete navigation step.',
-    'Actions are executed in listed order.',
-    'Prefer click on a visible indexed element when a matching destination link/control is already present on the current page.',
-    'Use openUrl with an absolute http/https URL only when no suitable indexed element can reach that destination.',
-    'Use click with a valid index from the indexed elements list to interact with buttons, links, and other controls on the page.',
-    'Use type with a valid index and non-empty text to fill input fields.',
-    'If the instruction has multi-intent (for example type then click/search), output multiple actions in that order.',
-    'Use scrollDown to scroll the page down by one viewport height to reveal more content or elements.',
-    'Use scrollUp to scroll back up. Neither requires an index.',
-    'Use click/type only with valid index values from the elements list below.',
-    'Do not repeat failed actions unchanged.',
-    'If no indexed interactive elements are available and the task is not complete, use openUrl to navigate.',
+    'Output only minified JSON matching this shape:',
+    '{"status":"continue|done|fail","finalAnswer":string|null,"reason":string|null,"currentState":{"evaluationPreviousGoal":string,"memory":string,"nextGoal":string},"actions":[{"action":"openUrl|click|type|scrollDown|scrollUp|done|unknown","index":number|null,"text":string|null,"url":string|null,"reason":string|null,"confidence":"high|medium|low"}]}',
     `Task: ${params.task}`,
-    `Loop step: ${params.stepNumber}/${params.maxSteps}`,
-    `Current URL: ${params.pageUrl}`,
-    `Current title: ${params.pageTitle}`,
-    `Scroll position: ${params.scrollY}px (viewport height: ${params.viewportHeight}px)`,
-    `Recent execution history:\n${formatExecutionHistory(params.history)}`,
+    `Step: ${params.stepNumber}/${params.maxSteps}`,
+    `URL: ${params.pageUrl}`,
+    `Title: ${params.pageTitle}`,
+    `Scroll: ${params.scrollY}px (vh ${params.viewportHeight}px)`,
+    `Recent history:\n${formatExecutionHistory(params.history)}`,
+    'Previous memory state:',
+    `evalPrev: ${memoryState.evaluationPreviousGoal}`,
+    `memory: ${memoryState.memory}`,
+    `nextGoal: ${memoryState.nextGoal}`,
+    `Memory timeline:\n${formatModelMemoryTimeline(params.modelMemoryTimeline)}`,
     ...strategySection,
-    'Indexed interactive elements:',
+    'Indexed elements:',
     elementLines.join('\n'),
-  ].join('\n\n');
+  ].join('\n');
 }

@@ -54,7 +54,7 @@ function formatHistory(history: InteractionExecutionResult[]): string {
   if (!history.length) return 'none';
 
   return history
-    .slice(-6)
+    .slice(-4)
     .map((execution, index) => {
       const parts: string[] = [execution.requestedAction];
       if (execution.requestedIndex !== null) parts.push(`#${execution.requestedIndex}`);
@@ -73,23 +73,13 @@ function buildVerifierPrompt(params: {
   plannerFinalAnswer: string | null;
 }): string {
   return [
-    'You are a strict task-completion verifier for a browser agent.',
-    'Return only minified JSON and nothing else.',
-    '{"complete":boolean,"reason":string,"confidence":"high|medium|low"}.',
-    'Default is complete=false.',
-    'Set complete=true only when the current page clearly proves full completion of every task requirement.',
-    'Never accept partial/intermediate states as complete unless explicitly requested.',
-    'For open/go/watch tasks, complete=true only when Current URL matches target destination.',
-    'If plannerFinalAnswer suggests another URL, complete=false.',
-    'If recent history has unresolved failed/not-executed steps relevant to task, complete=false.',
-    'If uncertain, return complete=false with medium/low confidence.',
-    'Use confidence=high only for direct, unambiguous proof.',
+    'Return only minified JSON: {"complete":boolean,"reason":string,"confidence":"high|medium|low"}',
     `Task: ${params.task}`,
-    `Current URL: ${params.pageUrl}`,
-    `Current title: ${params.pageTitle}`,
-    `Agent final answer candidate: ${params.plannerFinalAnswer ?? 'none'}`,
-    `Recent execution history:\n${formatHistory(params.history)}`,
-  ].join('\n\n');
+    `URL: ${params.pageUrl}`,
+    `Title: ${params.pageTitle}`,
+    `Final answer candidate: ${params.plannerFinalAnswer ?? 'none'}`,
+    `Recent history:\n${formatHistory(params.history)}`,
+  ].join('\n');
 }
 
 function parseVerifierOutput(output: string): InteractionCompletionVerification {
