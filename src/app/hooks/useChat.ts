@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { PromptAPIService } from '@app/services/prompt-api';
-import { AgentContextUnavailableError, buildAgentSystemPromptWithContext } from '@app/services/agent-context';
+import {
+  AgentContextUnavailableError,
+  buildAgentSystemPromptWithContext,
+} from '@app/services/agent-context';
 import {
   createChatMessage,
   extractErrorMessage,
@@ -41,7 +44,9 @@ export function useChat(
   const [streaming, setStreaming] = useState(false);
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const [devTraceItems, setDevTraceItems] = useState<DevTraceItem[]>([]);
-  const [chatContextChipSourceOverride, setChatContextChipSourceOverride] = useState<PageSource | null | undefined>(undefined);
+  const [chatContextChipSourceOverride, setChatContextChipSourceOverride] = useState<
+    PageSource | null | undefined
+  >(undefined);
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(
     initialContextUsage ? toContextUsage(initialContextUsage) : null,
   );
@@ -54,16 +59,19 @@ export function useChat(
   messagesRef.current = messages;
   pageSourceRef.current = pageSource;
 
-  const resetState = useCallback((msgs: ChatMessage[], ctx?: { used: number; total: number } | null) => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setMessages(msgs);
-    setStreaming(false);
-    setTokenStats(null);
-    setDevTraceItems([]);
-    setChatContextChipSourceOverride(undefined);
-    setContextUsage(ctx ? toContextUsage(ctx) : null);
-  }, []);
+  const resetState = useCallback(
+    (msgs: ChatMessage[], ctx?: { used: number; total: number } | null) => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setMessages(msgs);
+      setStreaming(false);
+      setTokenStats(null);
+      setDevTraceItems([]);
+      setChatContextChipSourceOverride(undefined);
+      setContextUsage(ctx ? toContextUsage(ctx) : null);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (chatIdRef.current === chatId) return;
@@ -71,72 +79,110 @@ export function useChat(
     resetState(initialMessages, initialContextUsage);
   }, [chatId, initialContextUsage, initialMessages, resetState]);
 
-  const streamRefs = { serviceRef, messagesRef, pageSourceRef, abortRef };
-  const interactiveRefs = { messagesRef, pageSourceRef };
+  const send = useCallback(
+    async (text: string, images?: string[], options?: ChatSendOptions) => {
+      logger.info('send:start', { mode, textLength: text.length, imageCount: images?.length ?? 0 });
 
-  const send = useCallback(async (text: string, images?: string[], options?: ChatSendOptions) => {
-    logger.info('send:start', { mode, textLength: text.length, imageCount: images?.length ?? 0 });
+      const interactiveRefs = { messagesRef, pageSourceRef };
+      const streamRefs = { serviceRef, messagesRef, pageSourceRef, abortRef };
 
-    const userMessage = createChatMessage(MessageRole.User, text, images);
-    const assistantMessage = createChatMessage(MessageRole.Assistant, '');
+      const userMessage = createChatMessage(MessageRole.User, text, images);
+      const assistantMessage = createChatMessage(MessageRole.Assistant, '');
 
-    if (mode === ChatMode.Agent) {
-      const setters = { setMessages, setStreaming, setDevTraceItems, setContextUsage, setChatContextChipSourceOverride, onMessagesChange };
-      const abortController = new AbortController();
-      abortRef.current = abortController;
-      try {
-        await executeInteractiveStep(text, userMessage, assistantMessage, mode, interactiveRefs, setters, abortController.signal);
-      } finally {
-        if (abortRef.current === abortController) {
-          abortRef.current = null;
-        }
-      }
-      return;
-    }
-
-    let systemPrompt: string | null = null;
-    let pageSourceOverride: PageSource | null | undefined = null;
-    if (resolveChatContextSendMode(options) === ChatContextSendMode.WithPageContext) {
-      try {
-        const contextPrompt = await buildAgentSystemPromptWithContext();
-        systemPrompt = contextPrompt.systemPrompt;
-        pageSourceOverride = {
-          url: contextPrompt.tab.url,
-          title: contextPrompt.tab.title,
-          faviconUrl: contextPrompt.tab.favIconUrl,
+      if (mode === ChatMode.Agent) {
+        const setters = {
+          setMessages,
+          setStreaming,
+          setDevTraceItems,
+          setContextUsage,
+          setChatContextChipSourceOverride,
+          onMessagesChange,
         };
-        setChatContextChipSourceOverride(pageSourceOverride);
-      } catch (error) {
-        if (error instanceof AgentContextUnavailableError) {
-          onAgentContextUnavailable?.(error.message);
-          return;
+        const abortController = new AbortController();
+        abortRef.current = abortController;
+        try {
+          await executeInteractiveStep(
+            text,
+            userMessage,
+            assistantMessage,
+            mode,
+            interactiveRefs,
+            setters,
+            abortController.signal,
+          );
+        } finally {
+          if (abortRef.current === abortController) {
+            abortRef.current = null;
+          }
         }
-        const failedMessages = [
-          ...messagesRef.current,
-          userMessage,
-          createChatMessage(MessageRole.Assistant, `Error: ${extractErrorMessage(error)}`),
-        ];
-        setMessages(failedMessages);
-        setStreaming(false);
-        setTokenStats(null);
-        onMessagesChange?.(failedMessages, undefined, pageSourceRef.current ?? undefined);
         return;
       }
-    } else {
-      setChatContextChipSourceOverride(null);
-    }
 
-    const setters = { setMessages, setStreaming, setTokenStats, setContextUsage, onMessagesChange };
-    await executeChatStream(userMessage, assistantMessage, systemPrompt, pageSourceOverride, mode, streamRefs, setters);
-  }, [mode, onAgentContextUnavailable, onMessagesChange, serviceRef]);
+      let systemPrompt: string | null = null;
+      let pageSourceOverride: PageSource | null | undefined = null;
+      if (resolveChatContextSendMode(options) === ChatContextSendMode.WithPageContext) {
+        try {
+          const contextPrompt = await buildAgentSystemPromptWithContext();
+          systemPrompt = contextPrompt.systemPrompt;
+          pageSourceOverride = {
+            url: contextPrompt.tab.url,
+            title: contextPrompt.tab.title,
+            faviconUrl: contextPrompt.tab.favIconUrl,
+          };
+          setChatContextChipSourceOverride(pageSourceOverride);
+        } catch (error) {
+          if (error instanceof AgentContextUnavailableError) {
+            onAgentContextUnavailable?.(error.message);
+            return;
+          }
+          const failedMessages = [
+            ...messagesRef.current,
+            userMessage,
+            createChatMessage(MessageRole.Assistant, `Error: ${extractErrorMessage(error)}`),
+          ];
+          setMessages(failedMessages);
+          setStreaming(false);
+          setTokenStats(null);
+          onMessagesChange?.(failedMessages, undefined, pageSourceRef.current ?? undefined);
+          return;
+        }
+      } else {
+        setChatContextChipSourceOverride(null);
+      }
+
+      const setters = {
+        setMessages,
+        setStreaming,
+        setTokenStats,
+        setContextUsage,
+        onMessagesChange,
+      };
+      await executeChatStream(
+        userMessage,
+        assistantMessage,
+        systemPrompt,
+        pageSourceOverride,
+        mode,
+        streamRefs,
+        setters,
+      );
+    },
+    [mode, onAgentContextUnavailable, onMessagesChange, serviceRef],
+  );
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
   }, []);
 
   return {
-    messages, streaming, tokenStats, contextUsage,
-    devTraceItems, devTraceEnabled, chatContextChipSourceOverride,
-    send, stop,
+    messages,
+    streaming,
+    tokenStats,
+    contextUsage,
+    devTraceItems,
+    devTraceEnabled,
+    chatContextChipSourceOverride,
+    send,
+    stop,
   };
 }
