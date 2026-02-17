@@ -53,6 +53,7 @@ export async function requestPlannerDecision(
       viewportHeight: params.viewportHeight,
       history: params.history,
       elements: promptElements,
+      strategyHints: params.strategyHints,
     });
     const annotatedCanvas = annotateInteractionCanvas(
       params.baseCanvas,

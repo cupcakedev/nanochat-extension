@@ -3,6 +3,7 @@ import { captureScreenshot, setInteractionScroll } from '@sidepanel/services/pag
 export interface ViewportCaptureResult {
   canvas: HTMLCanvasElement;
   dataUrl: string;
+  capturedScrollTop: number | null;
 }
 
 function pause(ms: number): Promise<void> {
@@ -35,7 +36,7 @@ export async function captureVisibleViewport(
   if (settleMs > 0) await pause(settleMs);
   const dataUrl = await captureScreenshot(windowId);
   const image = await decodeImage(dataUrl);
-  return { dataUrl, canvas: drawImageToCanvas(image) };
+  return { dataUrl, canvas: drawImageToCanvas(image), capturedScrollTop: null };
 }
 
 function stitchVerticalCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElement {
@@ -68,7 +69,9 @@ export async function captureStackedViewport(params: {
 }): Promise<ViewportCaptureResult> {
   const segments = Math.max(1, Math.floor(params.viewportSegments));
   if (segments <= 1) {
-    return captureVisibleViewport(params.windowId, params.settleMs);
+    const capturedScrollTop = await setInteractionScroll(params.tabId, params.baseScrollY);
+    const single = await captureVisibleViewport(params.windowId, params.settleMs);
+    return { ...single, capturedScrollTop };
   }
 
   const canvases: HTMLCanvasElement[] = [];
@@ -91,5 +94,6 @@ export async function captureStackedViewport(params: {
   return {
     canvas: stitchedCanvas,
     dataUrl: stitchedCanvas.toDataURL('image/png'),
+    capturedScrollTop: params.baseScrollY,
   };
 }

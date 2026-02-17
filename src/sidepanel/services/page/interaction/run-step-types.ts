@@ -53,10 +53,18 @@ export interface PlannerRequestParams {
   viewportHeight: number;
   history: InteractionExecutionResult[];
   elements: InteractiveElementSnapshotItem[];
+  strategyHints?: PlannerStrategyHints;
   baseCanvas: HTMLCanvasElement;
   viewport: { width: number; height: number };
   onProgress?: InteractionRunOptions['onProgress'];
   signal?: AbortSignal;
+}
+
+export interface PlannerStrategyHints {
+  evaluationPreviousGoal: string;
+  memory: string;
+  nextGoal: string;
+  constraints: string[];
 }
 
 export interface ScrollContext {

@@ -50,6 +50,12 @@ import {
 import { executePlannedActions, verifierExecution } from './run-step-executor';
 import { resolveCompletion } from './run-step-result';
 import {
+  applyStrategyPlanGuard,
+  buildPlannerStrategyHints,
+  createInteractionStrategyState,
+  updateInteractionStrategyState,
+} from './run-step-strategy';
+import {
   buildSyntheticSnapshot,
   emitProgressLine,
   extractErrorMessage,
@@ -96,6 +102,7 @@ export async function runPageInteractionStep(
   const attemptedRejectedDoneClickKeys = new Set<string>();
   let lastRejectedDoneKey: string | null = null;
   let rejectedDoneStreak = 0;
+  const strategyState = createInteractionStrategyState(task);
 
   for (let stepNumber = 1; stepNumber <= AGENT_MAX_STEPS; stepNumber += 1) {
     throwIfAborted(options?.signal);
@@ -110,12 +117,13 @@ export async function runPageInteractionStep(
 
     let snapshot: InteractionSnapshotPayload;
     let capture: Awaited<ReturnType<typeof captureStackedViewport>>;
+    const snapshotOptions = {
+      maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
+      viewportOnly: true,
+      viewportSegments: AGENT_VIEWPORT_SEGMENTS,
+    } as const;
     try {
-      snapshot = await getInteractionSnapshot(activeTab.tabId, {
-        maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
-        viewportOnly: true,
-        viewportSegments: AGENT_VIEWPORT_SEGMENTS,
-      });
+      snapshot = await getInteractionSnapshot(activeTab.tabId, snapshotOptions);
       const baseViewportHeight = Math.max(
         1,
         Math.round(snapshot.viewportHeight / AGENT_VIEWPORT_SEGMENTS),
@@ -128,6 +136,12 @@ export async function runPageInteractionStep(
         viewportSegments: AGENT_VIEWPORT_SEGMENTS,
         settleMs: INTERACTION_CAPTURE_SETTLE_MS,
       });
+      if (
+        capture.capturedScrollTop !== null &&
+        Math.abs(capture.capturedScrollTop - snapshot.scrollY) > 1
+      ) {
+        snapshot = await getInteractionSnapshot(activeTab.tabId, snapshotOptions);
+      }
       throwIfAborted(options?.signal);
     } catch (error) {
       if (isAbortError(error)) throw error;
@@ -178,12 +192,14 @@ export async function runPageInteractionStep(
       options,
       formatObserveLine(stepNumber, snapshot.pageUrl, snapshot.interactiveElements.length),
     );
+    updateInteractionStrategyState(strategyState, snapshot);
     lastPageUrl = snapshot.pageUrl;
     lastPageTitle = snapshot.pageTitle;
     const scrollContext = {
       scrollY: snapshot.scrollY,
       viewportHeight: snapshot.viewportHeight,
     };
+    const strategyHints = buildPlannerStrategyHints(strategyState, snapshot, allExecutions);
 
     const decision = await requestPlannerDecision({
       task,
@@ -195,6 +211,7 @@ export async function runPageInteractionStep(
       viewportHeight: snapshot.viewportHeight,
       history: allExecutions,
       elements: snapshot.interactiveElements,
+      strategyHints,
       baseCanvas: capture.canvas,
       viewport: { width: snapshot.viewportWidth, height: snapshot.viewportHeight },
       onProgress: options?.onProgress,
@@ -473,7 +490,19 @@ export async function runPageInteractionStep(
 
     lastRejectedDoneKey = null;
     rejectedDoneStreak = 0;
-    const plans = enforceTypingFirst(decision.decision.actions, task, decision.promptElements);
+    const strategyAdjustedPlans = applyStrategyPlanGuard({
+      state: strategyState,
+      snapshot,
+      plans: decision.decision.actions,
+      history: allExecutions,
+    });
+    if (strategyAdjustedPlans !== decision.decision.actions) {
+      emitProgressLine(
+        options,
+        `[${stepNumber}] strategy | no progress detected, switched to focused navigation plan`,
+      );
+    }
+    const plans = enforceTypingFirst(strategyAdjustedPlans, task, decision.promptElements);
     formatPlanLines(stepNumber, plans).forEach((line) => emitProgressLine(options, line));
     allPlans.push(...plans);
 

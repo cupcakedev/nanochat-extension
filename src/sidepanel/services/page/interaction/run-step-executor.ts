@@ -6,6 +6,11 @@ import {
 import type { InteractionActionPlan, InteractionExecutionResult } from '@shared/types';
 import type { ExecutableInteractionPlan, ScrollContext } from './run-step-types';
 import { isAbortError, throwIfAborted } from './run-step-utils';
+import { INTERACTION_SCROLL_SETTLE_MS } from './constants';
+
+function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 function isExecutableAction(plan: InteractionActionPlan): plan is ExecutableInteractionPlan {
   return (plan.action === 'click' || plan.action === 'type') && plan.index !== null;
@@ -103,9 +108,15 @@ async function executeSinglePlan(
     const delta =
       plan.action === 'scrollDown' ? scrollContext.viewportHeight : -scrollContext.viewportHeight;
     const targetTop = Math.max(0, scrollContext.scrollY + delta);
-    const actualTop = await setInteractionScroll(tabId, targetTop);
-    scrollContext.scrollY = actualTop;
-    return toExecutionFromScroll(plan, actualTop);
+    const firstTop = await setInteractionScroll(tabId, targetTop);
+    throwIfAborted(signal);
+    if (INTERACTION_SCROLL_SETTLE_MS > 0) {
+      await pause(INTERACTION_SCROLL_SETTLE_MS);
+      throwIfAborted(signal);
+    }
+    const stabilizedTop = await setInteractionScroll(tabId, firstTop);
+    scrollContext.scrollY = stabilizedTop;
+    return toExecutionFromScroll(plan, stabilizedTop);
   }
 
   if (isExecutableAction(plan)) {

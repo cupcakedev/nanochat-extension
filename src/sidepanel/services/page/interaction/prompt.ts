@@ -1,4 +1,5 @@
 import type { InteractionExecutionResult, InteractiveElementSnapshotItem } from '@shared/types';
+import type { PlannerStrategyHints } from './run-step-types';
 
 function compact(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -87,8 +88,24 @@ export function buildInteractionPrompt(params: {
   viewportHeight: number;
   history: InteractionExecutionResult[];
   elements: InteractiveElementSnapshotItem[];
+  strategyHints?: PlannerStrategyHints;
 }): string {
   const elementLines = params.elements.map(createElementLine);
+  const strategyConstraints =
+    params.strategyHints?.constraints.length && params.strategyHints.constraints.length > 0
+      ? params.strategyHints.constraints
+          .map((constraint, index) => `${index + 1}. ${constraint}`)
+          .join('\n')
+      : 'none';
+  const strategySection = params.strategyHints
+    ? [
+        'Planner strategy state:',
+        `Previous goal evaluation: ${params.strategyHints.evaluationPreviousGoal}`,
+        `Working memory: ${params.strategyHints.memory}`,
+        `Next goal: ${params.strategyHints.nextGoal}`,
+        `Hard constraints:\n${strategyConstraints}`,
+      ]
+    : [];
 
   return [
     'You are a browser agent planner running inside an execution loop.',
@@ -118,6 +135,7 @@ export function buildInteractionPrompt(params: {
     `Current title: ${params.pageTitle}`,
     `Scroll position: ${params.scrollY}px (viewport height: ${params.viewportHeight}px)`,
     `Recent execution history:\n${formatExecutionHistory(params.history)}`,
+    ...strategySection,
     'Indexed interactive elements:',
     elementLines.join('\n'),
   ].join('\n\n');
