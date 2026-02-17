@@ -1,4 +1,5 @@
 import { createLogger } from '@shared/utils';
+import { TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS, TEXT_LANGUAGE_MODEL_OPTIONS } from '@shared/constants';
 import {
   INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
   INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
@@ -6,39 +7,38 @@ import {
 
 const logger = createLogger('interaction-prompt');
 
-const TEXT_IMAGE_LANGUAGE_OPTIONS = {
-  expectedInputs: [{ type: 'text' as const, languages: ['en'] }, { type: 'image' as const }],
-  expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
-};
+const PLANNER_SYSTEM_PROMPT =
+  'You are a browser automation agent. Analyze the page screenshot and indexed elements, then return a JSON action plan. Be precise with element indices. Prefer clicking visible elements over openUrl. Use scrollDown/scrollUp when target content or elements are not visible in the current viewport.';
 
-const TEXT_LANGUAGE_OPTIONS = {
-  expectedInputs: [{ type: 'text' as const, languages: ['en'] }],
-  expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
-};
-
-const PLANNER_SYSTEM_PROMPT = 'You are a browser automation agent. Analyze the page screenshot and indexed elements, then return a JSON action plan. Be precise with element indices. Prefer clicking visible elements over openUrl. Use scrollDown/scrollUp when target content or elements are not visible in the current viewport.';
-
-const PLANNER_INITIAL_PROMPTS: [{ role: 'system'; content: string }, ...{ role: 'user' | 'assistant'; content: string }[]] = [
+const PLANNER_INITIAL_PROMPTS: [
+  { role: 'system'; content: string },
+  ...{ role: 'user' | 'assistant'; content: string }[],
+] = [
   { role: 'system', content: PLANNER_SYSTEM_PROMPT },
   {
     role: 'user',
-    content: 'Task: Click the login button\nCurrent URL: https://example.com\nIndexed interactive elements:\n[1] <a> | text="Home" | href="/"\n[2] <button> | text="Login" | role=button\n[3] <a> | text="Sign up" | href="/signup"',
+    content:
+      'Task: Click the login button\nCurrent URL: https://example.com\nIndexed interactive elements:\n[1] <a> | text="Home" | href="/"\n[2] <button> | text="Login" | role=button\n[3] <a> | text="Sign up" | href="/signup"',
   },
   {
     role: 'assistant',
-    content: '{"status":"continue","finalAnswer":null,"reason":null,"actions":[{"action":"click","index":2,"text":null,"url":null,"reason":"Login button found at index 2","confidence":"high"}]}',
+    content:
+      '{"status":"continue","finalAnswer":null,"reason":null,"actions":[{"action":"click","index":2,"text":null,"url":null,"reason":"Login button found at index 2","confidence":"high"}]}',
   },
   {
     role: 'user',
-    content: 'Task: Find the pricing section\nScroll position: 0px (viewport height: 800px)\nCurrent URL: https://example.com\nIndexed interactive elements:\n[1] <a> | text="Home"\n[2] <a> | text="About"',
+    content:
+      'Task: Find the pricing section\nScroll position: 0px (viewport height: 800px)\nCurrent URL: https://example.com\nIndexed interactive elements:\n[1] <a> | text="Home"\n[2] <a> | text="About"',
   },
   {
     role: 'assistant',
-    content: '{"status":"continue","finalAnswer":null,"reason":null,"actions":[{"action":"scrollDown","index":null,"text":null,"url":null,"reason":"Pricing section not visible in current viewport, scrolling down","confidence":"medium"}]}',
+    content:
+      '{"status":"continue","finalAnswer":null,"reason":null,"actions":[{"action":"scrollDown","index":null,"text":null,"url":null,"reason":"Pricing section not visible in current viewport, scrolling down","confidence":"medium"}]}',
   },
 ];
 
-const VERIFIER_SYSTEM_PROMPT = 'You are a strict task-completion verifier. Analyze whether the browser agent has fully completed the given task based on page evidence. Return JSON with complete, reason, and confidence fields. Default to complete=false unless there is clear proof.';
+const VERIFIER_SYSTEM_PROMPT =
+  'You are a strict task-completion verifier. Analyze whether the browser agent has fully completed the given task based on page evidence. Return JSON with complete, reason, and confidence fields. Default to complete=false unless there is clear proof.';
 
 const VERIFIER_INITIAL_PROMPTS: [{ role: 'system'; content: string }] = [
   { role: 'system', content: VERIFIER_SYSTEM_PROMPT },
@@ -152,39 +152,58 @@ function remainingQuota(quota: number | null, usage: number | null): number | nu
 }
 
 function buildPromptInput(prompt: string, bitmap: ImageBitmap) {
-  return [{
-    role: 'user' as const,
-    content: [{ type: 'text' as const, value: prompt }, { type: 'image' as const, value: bitmap }],
-  }] as const;
+  return [
+    {
+      role: 'user' as const,
+      content: [
+        { type: 'text' as const, value: prompt },
+        { type: 'image' as const, value: bitmap },
+      ],
+    },
+  ] as const;
 }
 
 function buildPromptOptions(signal?: AbortSignal): PromptRequestOptions {
   return { responseConstraint: INTERACTION_PLAN_SCHEMA, omitResponseConstraintInput: true, signal };
 }
 
-async function measureInputUsage(session: LanguageModel, input: unknown, options: PromptRequestOptions): Promise<number | null> {
+async function measureInputUsage(
+  session: LanguageModel,
+  input: unknown,
+  options: PromptRequestOptions,
+): Promise<number | null> {
   try {
-    const measured = await (session as unknown as {
-      measureInputUsage: (value: unknown, opts: unknown) => Promise<unknown>;
-    }).measureInputUsage(input, options);
+    const measured = await (
+      session as unknown as {
+        measureInputUsage: (value: unknown, opts: unknown) => Promise<unknown>;
+      }
+    ).measureInputUsage(input, options);
     return toNumber(measured);
   } catch {
     return null;
   }
 }
 
-async function promptOnce(session: LanguageModel, input: unknown, options: PromptRequestOptions): Promise<string> {
-  const prompt = (session as unknown as {
-    prompt?: (value: unknown, opts?: unknown) => Promise<string>;
-  }).prompt;
+async function promptOnce(
+  session: LanguageModel,
+  input: unknown,
+  options: PromptRequestOptions,
+): Promise<string> {
+  const prompt = (
+    session as unknown as {
+      prompt?: (value: unknown, opts?: unknown) => Promise<string>;
+    }
+  ).prompt;
 
   if (typeof prompt === 'function') {
     return prompt.call(session, input, options);
   }
 
-  const stream = (session as unknown as {
-    promptStreaming: (value: unknown, opts?: unknown) => ReadableStream<string>;
-  }).promptStreaming(input, options);
+  const stream = (
+    session as unknown as {
+      promptStreaming: (value: unknown, opts?: unknown) => ReadableStream<string>;
+    }
+  ).promptStreaming(input, options);
   const reader = stream.getReader();
   let output = '';
   try {
@@ -227,7 +246,7 @@ export async function runTextImagePrompt(
   }
 
   const availability = await withTimeout(
-    LanguageModel.availability(TEXT_IMAGE_LANGUAGE_OPTIONS),
+    LanguageModel.availability(TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS),
     INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
     'Prompt availability',
   );
@@ -235,10 +254,13 @@ export async function runTextImagePrompt(
     throw new Error('Chrome Prompt API is unavailable in this browser profile');
   }
 
-  const { signal: requestSignal, cleanup } = deriveRequestSignal(signal, INTERACTION_PLANNER_PROMPT_TIMEOUT_MS);
+  const { signal: requestSignal, cleanup } = deriveRequestSignal(
+    signal,
+    INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
+  );
   const session = await withTimeout(
     LanguageModel.create({
-      ...TEXT_IMAGE_LANGUAGE_OPTIONS,
+      ...TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS,
       initialPrompts: PLANNER_INITIAL_PROMPTS,
       ...(requestSignal ? { signal: requestSignal } : {}),
     }),
@@ -281,10 +303,12 @@ export async function runTextImagePrompt(
 }
 
 function buildTextPromptInput(prompt: string) {
-  return [{
-    role: 'user' as const,
-    content: [{ type: 'text' as const, value: prompt }],
-  }] as const;
+  return [
+    {
+      role: 'user' as const,
+      content: [{ type: 'text' as const, value: prompt }],
+    },
+  ] as const;
 }
 
 function buildPromptOptionsWithSchema(schema: unknown, signal?: AbortSignal): PromptRequestOptions {
@@ -304,7 +328,7 @@ export async function runTextPromptWithConstraint(
   }
 
   const availability = await withTimeout(
-    LanguageModel.availability(TEXT_LANGUAGE_OPTIONS),
+    LanguageModel.availability(TEXT_LANGUAGE_MODEL_OPTIONS),
     INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
     'Prompt availability',
   );
@@ -312,10 +336,13 @@ export async function runTextPromptWithConstraint(
     throw new Error('Chrome Prompt API is unavailable in this browser profile');
   }
 
-  const { signal: requestSignal, cleanup } = deriveRequestSignal(signal, INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS);
+  const { signal: requestSignal, cleanup } = deriveRequestSignal(
+    signal,
+    INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
+  );
   const session = await withTimeout(
     LanguageModel.create({
-      ...TEXT_LANGUAGE_OPTIONS,
+      ...TEXT_LANGUAGE_MODEL_OPTIONS,
       initialPrompts: VERIFIER_INITIAL_PROMPTS,
       ...(requestSignal ? { signal: requestSignal } : {}),
     }),

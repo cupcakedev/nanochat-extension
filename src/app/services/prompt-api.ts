@@ -1,20 +1,16 @@
 import { createLogger } from '@shared/utils';
 import type { ChatMessage, LoadingProgress } from '@shared/types';
+import { TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS } from '@shared/constants';
 import { toLanguageModelMessage, summarizePrompt } from './prompt-message-converter';
 
 const logger = createLogger('prompt-api');
-
-const LANGUAGE_OPTIONS = {
-  expectedInputs: [{ type: 'text' as const, languages: ['en'] }, { type: 'image' as const }],
-  expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
-};
 
 export class PromptAPIService {
   private session: LanguageModel | null = null;
   private currentSystemPrompt: string | null = null;
 
   async checkAvailability(): Promise<string> {
-    const availability = await LanguageModel.availability(LANGUAGE_OPTIONS);
+    const availability = await LanguageModel.availability(TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS);
     logger.info('Model availability:', availability);
     return availability;
   }
@@ -26,7 +22,7 @@ export class PromptAPIService {
     this.destroySession();
 
     this.session = await LanguageModel.create({
-      ...LANGUAGE_OPTIONS,
+      ...TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS,
       signal,
       monitor: (monitor) => {
         monitor.addEventListener('downloadprogress', (e) => {
@@ -54,10 +50,8 @@ export class PromptAPIService {
     }
 
     this.session = await LanguageModel.create({
-      ...LANGUAGE_OPTIONS,
-      ...(systemPrompt
-        ? { initialPrompts: [{ role: 'system', content: systemPrompt }] }
-        : {}),
+      ...TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS,
+      ...(systemPrompt ? { initialPrompts: [{ role: 'system', content: systemPrompt }] } : {}),
     });
     this.currentSystemPrompt = systemPrompt;
     logger.info('Session created', {

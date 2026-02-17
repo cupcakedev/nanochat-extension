@@ -1,2 +1,1 @@
-export const EXTENSION_NAME = 'NanoChat';
-export const EXTENSION_VERSION = '0.1.0';
+export { TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS, TEXT_LANGUAGE_MODEL_OPTIONS } from './language-model';
