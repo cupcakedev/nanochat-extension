@@ -14,6 +14,7 @@ export interface ParsedInteractionCurrentState {
 }
 
 export interface ParsedInteractionDecision {
+  thinking: string;
   status: Exclude<InteractionRunStatus, 'max-steps'>;
   finalAnswer: string | null;
   reason: string | null;
@@ -184,6 +185,10 @@ function readCurrentState(root: Record<string, unknown>): ParsedInteractionCurre
 
 export function parseInteractionDecision(rawText: string): ParsedInteractionDecision {
   const root = readRoot(rawText);
+  const thinking = normalizeStateTextValue(
+    root.thinking,
+    'No concise thinking summary was provided.',
+  );
   const status = normalizeStatus(root.status);
   const finalAnswer = normalizeTextValue(root.finalAnswer);
   const reason = normalizeTextValue(root.reason);
@@ -192,6 +197,7 @@ export function parseInteractionDecision(rawText: string): ParsedInteractionDeci
 
   if (status === 'continue' && actions.length === 0) {
     return {
+      thinking,
       status: 'fail',
       finalAnswer: finalAnswer ?? null,
       reason: reason ?? 'Planner returned no actions for continue status',
@@ -200,5 +206,5 @@ export function parseInteractionDecision(rawText: string): ParsedInteractionDeci
     };
   }
 
-  return { status, finalAnswer, reason, currentState, actions };
+  return { thinking, status, finalAnswer, reason, currentState, actions };
 }

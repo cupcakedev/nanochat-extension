@@ -54,7 +54,7 @@ const PLANNER_INITIAL_PROMPTS: [
   {
     role: 'assistant',
     content:
-      '{"status":"continue","finalAnswer":null,"reason":null,"currentState":{"evaluationPreviousGoal":"Unknown - first actionable step.","memory":"At example.com landing page. Login button identified at index 2.","nextGoal":"Click login to move to the authentication page."},"actions":[{"action":"click","index":2,"text":null,"url":null,"reason":"Login button found at index 2","confidence":"high"}]}',
+      '{"thinking":"Login control is clearly visible at index 2; direct click is the shortest safe move.","status":"continue","finalAnswer":null,"reason":null,"currentState":{"evaluationPreviousGoal":"Unknown - first actionable step.","memory":"At example.com landing page. Login button identified at index 2.","nextGoal":"Click login to move to the authentication page."},"actions":[{"action":"click","index":2,"text":null,"url":null,"reason":"Login button found at index 2","confidence":"high"}]}',
   },
   {
     role: 'user',
@@ -64,7 +64,7 @@ const PLANNER_INITIAL_PROMPTS: [
   {
     role: 'assistant',
     content:
-      '{"status":"continue","finalAnswer":null,"reason":null,"currentState":{"evaluationPreviousGoal":"Success - previous click executed and page changed.","memory":"Pricing is not in the current viewport; top navigation only is visible.","nextGoal":"Scroll down by one viewport to search for pricing content."},"actions":[{"action":"scrollDown","index":null,"text":null,"url":null,"reason":"Pricing section not visible in current viewport, scrolling down","confidence":"medium"}]}',
+      '{"thinking":"No pricing-related elements are visible; one viewport scroll is required to collect evidence.","status":"continue","finalAnswer":null,"reason":null,"currentState":{"evaluationPreviousGoal":"Success - previous click executed and page changed.","memory":"Pricing is not in the current viewport; top navigation only is visible.","nextGoal":"Scroll down by one viewport to search for pricing content."},"actions":[{"action":"scrollDown","index":null,"text":null,"url":null,"reason":"Pricing section not visible in current viewport, scrolling down","confidence":"medium"}]}',
   },
   {
     role: 'user',
@@ -74,7 +74,7 @@ const PLANNER_INITIAL_PROMPTS: [
   {
     role: 'assistant',
     content:
-      '{"status":"continue","finalAnswer":null,"reason":null,"currentState":{"evaluationPreviousGoal":"Unknown - first actionable step.","memory":"Search field detected at index 1 and submit button at index 2.","nextGoal":"Type the query then submit search."},"actions":[{"action":"type","index":1,"text":"nanochat extension docs","url":null,"reason":"Fill search query first","confidence":"high"},{"action":"click","index":2,"text":null,"url":null,"reason":"Submit search","confidence":"high"}]}',
+      '{"thinking":"This is a two-intent search flow: enter query in index 1 then submit with index 2.","status":"continue","finalAnswer":null,"reason":null,"currentState":{"evaluationPreviousGoal":"Unknown - first actionable step.","memory":"Search field detected at index 1 and submit button at index 2.","nextGoal":"Type the query then submit search."},"actions":[{"action":"type","index":1,"text":"nanochat extension docs","url":null,"reason":"Fill search query first","confidence":"high"},{"action":"click","index":2,"text":null,"url":null,"reason":"Submit search","confidence":"high"}]}',
   },
   {
     role: 'user',
@@ -84,7 +84,7 @@ const PLANNER_INITIAL_PROMPTS: [
   {
     role: 'assistant',
     content:
-      '{"status":"continue","finalAnswer":null,"reason":null,"currentState":{"evaluationPreviousGoal":"Failed - required destination link is not visible.","memory":"Direct docs URL is known and no matching indexed element exists on current page.","nextGoal":"Open the known docs URL directly."},"actions":[{"action":"openUrl","index":null,"text":null,"url":"https://docs.example.com","reason":"Target URL is known and not reachable via visible indexed elements","confidence":"high"}]}',
+      '{"thinking":"Target URL is explicit and unreachable from visible controls, so direct navigation is justified.","status":"continue","finalAnswer":null,"reason":null,"currentState":{"evaluationPreviousGoal":"Failed - required destination link is not visible.","memory":"Direct docs URL is known and no matching indexed element exists on current page.","nextGoal":"Open the known docs URL directly."},"actions":[{"action":"openUrl","index":null,"text":null,"url":"https://docs.example.com","reason":"Target URL is known and not reachable via visible indexed elements","confidence":"high"}]}',
   },
   {
     role: 'user',
@@ -94,7 +94,7 @@ const PLANNER_INITIAL_PROMPTS: [
   {
     role: 'assistant',
     content:
-      '{"status":"done","finalAnswer":"Opened https://docs.example.com successfully.","reason":null,"currentState":{"evaluationPreviousGoal":"Success - current URL matches requested destination.","memory":"Task destination reached: https://docs.example.com.","nextGoal":"Task complete; no further actions required."},"actions":[]}',
+      '{"thinking":"Destination proof is direct: current URL equals requested URL; task can be closed.","status":"done","finalAnswer":"Opened https://docs.example.com successfully.","reason":null,"currentState":{"evaluationPreviousGoal":"Success - current URL matches requested destination.","memory":"Task destination reached: https://docs.example.com.","nextGoal":"Task complete; no further actions required."},"actions":[]}',
   },
   {
     role: 'user',
@@ -104,7 +104,7 @@ const PLANNER_INITIAL_PROMPTS: [
   {
     role: 'assistant',
     content:
-      '{"status":"fail","finalAnswer":null,"reason":"Task is blocked: checkout requires user sign-in before payment can proceed.","currentState":{"evaluationPreviousGoal":"Failed - checkout cannot proceed without authentication.","memory":"Reached sign-in gate; user authentication is required for payment.","nextGoal":"Wait for user to sign in, then continue checkout steps."},"actions":[]}',
+      '{"thinking":"Authentication gate blocks payment execution; further autonomous steps are impossible now.","status":"fail","finalAnswer":null,"reason":"Task is blocked: checkout requires user sign-in before payment can proceed.","currentState":{"evaluationPreviousGoal":"Failed - checkout cannot proceed without authentication.","memory":"Reached sign-in gate; user authentication is required for payment.","nextGoal":"Wait for user to sign in, then continue checkout steps."},"actions":[]}',
   },
 ];
 
@@ -165,8 +165,9 @@ const INTERACTION_ACTION_ITEM_SCHEMA = {
 const INTERACTION_PLAN_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['status', 'finalAnswer', 'reason', 'currentState', 'actions'],
+  required: ['thinking', 'status', 'finalAnswer', 'reason', 'currentState', 'actions'],
   properties: {
+    thinking: { type: 'string', minLength: 1, maxLength: 800 },
     status: { enum: ['continue', 'done', 'fail'] },
     finalAnswer: { anyOf: [{ type: 'string', minLength: 1, maxLength: 4000 }, { type: 'null' }] },
     reason: { anyOf: [{ type: 'string', minLength: 1, maxLength: 320 }, { type: 'null' }] },

@@ -121,7 +121,8 @@ export function buildInteractionPrompt(params: {
 
   return [
     'Output only minified JSON matching this shape:',
-    '{"status":"continue|done|fail","finalAnswer":string|null,"reason":string|null,"currentState":{"evaluationPreviousGoal":string,"memory":string,"nextGoal":string},"actions":[{"action":"openUrl|click|type|scrollDown|scrollUp|done|unknown","index":number|null,"text":string|null,"url":string|null,"reason":string|null,"confidence":"high|medium|low"}]}',
+    '{"thinking":string,"status":"continue|done|fail","finalAnswer":string|null,"reason":string|null,"currentState":{"evaluationPreviousGoal":string,"memory":string,"nextGoal":string},"actions":[{"action":"openUrl|click|type|scrollDown|scrollUp|done|unknown","index":number|null,"text":string|null,"url":string|null,"reason":string|null,"confidence":"high|medium|low"}]}',
+    'thinking should be factual and action-oriented (1-3 short sentences).',
     `Task: ${params.task}`,
     `Step: ${params.stepNumber}/${params.maxSteps}`,
     `URL: ${params.pageUrl}`,
