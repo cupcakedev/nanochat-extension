@@ -20,21 +20,22 @@ export const MainPage = () => {
   const state = useMainPageState();
   const { scrolled, scrollRef } = useScrolled();
   const { notice: contextNotice, showNotice: showContextNotice } = useTemporaryNotice();
+  const { send, mode, contextMode, setChatContextSource } = state;
 
   const handleSuggestionClick = useCallback(
     async (prompt: string, requiresContext: boolean) => {
-      const contextMode = requiresContext ? ChatContextSendMode.WithPageContext : state.contextMode;
+      const resolvedContextMode = requiresContext ? ChatContextSendMode.WithPageContext : contextMode;
       if (requiresContext) {
         const source = await fetchPageContextSource();
         if (!source) {
           showContextNotice('This feature requires a webpage. Open a website and try again.');
           return;
         }
-        state.setChatContextSource(source);
+        setChatContextSource(source);
       }
-      state.send(prompt, undefined, toSendOptions(state.mode, contextMode));
+      send(prompt, undefined, toSendOptions(mode, resolvedContextMode));
     },
-    [state.send, state.mode, state.contextMode, state.setChatContextSource, showContextNotice],
+    [send, mode, contextMode, setChatContextSource, showContextNotice],
   );
 
   return (
