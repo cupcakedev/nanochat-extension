@@ -54,9 +54,7 @@ export const Sidebar = memo(
           className={`absolute top-0 left-0 bottom-0 z-50 w-[280px] flex flex-col border-r border-white/5 bg-neutral-100/95 backdrop-blur-xl transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
           <div className="flex items-center justify-between px-4 py-5">
-            <div className="p-1.5 bg-neutral-200/10 rounded-[12px] border border-white/5">
-              <Logo size={20} />
-            </div>
+            <Logo size={24} />
             <button
               onClick={handleNewChat}
               className="flex items-center gap-2 px-3 py-1.5 rounded-[12px] text-xs font-medium
