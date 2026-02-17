@@ -32,7 +32,7 @@ npm run build
 
 ## Architecture Expectations
 
-- Respect context boundaries (`app`, `content`, `background`, `shared`).
+- Respect context boundaries (`sidepanel`, `content`, `background`, `shared`).
 - Do not move browser-specific logic into `shared` unless it is truly cross-context.
 - Prefer small composable services over monolithic files.
 

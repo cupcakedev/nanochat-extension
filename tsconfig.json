@@ -23,8 +23,8 @@
     "types": ["vite/client", "chrome", "dom-chromium-ai"],
     "baseUrl": ".",
     "paths": {
-      "@app/*": [
-        "src/app/*"
+      "@sidepanel/*": [
+        "src/sidepanel/*"
       ],
       "@background/*": [
         "src/background/*"

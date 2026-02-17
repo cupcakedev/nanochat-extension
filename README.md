@@ -21,7 +21,7 @@ NanoChat is an on-device Chrome extension with a sidepanel chat UI and an intera
 
 ```text
 src/
-  app/         # Sidepanel UI, hooks, app services
+  sidepanel/   # Sidepanel UI, hooks, sidepanel services
   background/  # Service worker listeners
   content/     # Content script and page interaction runtime
   shared/      # Cross-context types, messaging, reusable services/constants
@@ -29,10 +29,10 @@ src/
 
 ## Architecture Rules
 
-- `shared` must not depend on `app`, `content`, or `background`
-- `app` must not import from `content` or `background` directly
-- `content` must not import from `app` or `background`
-- `background` must not import from `app` or `content`
+- `shared` must not depend on `sidepanel`, `content`, or `background`
+- `sidepanel` must not import from `content` or `background` directly
+- `content` must not import from `sidepanel` or `background`
+- `background` must not import from `sidepanel` or `content`
 
 These boundaries are enforced in ESLint.
 

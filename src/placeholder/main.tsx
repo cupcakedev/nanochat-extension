@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import '@app/styles/global.css';
+import '@sidepanel/styles/global.css';
 
 function Spinner() {
   return (
