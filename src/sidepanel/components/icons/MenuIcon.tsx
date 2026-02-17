@@ -1,19 +1,8 @@
 import { memo } from 'react';
 
 export const MenuIcon = memo(() => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <line x1="3" y1="12" x2="21" y2="12" />
-    <line x1="3" y1="6" x2="21" y2="6" />
-    <line x1="3" y1="18" x2="21" y2="18" />
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M13.3334 4.66669H2.66675M13.3334 8.00002H2.66675M13.3334 11.3334H2.66675" stroke="currentColor" strokeLinecap="round" />
   </svg>
 ));
 

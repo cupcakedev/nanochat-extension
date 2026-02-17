@@ -4,6 +4,7 @@ import { StopIcon } from '@sidepanel/components/icons/StopIcon';
 import { SendIcon } from '@sidepanel/components/icons/SendIcon';
 import { ImageIcon } from '@sidepanel/components/icons/ImageIcon';
 import { ActionButton } from './ActionButton';
+import {GlobeIcon} from "@sidepanel/components/icons/GlobeIcon.tsx";
 
 interface ChatInputFooterProps {
   fileInputRef: RefObject<HTMLInputElement | null>;
@@ -16,23 +17,6 @@ interface ChatInputFooterProps {
   onSendIntent: () => void;
   canSend: boolean;
 }
-
-const GlobeIcon = () => (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 16 16"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.3"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <circle cx="8" cy="8" r="6.5" />
-    <ellipse cx="8" cy="8" rx="3" ry="6.5" />
-    <path d="M1.5 8h13" />
-  </svg>
-);
 
 export const ChatInputFooter = memo(
   ({
@@ -60,7 +44,7 @@ export const ChatInputFooter = memo(
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={composerDisabled}
-            className="flex items-center justify-center w-10 h-10 rounded-[12px] [&_svg]:w-5 [&_svg]:h-5
+            className="flex items-center justify-center w-10 h-10 rounded-[12px] [&_svg]:w-4 [&_svg]:h-4
             text-neutral-400 hover:text-neutral-700 transition-colors
             disabled:opacity-50 disabled:cursor-not-allowed"
             title="Attach image"
@@ -81,11 +65,11 @@ export const ChatInputFooter = memo(
         </div>
         <div className="flex items-center gap-2">
           {streaming ? (
-            <ActionButton onClick={onStop} variant="stop">
+            <ActionButton onClick={onStop}>
               <StopIcon />
             </ActionButton>
           ) : (
-            <ActionButton onClick={onSendIntent} disabled={!canSend} variant="send">
+            <ActionButton onClick={onSendIntent} disabled={!canSend}>
               <SendIcon />
             </ActionButton>
           )}
