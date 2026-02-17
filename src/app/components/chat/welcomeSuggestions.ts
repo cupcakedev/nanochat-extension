@@ -20,7 +20,6 @@ const AGENT_SUGGESTIONS: Suggestion[] = [
   { label: 'Fill out the form', prompt: 'Fill out the form on this page with placeholder data', requiresContext: true },
   { label: 'Open youtube.com', prompt: 'Navigate to youtube.com', requiresContext: false },
   { label: 'Scroll to the bottom', prompt: 'Scroll to the bottom of this page', requiresContext: true },
-  { label: 'Take a screenshot', prompt: 'Take a screenshot of the current page', requiresContext: true },
   { label: 'Search Google for news', prompt: 'Open Google and search for today\'s top news', requiresContext: false },
 ];
 

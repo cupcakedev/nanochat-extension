@@ -46,6 +46,8 @@ export function buildInteractionPrompt(params: {
   maxSteps: number;
   pageUrl: string;
   pageTitle: string;
+  scrollY: number;
+  viewportHeight: number;
   history: InteractionExecutionResult[];
   elements: InteractiveElementSnapshotItem[];
 }): string {
@@ -54,7 +56,7 @@ export function buildInteractionPrompt(params: {
   return [
     'You are a browser agent planner running inside an execution loop.',
     'Return only minified JSON and nothing else.',
-    '{"status":"continue|done|fail","finalAnswer":string|null,"reason":string|null,"actions":[{"action":"openUrl|click|type|done|unknown","index":number|null,"text":string|null,"url":string|null,"reason":string|null,"confidence":"high|medium|low"}]}.',
+    '{"status":"continue|done|fail","finalAnswer":string|null,"reason":string|null,"actions":[{"action":"openUrl|click|type|scrollDown|scrollUp|done|unknown","index":number|null,"text":string|null,"url":string|null,"reason":string|null,"confidence":"high|medium|low"}]}.',
     'Goal: complete the user task safely and efficiently.',
     'If the goal is fully achieved on the current page, set status=done with finalAnswer filled.',
     'If the task is impossible or blocked, set status=fail with reason filled.',
@@ -68,6 +70,8 @@ export function buildInteractionPrompt(params: {
     'Use click with a valid index from the indexed elements list to interact with buttons, links, and other controls on the page.',
     'Use type with a valid index and non-empty text to fill input fields.',
     'If the instruction has multi-intent (for example type then click/search), output multiple actions in that order.',
+    'Use scrollDown to scroll the page down by one viewport height to reveal more content or elements.',
+    'Use scrollUp to scroll back up. Neither requires an index.',
     'Use click/type only with valid index values from the elements list below.',
     'Never choose disabled=true targets.',
     'Do not repeat failed actions unchanged.',
@@ -76,6 +80,7 @@ export function buildInteractionPrompt(params: {
     `Loop step: ${params.stepNumber}/${params.maxSteps}`,
     `Current URL: ${params.pageUrl}`,
     `Current title: ${params.pageTitle}`,
+    `Scroll position: ${params.scrollY}px (viewport height: ${params.viewportHeight}px)`,
     `Recent execution history:\n${formatExecutionHistory(params.history)}`,
     'Indexed interactive elements:',
     elementLines.join('\n'),

@@ -6,6 +6,7 @@ import {
   getInteractionSnapshot,
   openExtensionPageInTab,
   openUrlInTab,
+  setInteractionScroll,
   waitForTabSettled,
 } from '@app/services/tab-bridge';
 import { createLogger } from '@shared/utils';
@@ -279,7 +280,9 @@ function toRecoveryOpenUrlPlan(url: string, reason: string): InteractionActionPl
 }
 
 function keepExecutableRecoveryActions(actions: InteractionActionPlan[]): InteractionActionPlan[] {
-  return actions.filter((action) => action.action === 'openUrl' || action.action === 'click' || action.action === 'type');
+  return actions.filter((a) =>
+    a.action === 'openUrl' || a.action === 'click' || a.action === 'type' || a.action === 'scrollDown' || a.action === 'scrollUp',
+  );
 }
 
 function buildRejectedDoneRecoveryPlans(params: {
@@ -502,9 +505,21 @@ function toExecutionFromOpenUrl(plan: InteractionActionPlan, finalUrl: string): 
   };
 }
 
+function toExecutionFromScroll(plan: InteractionActionPlan, scrollTop: number): InteractionExecutionResult {
+  return {
+    requestedAction: plan.action,
+    requestedIndex: null,
+    requestedText: null,
+    requestedUrl: null,
+    executed: true,
+    message: `Scrolled to ${scrollTop}px`,
+  };
+}
+
 async function executeSinglePlan(
   tabId: number,
   plan: InteractionActionPlan,
+  scrollContext: { scrollY: number; viewportHeight: number },
   signal?: AbortSignal,
 ): Promise<InteractionExecutionResult> {
   throwIfAborted(signal);
@@ -519,6 +534,14 @@ async function executeSinglePlan(
       const message = error instanceof Error ? error.message : 'openUrl failed';
       return fallbackExecution(plan, message);
     }
+  }
+
+  if (plan.action === 'scrollDown' || plan.action === 'scrollUp') {
+    const delta = plan.action === 'scrollDown' ? scrollContext.viewportHeight : -scrollContext.viewportHeight;
+    const targetTop = Math.max(0, scrollContext.scrollY + delta);
+    const actualTop = await setInteractionScroll(tabId, targetTop);
+    scrollContext.scrollY = actualTop;
+    return toExecutionFromScroll(plan, actualTop);
   }
 
   if (isExecutableAction(plan)) {
@@ -548,13 +571,14 @@ function shouldStopAfterExecution(execution: InteractionExecutionResult): boolea
 async function executePlannedActions(
   tabId: number,
   plans: InteractionActionPlan[],
+  scrollContext: { scrollY: number; viewportHeight: number },
   signal?: AbortSignal,
 ): Promise<InteractionExecutionResult[]> {
   const executions: InteractionExecutionResult[] = [];
 
   for (const plan of plans) {
     throwIfAborted(signal);
-    const execution = await executeSinglePlan(tabId, plan, signal);
+    const execution = await executeSinglePlan(tabId, plan, scrollContext, signal);
     executions.push(execution);
     if (shouldStopAfterExecution(execution)) break;
   }
@@ -568,6 +592,8 @@ async function requestPlannerDecision(params: {
   maxSteps: number;
   pageUrl: string;
   pageTitle: string;
+  scrollY: number;
+  viewportHeight: number;
   history: InteractionExecutionResult[];
   elements: InteractiveElementSnapshotItem[];
   baseCanvas: HTMLCanvasElement;
@@ -594,6 +620,8 @@ async function requestPlannerDecision(params: {
       maxSteps: params.maxSteps,
       pageUrl: params.pageUrl,
       pageTitle: params.pageTitle,
+      scrollY: params.scrollY,
+      viewportHeight: params.viewportHeight,
       history: params.history,
       elements: promptElements,
     });
@@ -790,6 +818,7 @@ export async function runPageInteractionStep(
     emitProgressLine(options, formatObserveLine(stepNumber, snapshot.pageUrl, snapshot.interactiveElements.length));
     lastPageUrl = snapshot.pageUrl;
     lastPageTitle = snapshot.pageTitle;
+    const scrollContext = { scrollY: snapshot.scrollY, viewportHeight: snapshot.viewportHeight };
 
     const decision = await requestPlannerDecision({
       task,
@@ -797,6 +826,8 @@ export async function runPageInteractionStep(
       maxSteps: AGENT_MAX_STEPS,
       pageUrl: snapshot.pageUrl,
       pageTitle: snapshot.pageTitle,
+      scrollY: snapshot.scrollY,
+      viewportHeight: snapshot.viewportHeight,
       history: allExecutions,
       elements: snapshot.interactiveElements,
       baseCanvas: capture.canvas,
@@ -834,7 +865,7 @@ export async function runPageInteractionStep(
         formatPlanLines(stepNumber, doneStatusRecoveryPlans).forEach((line) => emitProgressLine(options, line));
         allPlans.push(...doneStatusRecoveryPlans);
 
-        const doneStatusRecoveries = await executePlannedActions(activeTab.tabId, doneStatusRecoveryPlans, options?.signal);
+        const doneStatusRecoveries = await executePlannedActions(activeTab.tabId, doneStatusRecoveryPlans, scrollContext, options?.signal);
         formatExecutionLines(stepNumber, doneStatusRecoveries).forEach((line) => emitProgressLine(options, line));
         allExecutions.push(...doneStatusRecoveries);
 
@@ -921,7 +952,7 @@ export async function runPageInteractionStep(
         formatPlanLines(stepNumber, recoveryPlans).forEach((line) => emitProgressLine(options, line));
         allPlans.push(...recoveryPlans);
 
-        const recoveryExecutions = await executePlannedActions(activeTab.tabId, recoveryPlans, options?.signal);
+        const recoveryExecutions = await executePlannedActions(activeTab.tabId, recoveryPlans, scrollContext, options?.signal);
         formatExecutionLines(stepNumber, recoveryExecutions).forEach((line) => emitProgressLine(options, line));
         allExecutions.push(...recoveryExecutions);
 
@@ -956,7 +987,7 @@ export async function runPageInteractionStep(
         formatPlanLines(stepNumber, explorationPlans).forEach((line) => emitProgressLine(options, line));
         allPlans.push(...explorationPlans);
 
-        const explorationExecutions = await executePlannedActions(activeTab.tabId, explorationPlans, options?.signal);
+        const explorationExecutions = await executePlannedActions(activeTab.tabId, explorationPlans, scrollContext, options?.signal);
         formatExecutionLines(stepNumber, explorationExecutions).forEach((line) => emitProgressLine(options, line));
         allExecutions.push(...explorationExecutions);
 
@@ -996,7 +1027,7 @@ export async function runPageInteractionStep(
         formatPlanLines(stepNumber, stuckRecoveryPlans).forEach((line) => emitProgressLine(options, line));
         allPlans.push(...stuckRecoveryPlans);
 
-        const stuckRecoveryExecutions = await executePlannedActions(activeTab.tabId, stuckRecoveryPlans, options?.signal);
+        const stuckRecoveryExecutions = await executePlannedActions(activeTab.tabId, stuckRecoveryPlans, scrollContext, options?.signal);
         formatExecutionLines(stepNumber, stuckRecoveryExecutions).forEach((line) => emitProgressLine(options, line));
         allExecutions.push(...stuckRecoveryExecutions);
 
@@ -1037,7 +1068,7 @@ export async function runPageInteractionStep(
     formatPlanLines(stepNumber, plans).forEach((line) => emitProgressLine(options, line));
     allPlans.push(...plans);
 
-    const executions = await executePlannedActions(activeTab.tabId, plans, options?.signal);
+    const executions = await executePlannedActions(activeTab.tabId, plans, scrollContext, options?.signal);
     formatExecutionLines(stepNumber, executions).forEach((line) => emitProgressLine(options, line));
     allExecutions.push(...executions);
 

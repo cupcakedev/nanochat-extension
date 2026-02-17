@@ -90,7 +90,7 @@ function enforceTypingFirstForSinglePlan(
   instruction: string,
   elements: InteractiveElementSnapshotItem[],
 ): InteractionActionPlan {
-  if (plan.action === 'openUrl' || plan.action === 'done') return plan;
+  if (plan.action === 'openUrl' || plan.action === 'done' || plan.action === 'scrollDown' || plan.action === 'scrollUp') return plan;
   const preferredValue = extractQuotedValue(instruction) ?? extractCodeValue(instruction);
   const clickOnly = isClickOnlyInstruction(instruction, preferredValue);
   const patched = patchMissingTypeText(plan, preferredValue, clickOnly);

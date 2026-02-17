@@ -50,6 +50,8 @@ function normalizeAction(value: unknown): InteractionActionType {
   if (normalized === 'click') return 'click';
   if (normalized === 'type') return 'type';
   if (normalized === 'openurl' || normalized === 'open_url' || normalized === 'open-url') return 'openUrl';
+  if (normalized === 'scrollup' || normalized === 'scroll_up' || normalized === 'scroll-up') return 'scrollUp';
+  if (normalized === 'scrolldown' || normalized === 'scroll_down' || normalized === 'scroll-down') return 'scrollDown';
   if (normalized === 'done') return 'done';
   return 'unknown';
 }
@@ -85,6 +87,10 @@ function validateExecutableAction(
     return { action: 'unknown', index: null, text: null, url: null, reason: reason ?? 'Missing index for actionable command', confidence: 'low' };
   }
 
+  if (action === 'scrollUp' || action === 'scrollDown') {
+    return { action, index: null, text: null, url: null, reason, confidence: 'low' };
+  }
+
   return { action, index, text: null, url, reason, confidence: 'low' };
 }
 
@@ -104,6 +110,7 @@ function normalizeActionPlan(value: unknown): InteractionActionPlan {
 
   if (action === 'click') return { ...plan, confidence, text: null, url: null };
   if (action === 'type') return { ...plan, confidence, text };
+  if (action === 'scrollUp' || action === 'scrollDown') return { ...plan, confidence };
   return { ...plan, confidence };
 }
 

@@ -16,12 +16,40 @@ const TEXT_LANGUAGE_OPTIONS = {
   expectedOutputs: [{ type: 'text' as const, languages: ['en'] }],
 };
 
+const PLANNER_SYSTEM_PROMPT = 'You are a browser automation agent. Analyze the page screenshot and indexed elements, then return a JSON action plan. Be precise with element indices. Prefer clicking visible elements over openUrl. Use scrollDown/scrollUp when target content or elements are not visible in the current viewport.';
+
+const PLANNER_INITIAL_PROMPTS: [{ role: 'system'; content: string }, ...{ role: 'user' | 'assistant'; content: string }[]] = [
+  { role: 'system', content: PLANNER_SYSTEM_PROMPT },
+  {
+    role: 'user',
+    content: 'Task: Click the login button\nCurrent URL: https://example.com\nIndexed interactive elements:\n[1] <a> | text="Home" | href="/"\n[2] <button> | text="Login" | role=button\n[3] <a> | text="Sign up" | href="/signup"',
+  },
+  {
+    role: 'assistant',
+    content: '{"status":"continue","finalAnswer":null,"reason":null,"actions":[{"action":"click","index":2,"text":null,"url":null,"reason":"Login button found at index 2","confidence":"high"}]}',
+  },
+  {
+    role: 'user',
+    content: 'Task: Find the pricing section\nScroll position: 0px (viewport height: 800px)\nCurrent URL: https://example.com\nIndexed interactive elements:\n[1] <a> | text="Home"\n[2] <a> | text="About"',
+  },
+  {
+    role: 'assistant',
+    content: '{"status":"continue","finalAnswer":null,"reason":null,"actions":[{"action":"scrollDown","index":null,"text":null,"url":null,"reason":"Pricing section not visible in current viewport, scrolling down","confidence":"medium"}]}',
+  },
+];
+
+const VERIFIER_SYSTEM_PROMPT = 'You are a strict task-completion verifier. Analyze whether the browser agent has fully completed the given task based on page evidence. Return JSON with complete, reason, and confidence fields. Default to complete=false unless there is clear proof.';
+
+const VERIFIER_INITIAL_PROMPTS: [{ role: 'system'; content: string }] = [
+  { role: 'system', content: VERIFIER_SYSTEM_PROMPT },
+];
+
 const INTERACTION_ACTION_ITEM_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['action', 'index', 'text', 'url', 'reason', 'confidence'],
   properties: {
-    action: { enum: ['openUrl', 'click', 'type', 'done', 'unknown'] },
+    action: { enum: ['openUrl', 'click', 'type', 'scrollDown', 'scrollUp', 'done', 'unknown'] },
     index: { anyOf: [{ type: 'integer', minimum: 1 }, { type: 'null' }] },
     text: { anyOf: [{ type: 'string', minLength: 1, maxLength: 240 }, { type: 'null' }] },
     url: { anyOf: [{ type: 'string', minLength: 1, maxLength: 500 }, { type: 'null' }] },
@@ -211,6 +239,7 @@ export async function runTextImagePrompt(
   const session = await withTimeout(
     LanguageModel.create({
       ...TEXT_IMAGE_LANGUAGE_OPTIONS,
+      initialPrompts: PLANNER_INITIAL_PROMPTS,
       ...(requestSignal ? { signal: requestSignal } : {}),
     }),
     INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
@@ -287,6 +316,7 @@ export async function runTextPromptWithConstraint(
   const session = await withTimeout(
     LanguageModel.create({
       ...TEXT_LANGUAGE_OPTIONS,
+      initialPrompts: VERIFIER_INITIAL_PROMPTS,
       ...(requestSignal ? { signal: requestSignal } : {}),
     }),
     INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
