@@ -1,8 +1,15 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { PromptAPIService } from '@app/services/prompt-api';
-import { AGENT_CONTEXT_UNAVAILABLE_MESSAGE, getAgentPageContext } from '@app/services/agent-context';
-import { clearTimerRef, extractAgentErrorMessage, resolveSiteTitle } from '@app/services/agent-utils';
+import {
+  AGENT_CONTEXT_UNAVAILABLE_MESSAGE,
+  getAgentPageContext,
+} from '@app/services/agent-context';
+import {
+  clearTimerRef,
+  extractAgentErrorMessage,
+  resolveSiteTitle,
+} from '@app/services/agent-utils';
 import type { AgentContextChip } from '@app/services/agent-utils';
 import { ChatMode, requiresPageContext } from '@app/types/mode';
 import { useTabChangeListener } from './useTabChangeListener';
@@ -20,7 +27,7 @@ function readPreferredMode(): ChatMode {
     if (stored === ChatMode.Agent) return ChatMode.Agent;
     return ChatMode.Chat;
   } catch {
-    return ChatMode.Chat
+    return ChatMode.Chat;
   }
 }
 function writePreferredMode(mode: ChatMode): void {
@@ -42,10 +49,13 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
   const inputDockRef = useRef<HTMLDivElement | null>(null);
   const refreshingRef = useRef(false);
 
-  useEffect(() => () => {
-    clearTimerRef(noticeTimerRef);
-    clearTimerRef(chipRevealTimerRef);
-  }, []);
+  useEffect(
+    () => () => {
+      clearTimerRef(noticeTimerRef);
+      clearTimerRef(chipRevealTimerRef);
+    },
+    [],
+  );
 
   const clearAgentVisuals = useCallback(() => {
     clearTimerRef(noticeTimerRef);
@@ -60,38 +70,44 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
     setMode(ChatMode.Chat);
   }, [clearAgentVisuals]);
 
-  const showAgentUnavailable = useCallback((message = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) => {
-    clearTimerRef(noticeTimerRef);
-    clearTimerRef(chipRevealTimerRef);
-    serviceRef.current.destroySession();
-    setMode(ChatMode.Chat);
-    setAgentContextChipVisible(false);
-    setAgentContextChip(null);
-    setAgentNotice(message);
-    noticeTimerRef.current = window.setTimeout(() => {
-      setAgentNotice(null);
-      noticeTimerRef.current = null;
-    }, AGENT_NOTICE_DURATION_MS);
-  }, [serviceRef]);
+  const showAgentUnavailable = useCallback(
+    (message = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) => {
+      clearTimerRef(noticeTimerRef);
+      clearTimerRef(chipRevealTimerRef);
+      serviceRef.current.destroySession();
+      setMode(ChatMode.Chat);
+      setAgentContextChipVisible(false);
+      setAgentContextChip(null);
+      setAgentNotice(message);
+      noticeTimerRef.current = window.setTimeout(() => {
+        setAgentNotice(null);
+        noticeTimerRef.current = null;
+      }, AGENT_NOTICE_DURATION_MS);
+    },
+    [serviceRef],
+  );
 
-  const applyContextChip = useCallback((title: string, url: string, faviconUrl: string, animate: boolean) => {
-    clearTimerRef(chipRevealTimerRef);
-    const chip = { url, title: resolveSiteTitle(title, url), faviconUrl };
+  const applyContextChip = useCallback(
+    (title: string, url: string, faviconUrl: string, animate: boolean) => {
+      clearTimerRef(chipRevealTimerRef);
+      const chip = { url, title: resolveSiteTitle(title, url), faviconUrl };
 
-    if (!animate) {
+      if (!animate) {
+        setAgentContextChip(chip);
+        setAgentContextChipVisible(true);
+        return;
+      }
+
+      setAgentContextChipVisible(false);
       setAgentContextChip(chip);
-      setAgentContextChipVisible(true);
-      return;
-    }
-
-    setAgentContextChipVisible(false);
-    setAgentContextChip(chip);
-    chipRevealTimerRef.current = window.setTimeout(() => {
-      setAgentContextChipVisible(true);
-      setAgentChipAnimationKey((prev) => prev + 1);
-      chipRevealTimerRef.current = null;
-    }, CONTEXT_CHIP_REVEAL_DELAY_MS);
-  }, []);
+      chipRevealTimerRef.current = window.setTimeout(() => {
+        setAgentContextChipVisible(true);
+        setAgentChipAnimationKey((prev) => prev + 1);
+        chipRevealTimerRef.current = null;
+      }, CONTEXT_CHIP_REVEAL_DELAY_MS);
+    },
+    [],
+  );
 
   const computeIndicatorOffset = useCallback((): number => {
     const dock = inputDockRef.current;
@@ -101,16 +117,19 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
     return Math.round(Math.min(Math.max(raw, 80), 360));
   }, []);
 
-  const fetchAndApplyContext = useCallback(async (animate: boolean) => {
-    const { tab } = await getAgentPageContext(
-      animate
-        ? { indicatorBottomOffset: computeIndicatorOffset(), showIndicator: true }
-        : { showIndicator: false },
-    );
-    clearTimerRef(noticeTimerRef);
-    setAgentNotice(null);
-    applyContextChip(tab.title, tab.url, tab.favIconUrl, animate);
-  }, [applyContextChip, computeIndicatorOffset]);
+  const fetchAndApplyContext = useCallback(
+    async (animate: boolean) => {
+      const { tab } = await getAgentPageContext(
+        animate
+          ? { indicatorBottomOffset: computeIndicatorOffset(), showIndicator: true }
+          : { showIndicator: false },
+      );
+      clearTimerRef(noticeTimerRef);
+      setAgentNotice(null);
+      applyContextChip(tab.title, tab.url, tab.favIconUrl, animate);
+    },
+    [applyContextChip, computeIndicatorOffset],
+  );
 
   const initialModeAppliedRef = useRef(false);
   useEffect(() => {
@@ -161,26 +180,37 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
 
   useTabChangeListener(requiresPageContext(mode) && !hasMessages, refreshAgentContext);
 
-  const handleModeChange = useCallback((nextMode: ChatMode) => {
-    writePreferredMode(nextMode);
+  const handleModeChange = useCallback(
+    (nextMode: ChatMode) => {
+      writePreferredMode(nextMode);
 
-    if (!requiresPageContext(nextMode)) {
-      resetAgentState();
-      return;
-    }
-
-    void (async () => {
-      try {
-        await fetchAndApplyContext(true);
-        setMode(nextMode);
-      } catch (error) {
-        showAgentUnavailable(extractAgentErrorMessage(error));
+      if (!requiresPageContext(nextMode)) {
+        resetAgentState();
+        return;
       }
-    })();
-  }, [fetchAndApplyContext, resetAgentState, showAgentUnavailable]);
+
+      void (async () => {
+        try {
+          await fetchAndApplyContext(true);
+          setMode(nextMode);
+        } catch (error) {
+          showAgentUnavailable(extractAgentErrorMessage(error));
+        }
+      })();
+    },
+    [fetchAndApplyContext, resetAgentState, showAgentUnavailable],
+  );
 
   return {
-    mode, agentContextChip, agentContextChipVisible, agentNotice, agentChipAnimationKey,
-    handleModeChange, showAgentUnavailable, resetAgentState, restorePreferredMode, inputDockRef,
+    mode,
+    agentContextChip,
+    agentContextChipVisible,
+    agentNotice,
+    agentChipAnimationKey,
+    handleModeChange,
+    showAgentUnavailable,
+    resetAgentState,
+    restorePreferredMode,
+    inputDockRef,
   };
 }

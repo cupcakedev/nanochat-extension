@@ -4,12 +4,31 @@ import { collectSearchRoots } from './search-roots';
 import { isElementUserVisible } from './visibility';
 
 const INTERACTIVE_TAGS = new Set([
-  'a', 'button', 'input', 'textarea', 'select', 'option', 'summary', 'label', 'details',
+  'a',
+  'button',
+  'input',
+  'textarea',
+  'select',
+  'option',
+  'summary',
+  'label',
+  'details',
 ]);
 
 const INTERACTIVE_ROLES = new Set([
-  'button', 'link', 'checkbox', 'radio', 'switch', 'menuitem', 'tab',
-  'textbox', 'combobox', 'option', 'searchbox', 'spinbutton', 'slider',
+  'button',
+  'link',
+  'checkbox',
+  'radio',
+  'switch',
+  'menuitem',
+  'tab',
+  'textbox',
+  'combobox',
+  'option',
+  'searchbox',
+  'spinbutton',
+  'slider',
 ]);
 
 const DEFAULT_MAX_ELEMENTS = 50;
@@ -85,10 +104,17 @@ function getHref(element: HTMLElement): string | null {
 }
 
 function getAriaLabel(element: HTMLElement): string | null {
-  return normalizeText(element.getAttribute('aria-label')) ?? normalizeText(element.getAttribute('title'));
+  return (
+    normalizeText(element.getAttribute('aria-label')) ??
+    normalizeText(element.getAttribute('title'))
+  );
 }
 
-function toSummary(element: HTMLElement, index: number, yOffset = 0): InteractiveElementSnapshotItem {
+function toSummary(
+  element: HTMLElement,
+  index: number,
+  yOffset = 0,
+): InteractiveElementSnapshotItem {
   const rect = element.getBoundingClientRect();
   return {
     index,
@@ -143,7 +169,8 @@ function interactionPriority(element: HTMLElement): number {
     element instanceof HTMLInputElement ||
     element instanceof HTMLTextAreaElement ||
     element instanceof HTMLSelectElement
-  ) return 2;
+  )
+    return 2;
   return 3;
 }
 
@@ -163,7 +190,9 @@ function sortByPriorityAndPosition(elements: HTMLElement[]): HTMLElement[] {
 
 function collectInteractiveElements(maxElements: number, viewportOnly: boolean): HTMLElement[] {
   return sortByPriorityAndPosition(
-    queryCandidates().filter((element) => isInteractiveElement(element) && isElementUserVisible(element, viewportOnly)),
+    queryCandidates().filter(
+      (element) => isInteractiveElement(element) && isElementUserVisible(element, viewportOnly),
+    ),
   ).slice(0, Math.max(1, maxElements));
 }
 

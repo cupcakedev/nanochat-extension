@@ -3,7 +3,10 @@ import { useCallback, useLayoutEffect, type RefObject } from 'react';
 const MIN_HEIGHT = 26;
 const MAX_HEIGHT = 160;
 
-export function useTextareaAutoResize(value: string, textareaRef: RefObject<HTMLTextAreaElement | null>) {
+export function useTextareaAutoResize(
+  value: string,
+  textareaRef: RefObject<HTMLTextAreaElement | null>,
+) {
   const resize = useCallback(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;

@@ -58,7 +58,12 @@ function isTransparent(style: CSSStyleDeclaration): boolean {
 }
 
 function blocksVisibility(style: CSSStyleDeclaration): boolean {
-  return style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse' || isTransparent(style);
+  return (
+    style.display === 'none' ||
+    style.visibility === 'hidden' ||
+    style.visibility === 'collapse' ||
+    isTransparent(style)
+  );
 }
 
 function hasHiddenAttribute(element: HTMLElement): boolean {
@@ -131,7 +136,10 @@ function toSamplePoints(rect: RectBox): Array<{ x: number; y: number }> {
       x: Math.max(0, Math.min(window.innerWidth - 1, Math.round(point.x))),
       y: Math.max(0, Math.min(window.innerHeight - 1, Math.round(point.y))),
     }))
-    .filter((point, index, arr) => arr.findIndex((item) => item.x === point.x && item.y === point.y) === index);
+    .filter(
+      (point, index, arr) =>
+        arr.findIndex((item) => item.x === point.x && item.y === point.y) === index,
+    );
 }
 
 function closestInteractiveElement(element: Element | null): HTMLElement | null {
@@ -174,9 +182,10 @@ function isPointVisibleForElement(element: HTMLElement, x: number, y: number): b
 }
 
 function visibleHitsCount(element: HTMLElement, rect: RectBox): number {
-  return toSamplePoints(rect).reduce((count, point) => (
-    count + (isPointVisibleForElement(element, point.x, point.y) ? 1 : 0)
-  ), 0);
+  return toSamplePoints(rect).reduce(
+    (count, point) => count + (isPointVisibleForElement(element, point.x, point.y) ? 1 : 0),
+    0,
+  );
 }
 
 function hasEnoughVisibleArea(rect: RectBox): boolean {

@@ -1,9 +1,7 @@
 import type { ChatMessage } from '@shared/types';
 import type { MessageRole } from '@shared/types';
 
-export type LanguageModelContent =
-  | { type: 'text'; value: string }
-  | { type: 'image'; value: Blob };
+export type LanguageModelContent = { type: 'text'; value: string } | { type: 'image'; value: Blob };
 
 export type LanguageModelMessage = {
   role: MessageRole;

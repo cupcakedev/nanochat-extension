@@ -21,7 +21,11 @@ function formatExecution(execution: InteractionExecutionResult): string {
   return `${actionParts.join(' ')} => ${execution.executed ? 'ok' : 'fail'} | ${execution.message}`;
 }
 
-export function formatObserveLine(stepNumber: number, pageUrl: string, elementCount: number): string {
+export function formatObserveLine(
+  stepNumber: number,
+  pageUrl: string,
+  elementCount: number,
+): string {
   return `[${stepNumber}] observe | ${pageUrl} | elements=${elementCount}`;
 }
 
@@ -37,11 +41,19 @@ export function formatPlanLines(stepNumber: number, plans: InteractionActionPlan
   return plans.map((plan, index) => `[${stepNumber}] plan ${index + 1} | ${formatAction(plan)}`);
 }
 
-export function formatExecutionLines(stepNumber: number, executions: InteractionExecutionResult[]): string[] {
-  return executions.map((execution, index) => `[${stepNumber}] exec ${index + 1} | ${formatExecution(execution)}`);
+export function formatExecutionLines(
+  stepNumber: number,
+  executions: InteractionExecutionResult[],
+): string[] {
+  return executions.map(
+    (execution, index) => `[${stepNumber}] exec ${index + 1} | ${formatExecution(execution)}`,
+  );
 }
 
-export function formatVerificationLine(stepNumber: number, verification: InteractionCompletionVerification): string {
+export function formatVerificationLine(
+  stepNumber: number,
+  verification: InteractionCompletionVerification,
+): string {
   const status = verification.complete ? 'complete' : 'incomplete';
   return `[${stepNumber}] verify | ${status} (${verification.confidence}) | ${verification.reason}`;
 }

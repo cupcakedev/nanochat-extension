@@ -53,13 +53,16 @@ function normalizeComplete(value: unknown): boolean {
 function formatHistory(history: InteractionExecutionResult[]): string {
   if (!history.length) return 'none';
 
-  return history.slice(-6).map((execution, index) => {
-    const parts: string[] = [execution.requestedAction];
-    if (execution.requestedIndex !== null) parts.push(`#${execution.requestedIndex}`);
-    if (execution.requestedText) parts.push(`"${execution.requestedText}"`);
-    if (execution.requestedUrl) parts.push(execution.requestedUrl);
-    return `${index + 1}. ${parts.join(' ')} => ${execution.executed ? 'ok' : 'fail'} | ${execution.message}`;
-  }).join('\n');
+  return history
+    .slice(-6)
+    .map((execution, index) => {
+      const parts: string[] = [execution.requestedAction];
+      if (execution.requestedIndex !== null) parts.push(`#${execution.requestedIndex}`);
+      if (execution.requestedText) parts.push(`"${execution.requestedText}"`);
+      if (execution.requestedUrl) parts.push(execution.requestedUrl);
+      return `${index + 1}. ${parts.join(' ')} => ${execution.executed ? 'ok' : 'fail'} | ${execution.message}`;
+    })
+    .join('\n');
 }
 
 function buildVerifierPrompt(params: {
@@ -92,7 +95,10 @@ function buildVerifierPrompt(params: {
 function parseVerifierOutput(output: string): InteractionCompletionVerification {
   const parsed = JSON.parse(extractJsonObject(output)) as Record<string, unknown>;
   const complete = normalizeComplete(parsed.complete);
-  const reason = normalizeReason(parsed.reason, complete ? 'Task appears complete' : 'Task appears incomplete');
+  const reason = normalizeReason(
+    parsed.reason,
+    complete ? 'Task appears complete' : 'Task appears incomplete',
+  );
   const confidence = normalizeConfidence(parsed.confidence);
   return { complete, reason, confidence };
 }
@@ -111,6 +117,10 @@ export async function verifyTaskCompletion(params: {
   signal?: AbortSignal;
 }): Promise<VerificationResult> {
   const prompt = buildVerifierPrompt(params);
-  const response = await runTextPromptWithConstraint(prompt, COMPLETION_VERIFICATION_SCHEMA, params.signal);
+  const response = await runTextPromptWithConstraint(
+    prompt,
+    COMPLETION_VERIFICATION_SCHEMA,
+    params.signal,
+  );
   return { verification: parseVerifierOutput(response.output), rawOutput: response.output };
 }

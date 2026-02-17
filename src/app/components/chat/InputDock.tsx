@@ -37,60 +37,79 @@ function resolveContextChip(
 ): { show: boolean; title: string; favicon: string; dismissable: boolean } {
   if (mode === ChatMode.Agent) {
     const show = requiresPageContext(mode) && agentChip !== null && agentVisible;
-    return { show, title: agentChip?.title ?? '', favicon: agentChip?.faviconUrl ?? '', dismissable: false };
+    return {
+      show,
+      title: agentChip?.title ?? '',
+      favicon: agentChip?.faviconUrl ?? '',
+      dismissable: false,
+    };
   }
   const source = chatContextSource ?? chatPageSource;
-  return { show: Boolean(source), title: source?.title ?? '', favicon: source?.faviconUrl ?? '', dismissable: Boolean(chatContextSource) };
+  return {
+    show: Boolean(source),
+    title: source?.title ?? '',
+    favicon: source?.faviconUrl ?? '',
+    dismissable: Boolean(chatContextSource),
+  };
 }
 
-export const InputDock = memo(({
-  dockRef,
-  mode,
-  agentContextChip,
-  agentContextChipVisible,
-  agentChipAnimationKey,
-  chatPageSource,
-  chatContextSource,
-  chatContextAnimationKey,
-  agentNotice,
-  contextNotice,
-  onSend,
-  onStop,
-  streaming,
-  disabled,
-  contextMode,
-  onDismissChatContext,
-  onAddChatContext,
-}: InputDockProps) => {
-  const chip = resolveContextChip(mode, agentContextChip, agentContextChipVisible, chatContextSource, chatPageSource);
-  const contextAnimationKey = mode === ChatMode.Chat ? chatContextAnimationKey : agentChipAnimationKey;
-  const showAddContext = mode !== ChatMode.Agent && !chatContextSource;
+export const InputDock = memo(
+  ({
+    dockRef,
+    mode,
+    agentContextChip,
+    agentContextChipVisible,
+    agentChipAnimationKey,
+    chatPageSource,
+    chatContextSource,
+    chatContextAnimationKey,
+    agentNotice,
+    contextNotice,
+    onSend,
+    onStop,
+    streaming,
+    disabled,
+    contextMode,
+    onDismissChatContext,
+    onAddChatContext,
+  }: InputDockProps) => {
+    const chip = resolveContextChip(
+      mode,
+      agentContextChip,
+      agentContextChipVisible,
+      chatContextSource,
+      chatPageSource,
+    );
+    const contextAnimationKey =
+      mode === ChatMode.Chat ? chatContextAnimationKey : agentChipAnimationKey;
+    const showAddContext = mode !== ChatMode.Agent && !chatContextSource;
 
-  return (
-    <div ref={dockRef} className="absolute bottom-0 left-0 right-0 z-20 px-6 pt-3 pb-4">
-      {chip.show && (
-        <AgentContextChip
-          title={chip.title}
-          faviconUrl={chip.favicon}
-          animationKey={contextAnimationKey}
-          onDismiss={chip.dismissable ? onDismissChatContext : undefined}
+    return (
+      <div ref={dockRef} className="absolute bottom-0 left-0 right-0 z-20 px-6 pt-3 pb-4">
+        {chip.show && (
+          <AgentContextChip
+            title={chip.title}
+            faviconUrl={chip.favicon}
+            animationKey={contextAnimationKey}
+            onDismiss={chip.dismissable ? onDismissChatContext : undefined}
+          />
+        )}
+        {agentNotice && <AgentNotice message={agentNotice} />}
+        {contextNotice && <AgentNotice message={contextNotice} />}
+        <ChatInput
+          onSend={onSend}
+          onStop={onStop}
+          streaming={streaming}
+          disabled={disabled}
+          placeholder="Ask anything..."
+          mode={mode}
+          contextMode={contextMode}
+          showAddContext={showAddContext}
+          onAddContext={onAddChatContext}
         />
-      )}
-      {agentNotice && <AgentNotice message={agentNotice} />}
-      {contextNotice && <AgentNotice message={contextNotice} />}
-      <ChatInput
-        onSend={onSend}
-        onStop={onStop}
-        streaming={streaming}
-        disabled={disabled}
-        placeholder="Ask anything..."
-        mode={mode}
-        contextMode={contextMode}
-        showAddContext={showAddContext}
-        onAddContext={onAddChatContext}
-      />
-    </div>
-  );
-});
+      </div>
+    );
+  },
+);
 
 InputDock.displayName = 'InputDock';

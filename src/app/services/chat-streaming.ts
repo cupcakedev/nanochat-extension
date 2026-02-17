@@ -75,7 +75,10 @@ export async function executeChatStream(
     const usage = refs.serviceRef.current.getContextUsage();
     const rawUsage = usage ? { used: usage.used, total: usage.total } : undefined;
     const stats = tokenCount > 0 ? calculateTokenStats(tokenCount, startTime) : null;
-    const pageSourceToPersist = resolvePageSourceForPersist(refs.pageSourceRef.current, pageSourceOverride);
+    const pageSourceToPersist = resolvePageSourceForPersist(
+      refs.pageSourceRef.current,
+      pageSourceOverride,
+    );
 
     setters.setMessages(trimmedMessages);
     setters.setStreaming(false);

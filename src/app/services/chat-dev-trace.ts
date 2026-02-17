@@ -22,7 +22,9 @@ export function toLineTraceItem(line: string): DevTraceItem {
   return { id: crypto.randomUUID(), kind: DevTraceKind.Line, line };
 }
 
-export function toScreenshotTraceItem(event: Extract<InteractionProgressEvent, { type: 'screenshot' }>): DevTraceItem {
+export function toScreenshotTraceItem(
+  event: Extract<InteractionProgressEvent, { type: 'screenshot' }>,
+): DevTraceItem {
   return {
     id: crypto.randomUUID(),
     kind: DevTraceKind.Screenshot,

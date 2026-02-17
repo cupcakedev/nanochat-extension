@@ -15,7 +15,8 @@ export const WelcomeScreen = memo(({ mode, onSuggestionClick }: WelcomeScreenPro
   const description = getDescriptionForMode(mode);
 
   const handleClick = useCallback(
-    (suggestion: Suggestion) => () => onSuggestionClick(suggestion.prompt, suggestion.requiresContext),
+    (suggestion: Suggestion) => () =>
+      onSuggestionClick(suggestion.prompt, suggestion.requiresContext),
     [onSuggestionClick],
   );
 

@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Logo } from '@app/components/ui/Logo';
-import {GithubIcon} from "@app/components/icons/GithubIcon.tsx";
+import { GithubIcon } from '@app/components/icons/GithubIcon';
 
 interface AboutModalProps {
   isOpen: boolean;

@@ -25,7 +25,12 @@ import { parseInteractionDecision, type ParsedInteractionDecision } from './pars
 import { captureStackedViewport } from './capture';
 import { annotateInteractionCanvas } from './annotate-canvas';
 import { enforceTypingFirst } from './guards';
-import { estimateTokens, isInputTooLargeError, isPromptTimeoutError, runTextImagePrompt } from './prompt-api';
+import {
+  estimateTokens,
+  isInputTooLargeError,
+  isPromptTimeoutError,
+  runTextImagePrompt,
+} from './prompt-api';
 import { verifyTaskCompletion } from './verifier';
 import {
   formatExecutionLines,
@@ -149,7 +154,10 @@ function isExecutableAction(plan: InteractionActionPlan): plan is ExecutableInte
   return (plan.action === 'click' || plan.action === 'type') && plan.index !== null;
 }
 
-function fallbackExecution(plan: InteractionActionPlan, message: string): InteractionExecutionResult {
+function fallbackExecution(
+  plan: InteractionActionPlan,
+  message: string,
+): InteractionExecutionResult {
   return {
     requestedAction: plan.action,
     requestedIndex: plan.index,
@@ -280,8 +288,13 @@ function toRecoveryOpenUrlPlan(url: string, reason: string): InteractionActionPl
 }
 
 function keepExecutableRecoveryActions(actions: InteractionActionPlan[]): InteractionActionPlan[] {
-  return actions.filter((a) =>
-    a.action === 'openUrl' || a.action === 'click' || a.action === 'type' || a.action === 'scrollDown' || a.action === 'scrollUp',
+  return actions.filter(
+    (a) =>
+      a.action === 'openUrl' ||
+      a.action === 'click' ||
+      a.action === 'type' ||
+      a.action === 'scrollDown' ||
+      a.action === 'scrollUp',
   );
 }
 
@@ -294,12 +307,19 @@ function buildRejectedDoneRecoveryPlans(params: {
 
   const finalAnswerUrl = extractFirstHttpUrlCandidate(params.decision.finalAnswer);
   if (finalAnswerUrl && !isSameDestination(params.currentUrl, finalAnswerUrl)) {
-    return [toRecoveryOpenUrlPlan(finalAnswerUrl, 'Verifier rejected done, navigating to planner finalAnswer URL')];
+    return [
+      toRecoveryOpenUrlPlan(
+        finalAnswerUrl,
+        'Verifier rejected done, navigating to planner finalAnswer URL',
+      ),
+    ];
   }
 
   const reasonUrl = extractFirstHttpUrlCandidate(params.decision.reason);
   if (reasonUrl && !isSameDestination(params.currentUrl, reasonUrl)) {
-    return [toRecoveryOpenUrlPlan(reasonUrl, 'Verifier rejected done, navigating to planner reason URL')];
+    return [
+      toRecoveryOpenUrlPlan(reasonUrl, 'Verifier rejected done, navigating to planner reason URL'),
+    ];
   }
 
   return [];
@@ -314,7 +334,9 @@ function buildDoneStatusNavigationPlans(params: {
 
   const finalAnswerUrl = extractFirstHttpUrlCandidate(params.decision.finalAnswer);
   if (finalAnswerUrl && !isSameDestination(params.currentUrl, finalAnswerUrl)) {
-    return [toRecoveryOpenUrlPlan(finalAnswerUrl, 'Planner marked done with off-page finalAnswer URL')];
+    return [
+      toRecoveryOpenUrlPlan(finalAnswerUrl, 'Planner marked done with off-page finalAnswer URL'),
+    ];
   }
 
   const reasonUrl = extractFirstHttpUrlCandidate(params.decision.reason);
@@ -332,9 +354,10 @@ function compactKeyPart(value: string | null | undefined, maxChars = 220): strin
 }
 
 function countMeaningfulExecutions(executions: InteractionExecutionResult[]): number {
-  return executions.reduce((count, execution) => (
-    count + (execution.requestedAction === 'unknown' ? 0 : 1)
-  ), 0);
+  return executions.reduce(
+    (count, execution) => count + (execution.requestedAction === 'unknown' ? 0 : 1),
+    0,
+  );
 }
 
 function buildVerificationCacheKey(params: {
@@ -400,11 +423,13 @@ function isLikelyClickableElement(element: InteractiveElementSnapshotItem): bool
   const tag = element.tag.toLowerCase();
   if (tag === 'a' || tag === 'button' || tag === 'summary') return true;
   const role = element.role?.toLowerCase() ?? '';
-  return role.includes('button')
-    || role.includes('link')
-    || role.includes('tab')
-    || role.includes('menuitem')
-    || role.includes('option');
+  return (
+    role.includes('button') ||
+    role.includes('link') ||
+    role.includes('tab') ||
+    role.includes('menuitem') ||
+    role.includes('option')
+  );
 }
 
 function buildElementTextForScoring(element: InteractiveElementSnapshotItem): string {
@@ -421,7 +446,10 @@ function buildElementTextForScoring(element: InteractiveElementSnapshotItem): st
     .toLowerCase();
 }
 
-function computeExplorationClickScore(element: InteractiveElementSnapshotItem, taskTokens: string[]): number {
+function computeExplorationClickScore(
+  element: InteractiveElementSnapshotItem,
+  taskTokens: string[],
+): number {
   if (!isLikelyClickableElement(element)) return -1000;
   const elementText = buildElementTextForScoring(element);
   let score = 0;
@@ -470,14 +498,16 @@ function buildRejectedDoneExplorationPlans(params: {
   }
 
   if (!best) return [];
-  return [{
-    action: 'click',
-    index: best.element.index,
-    text: null,
-    url: null,
-    reason: `Verifier rejected done; exploratory on-page click at index ${best.element.index}.`,
-    confidence: best.score >= 8 ? 'high' : 'medium',
-  }];
+  return [
+    {
+      action: 'click',
+      index: best.element.index,
+      text: null,
+      url: null,
+      reason: `Verifier rejected done; exploratory on-page click at index ${best.element.index}.`,
+      confidence: best.score >= 8 ? 'high' : 'medium',
+    },
+  ];
 }
 
 function toExecutionFromAction(
@@ -494,7 +524,10 @@ function toExecutionFromAction(
   };
 }
 
-function toExecutionFromOpenUrl(plan: InteractionActionPlan, finalUrl: string): InteractionExecutionResult {
+function toExecutionFromOpenUrl(
+  plan: InteractionActionPlan,
+  finalUrl: string,
+): InteractionExecutionResult {
   return {
     requestedAction: plan.action,
     requestedIndex: null,
@@ -505,7 +538,10 @@ function toExecutionFromOpenUrl(plan: InteractionActionPlan, finalUrl: string): 
   };
 }
 
-function toExecutionFromScroll(plan: InteractionActionPlan, scrollTop: number): InteractionExecutionResult {
+function toExecutionFromScroll(
+  plan: InteractionActionPlan,
+  scrollTop: number,
+): InteractionExecutionResult {
   return {
     requestedAction: plan.action,
     requestedIndex: null,
@@ -537,7 +573,8 @@ async function executeSinglePlan(
   }
 
   if (plan.action === 'scrollDown' || plan.action === 'scrollUp') {
-    const delta = plan.action === 'scrollDown' ? scrollContext.viewportHeight : -scrollContext.viewportHeight;
+    const delta =
+      plan.action === 'scrollDown' ? scrollContext.viewportHeight : -scrollContext.viewportHeight;
     const targetTop = Math.max(0, scrollContext.scrollY + delta);
     const actualTop = await setInteractionScroll(tabId, targetTop);
     scrollContext.scrollY = actualTop;
@@ -550,7 +587,7 @@ async function executeSinglePlan(
       tabId,
       plan.action,
       plan.index,
-      plan.action === 'type' ? plan.text ?? '' : null,
+      plan.action === 'type' ? (plan.text ?? '') : null,
     );
     throwIfAborted(signal);
     return toExecutionFromAction(plan, response);
@@ -625,8 +662,16 @@ async function requestPlannerDecision(params: {
       history: params.history,
       elements: promptElements,
     });
-    const annotatedCanvas = annotateInteractionCanvas(params.baseCanvas, promptElements, params.viewport);
-    const emittedScreenshot = emitProgressScreenshot(params.onProgress, params.stepNumber, annotatedCanvas);
+    const annotatedCanvas = annotateInteractionCanvas(
+      params.baseCanvas,
+      promptElements,
+      params.viewport,
+    );
+    const emittedScreenshot = emitProgressScreenshot(
+      params.onProgress,
+      params.stepNumber,
+      annotatedCanvas,
+    );
 
     try {
       logger.info('planner:model:request', {
@@ -684,7 +729,7 @@ async function requestPlannerDecision(params: {
     }
   }
 
-  throw (lastError instanceof Error ? lastError : new Error('Prompt API request failed'));
+  throw lastError instanceof Error ? lastError : new Error('Prompt API request failed');
 }
 
 function resolveCompletion(
@@ -705,14 +750,19 @@ function resolveCompletion(
   if (status === 'fail') {
     return {
       status,
-      finalAnswer: decision.finalAnswer ?? decision.reason ?? lastExecution?.message ?? 'Task failed',
+      finalAnswer:
+        decision.finalAnswer ?? decision.reason ?? lastExecution?.message ?? 'Task failed',
     };
   }
 
   if (status === 'max-steps') {
     return {
       status,
-      finalAnswer: decision.finalAnswer ?? decision.reason ?? lastExecution?.message ?? 'Maximum agent steps reached',
+      finalAnswer:
+        decision.finalAnswer ??
+        decision.reason ??
+        lastExecution?.message ??
+        'Maximum agent steps reached',
     };
   }
 
@@ -763,7 +813,10 @@ export async function runPageInteractionStep(
         viewportOnly: true,
         viewportSegments: AGENT_VIEWPORT_SEGMENTS,
       });
-      const baseViewportHeight = Math.max(1, Math.round(snapshot.viewportHeight / AGENT_VIEWPORT_SEGMENTS));
+      const baseViewportHeight = Math.max(
+        1,
+        Math.round(snapshot.viewportHeight / AGENT_VIEWPORT_SEGMENTS),
+      );
       capture = await captureStackedViewport({
         windowId: activeTab.windowId,
         tabId: activeTab.tabId,
@@ -779,7 +832,10 @@ export async function runPageInteractionStep(
 
       const placeholderUrl = chrome.runtime.getURL(AGENT_PLACEHOLDER_PAGE_PATH);
       if (!isSameDestination(activeTab.url, placeholderUrl)) {
-        const placeholderOpenResult = await openExtensionPageInTab(activeTab.tabId, AGENT_PLACEHOLDER_PAGE_PATH);
+        const placeholderOpenResult = await openExtensionPageInTab(
+          activeTab.tabId,
+          AGENT_PLACEHOLDER_PAGE_PATH,
+        );
         emitProgressLine(
           options,
           `[${stepNumber}] recovery | content connection unavailable, opened placeholder ${placeholderOpenResult.finalUrl}`,
@@ -815,7 +871,10 @@ export async function runPageInteractionStep(
       });
     }
 
-    emitProgressLine(options, formatObserveLine(stepNumber, snapshot.pageUrl, snapshot.interactiveElements.length));
+    emitProgressLine(
+      options,
+      formatObserveLine(stepNumber, snapshot.pageUrl, snapshot.interactiveElements.length),
+    );
     lastPageUrl = snapshot.pageUrl;
     lastPageTitle = snapshot.pageTitle;
     const scrollContext = { scrollY: snapshot.scrollY, viewportHeight: snapshot.viewportHeight };
@@ -862,11 +921,20 @@ export async function runPageInteractionStep(
           options,
           `[${stepNumber}] recovery | done status has off-page target, forcing actions=${doneStatusRecoveryPlans.length}`,
         );
-        formatPlanLines(stepNumber, doneStatusRecoveryPlans).forEach((line) => emitProgressLine(options, line));
+        formatPlanLines(stepNumber, doneStatusRecoveryPlans).forEach((line) =>
+          emitProgressLine(options, line),
+        );
         allPlans.push(...doneStatusRecoveryPlans);
 
-        const doneStatusRecoveries = await executePlannedActions(activeTab.tabId, doneStatusRecoveryPlans, scrollContext, options?.signal);
-        formatExecutionLines(stepNumber, doneStatusRecoveries).forEach((line) => emitProgressLine(options, line));
+        const doneStatusRecoveries = await executePlannedActions(
+          activeTab.tabId,
+          doneStatusRecoveryPlans,
+          scrollContext,
+          options?.signal,
+        );
+        formatExecutionLines(stepNumber, doneStatusRecoveries).forEach((line) =>
+          emitProgressLine(options, line),
+        );
         allExecutions.push(...doneStatusRecoveries);
 
         if (!doneStatusRecoveries.length) {
@@ -897,28 +965,28 @@ export async function runPageInteractionStep(
       const cachedVerification = verificationCache.get(verificationCacheKey);
       const verificationResult = cachedVerification
         ? {
-          verification: cachedVerification,
-          rawOutput: '{"cached":true}',
-        }
+            verification: cachedVerification,
+            rawOutput: '{"cached":true}',
+          }
         : await verifyTaskCompletion({
-          task,
-          pageUrl: snapshot.pageUrl,
-          pageTitle: snapshot.pageTitle,
-          history: allExecutions,
-          plannerFinalAnswer: decision.decision.finalAnswer,
-          signal: options?.signal,
-        }).catch((error) => {
-          if (isAbortError(error)) throw error;
-          const message = `Verifier error: ${extractErrorMessage(error)}`;
-          return {
-            verification: {
-              complete: false,
-              reason: message,
-              confidence: 'low' as const,
-            },
-            rawOutput: message,
-          };
-        });
+            task,
+            pageUrl: snapshot.pageUrl,
+            pageTitle: snapshot.pageTitle,
+            history: allExecutions,
+            plannerFinalAnswer: decision.decision.finalAnswer,
+            signal: options?.signal,
+          }).catch((error) => {
+            if (isAbortError(error)) throw error;
+            const message = `Verifier error: ${extractErrorMessage(error)}`;
+            return {
+              verification: {
+                complete: false,
+                reason: message,
+                confidence: 'low' as const,
+              },
+              rawOutput: message,
+            };
+          });
       const verification = verificationResult.verification;
       if (!cachedVerification) {
         verificationCache.set(verificationCacheKey, verification);
@@ -926,7 +994,10 @@ export async function runPageInteractionStep(
       lastVerification = verification;
       emitProgressLine(options, formatVerificationLine(stepNumber, verification));
       if (verificationResult.rawOutput) {
-        emitProgressLine(options, formatVerificationRawLine(stepNumber, verificationResult.rawOutput));
+        emitProgressLine(
+          options,
+          formatVerificationRawLine(stepNumber, verificationResult.rawOutput),
+        );
       }
       if (verification.complete) {
         finalStatus = 'done';
@@ -949,11 +1020,20 @@ export async function runPageInteractionStep(
           options,
           `[${stepNumber}] recovery | verifier rejected done, fallback actions=${recoveryPlans.length}`,
         );
-        formatPlanLines(stepNumber, recoveryPlans).forEach((line) => emitProgressLine(options, line));
+        formatPlanLines(stepNumber, recoveryPlans).forEach((line) =>
+          emitProgressLine(options, line),
+        );
         allPlans.push(...recoveryPlans);
 
-        const recoveryExecutions = await executePlannedActions(activeTab.tabId, recoveryPlans, scrollContext, options?.signal);
-        formatExecutionLines(stepNumber, recoveryExecutions).forEach((line) => emitProgressLine(options, line));
+        const recoveryExecutions = await executePlannedActions(
+          activeTab.tabId,
+          recoveryPlans,
+          scrollContext,
+          options?.signal,
+        );
+        formatExecutionLines(stepNumber, recoveryExecutions).forEach((line) =>
+          emitProgressLine(options, line),
+        );
         allExecutions.push(...recoveryExecutions);
 
         if (!recoveryExecutions.length) {
@@ -984,16 +1064,27 @@ export async function runPageInteractionStep(
           options,
           `[${stepNumber}] recovery | verifier rejected done, forcing exploratory click actions=${explorationPlans.length}`,
         );
-        formatPlanLines(stepNumber, explorationPlans).forEach((line) => emitProgressLine(options, line));
+        formatPlanLines(stepNumber, explorationPlans).forEach((line) =>
+          emitProgressLine(options, line),
+        );
         allPlans.push(...explorationPlans);
 
-        const explorationExecutions = await executePlannedActions(activeTab.tabId, explorationPlans, scrollContext, options?.signal);
-        formatExecutionLines(stepNumber, explorationExecutions).forEach((line) => emitProgressLine(options, line));
+        const explorationExecutions = await executePlannedActions(
+          activeTab.tabId,
+          explorationPlans,
+          scrollContext,
+          options?.signal,
+        );
+        formatExecutionLines(stepNumber, explorationExecutions).forEach((line) =>
+          emitProgressLine(options, line),
+        );
         allExecutions.push(...explorationExecutions);
 
         for (const plan of explorationPlans) {
           if (plan.action === 'click' && plan.index !== null) {
-            attemptedRejectedDoneClickKeys.add(buildExplorationClickKey(snapshot.pageUrl, plan.index));
+            attemptedRejectedDoneClickKeys.add(
+              buildExplorationClickKey(snapshot.pageUrl, plan.index),
+            );
           }
         }
 
@@ -1013,7 +1104,7 @@ export async function runPageInteractionStep(
         pageUrl: snapshot.pageUrl,
         meaningfulExecutionCount,
       });
-      rejectedDoneStreak = (lastRejectedDoneKey === doneLoopKey) ? (rejectedDoneStreak + 1) : 1;
+      rejectedDoneStreak = lastRejectedDoneKey === doneLoopKey ? rejectedDoneStreak + 1 : 1;
       lastRejectedDoneKey = doneLoopKey;
       if (rejectedDoneStreak >= DONE_LOOP_RECOVERY_THRESHOLD) {
         const stuckRecoveryPlans = buildStuckDoneRecoveryPlans({
@@ -1024,11 +1115,20 @@ export async function runPageInteractionStep(
           options,
           `[${stepNumber}] recovery | repeated done-loop detected, forcing actions=${stuckRecoveryPlans.length}`,
         );
-        formatPlanLines(stepNumber, stuckRecoveryPlans).forEach((line) => emitProgressLine(options, line));
+        formatPlanLines(stepNumber, stuckRecoveryPlans).forEach((line) =>
+          emitProgressLine(options, line),
+        );
         allPlans.push(...stuckRecoveryPlans);
 
-        const stuckRecoveryExecutions = await executePlannedActions(activeTab.tabId, stuckRecoveryPlans, scrollContext, options?.signal);
-        formatExecutionLines(stepNumber, stuckRecoveryExecutions).forEach((line) => emitProgressLine(options, line));
+        const stuckRecoveryExecutions = await executePlannedActions(
+          activeTab.tabId,
+          stuckRecoveryPlans,
+          scrollContext,
+          options?.signal,
+        );
+        formatExecutionLines(stepNumber, stuckRecoveryExecutions).forEach((line) =>
+          emitProgressLine(options, line),
+        );
         allExecutions.push(...stuckRecoveryExecutions);
 
         if (!stuckRecoveryExecutions.length) {
@@ -1037,7 +1137,8 @@ export async function runPageInteractionStep(
           break;
         }
 
-        const lastStuckRecoveryExecution = stuckRecoveryExecutions[stuckRecoveryExecutions.length - 1];
+        const lastStuckRecoveryExecution =
+          stuckRecoveryExecutions[stuckRecoveryExecutions.length - 1];
         if (!lastStuckRecoveryExecution.executed && stepNumber >= AGENT_MAX_STEPS) {
           finalStatus = 'max-steps';
           finalAnswer = 'Maximum agent steps reached';
@@ -1068,7 +1169,12 @@ export async function runPageInteractionStep(
     formatPlanLines(stepNumber, plans).forEach((line) => emitProgressLine(options, line));
     allPlans.push(...plans);
 
-    const executions = await executePlannedActions(activeTab.tabId, plans, scrollContext, options?.signal);
+    const executions = await executePlannedActions(
+      activeTab.tabId,
+      plans,
+      scrollContext,
+      options?.signal,
+    );
     formatExecutionLines(stepNumber, executions).forEach((line) => emitProgressLine(options, line));
     allExecutions.push(...executions);
 
@@ -1097,7 +1203,12 @@ export async function runPageInteractionStep(
     throw new Error('Agent did not produce any planning result');
   }
 
-  const completion = resolveCompletion(finalStatus, lastDecision.decision, allExecutions, finalAnswer);
+  const completion = resolveCompletion(
+    finalStatus,
+    lastDecision.decision,
+    allExecutions,
+    finalAnswer,
+  );
   emitProgressLine(options, formatFinalLine(completion.status, completion.finalAnswer));
   if (lastTabId !== null) {
     await clearHighlights(lastTabId).catch(() => undefined);

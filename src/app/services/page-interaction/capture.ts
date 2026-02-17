@@ -74,7 +74,10 @@ export async function captureStackedViewport(params: {
   const canvases: HTMLCanvasElement[] = [];
   try {
     for (let segment = 0; segment < segments; segment += 1) {
-      await setInteractionScroll(params.tabId, params.baseScrollY + params.viewportHeight * segment);
+      await setInteractionScroll(
+        params.tabId,
+        params.baseScrollY + params.viewportHeight * segment,
+      );
       if (params.settleMs > 0) await pause(params.settleMs);
       const dataUrl = await captureScreenshot(params.windowId);
       const image = await decodeImage(dataUrl);

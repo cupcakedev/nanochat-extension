@@ -17,7 +17,9 @@ export function resolveSiteTitle(title: string, url: string): string {
 }
 
 export function extractAgentErrorMessage(error: unknown): string {
-  return error instanceof Error && error.message.trim() ? error.message : AGENT_CONTEXT_UNAVAILABLE_MESSAGE;
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : AGENT_CONTEXT_UNAVAILABLE_MESSAGE;
 }
 
 export function clearTimerRef(ref: MutableRefObject<number | null>): void {

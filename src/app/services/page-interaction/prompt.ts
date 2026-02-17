@@ -23,7 +23,9 @@ function createElementLine(element: InteractiveElementSnapshotItem): string {
   if (element.id) parts.push(`id="${truncate(element.id, 80)}"`);
   if (element.href) parts.push(`href="${truncate(element.href, 180)}"`);
   parts.push(`disabled=${element.disabled ? 'true' : 'false'}`);
-  parts.push(`rect=${element.rect.x},${element.rect.y},${element.rect.width},${element.rect.height}`);
+  parts.push(
+    `rect=${element.rect.x},${element.rect.y},${element.rect.width},${element.rect.height}`,
+  );
   return parts.join(' | ');
 }
 

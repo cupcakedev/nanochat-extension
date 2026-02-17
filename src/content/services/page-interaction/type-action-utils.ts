@@ -19,13 +19,25 @@ function dispatchTextEvents(target: HTMLElement, previousValue: string, nextValu
 
   try {
     target.dispatchEvent(
-      new InputEvent('beforeinput', { bubbles: true, composed: true, data: nextValue, inputType: 'insertText' }),
+      new InputEvent('beforeinput', {
+        bubbles: true,
+        composed: true,
+        data: nextValue,
+        inputType: 'insertText',
+      }),
     );
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 
   try {
     target.dispatchEvent(
-      new InputEvent('input', { bubbles: true, composed: true, data: nextValue, inputType: 'insertText' }),
+      new InputEvent('input', {
+        bubbles: true,
+        composed: true,
+        data: nextValue,
+        inputType: 'insertText',
+      }),
     );
   } catch {
     target.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
@@ -35,10 +47,21 @@ function dispatchTextEvents(target: HTMLElement, previousValue: string, nextValu
 }
 
 const NON_TEXT_EDITABLE_INPUT_TYPES = new Set([
-  'checkbox', 'radio', 'file', 'button', 'submit', 'reset', 'image', 'range', 'color',
+  'checkbox',
+  'radio',
+  'file',
+  'button',
+  'submit',
+  'reset',
+  'image',
+  'range',
+  'color',
 ]);
 
-export function executeInputType(target: ValueTarget, text: string): { ok: boolean; message: string } {
+export function executeInputType(
+  target: ValueTarget,
+  text: string,
+): { ok: boolean; message: string } {
   if (target instanceof HTMLInputElement && NON_TEXT_EDITABLE_INPUT_TYPES.has(target.type)) {
     return { ok: false, message: 'Target input type is not text-editable' };
   }
@@ -47,12 +70,19 @@ export function executeInputType(target: ValueTarget, text: string): { ok: boole
   const prev = target.value;
   setNativeInputValue(target, text);
   if (target.value !== text) target.value = text;
-  try { target.setSelectionRange(target.value.length, target.value.length); } catch { /* noop */ }
+  try {
+    target.setSelectionRange(target.value.length, target.value.length);
+  } catch {
+    /* noop */
+  }
   dispatchTextEvents(target, prev, target.value);
   return { ok: true, message: `Input value updated "${prev}" -> "${target.value}"` };
 }
 
-export function executeSelectType(target: HTMLSelectElement, text: string): { ok: boolean; message: string } {
+export function executeSelectType(
+  target: HTMLSelectElement,
+  text: string,
+): { ok: boolean; message: string } {
   const normalized = text.trim().toLowerCase();
   const match = Array.from(target.options).find((o) => {
     const label = o.text.trim().toLowerCase();

@@ -1,6 +1,10 @@
 import type { ExecuteActionResponse, ExecutableInteractionAction } from '@shared/types';
 import { getIndexedElement } from './indexed-elements';
-import { executeInputType, executeSelectType, executeContentEditableType } from './type-action-utils';
+import {
+  executeInputType,
+  executeSelectType,
+  executeContentEditableType,
+} from './type-action-utils';
 
 function findElementByIndex(index: number): HTMLElement | null {
   return getIndexedElement(index);

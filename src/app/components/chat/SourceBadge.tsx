@@ -17,11 +17,7 @@ export const SourceBadge = memo(({ pageSource }: SourceBadgeProps) => (
   >
     <span className="text-neutral-500 shrink-0">Based on:</span>
     {pageSource.faviconUrl ? (
-      <img
-        src={pageSource.faviconUrl}
-        alt=""
-        className="h-4 w-4 rounded-[4px] shrink-0"
-      />
+      <img src={pageSource.faviconUrl} alt="" className="h-4 w-4 rounded-[4px] shrink-0" />
     ) : (
       <span className="flex h-4 w-4 items-center justify-center rounded-[4px] bg-neutral-200/30 text-[10px] leading-none text-neutral-600 shrink-0">
         •

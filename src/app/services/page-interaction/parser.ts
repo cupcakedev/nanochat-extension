@@ -49,9 +49,12 @@ function normalizeAction(value: unknown): InteractionActionType {
   const normalized = value.trim().toLowerCase();
   if (normalized === 'click') return 'click';
   if (normalized === 'type') return 'type';
-  if (normalized === 'openurl' || normalized === 'open_url' || normalized === 'open-url') return 'openUrl';
-  if (normalized === 'scrollup' || normalized === 'scroll_up' || normalized === 'scroll-up') return 'scrollUp';
-  if (normalized === 'scrolldown' || normalized === 'scroll_down' || normalized === 'scroll-down') return 'scrollDown';
+  if (normalized === 'openurl' || normalized === 'open_url' || normalized === 'open-url')
+    return 'openUrl';
+  if (normalized === 'scrollup' || normalized === 'scroll_up' || normalized === 'scroll-up')
+    return 'scrollUp';
+  if (normalized === 'scrolldown' || normalized === 'scroll_down' || normalized === 'scroll-down')
+    return 'scrollDown';
   if (normalized === 'done') return 'done';
   return 'unknown';
 }
@@ -80,11 +83,25 @@ function validateExecutableAction(
   reason: string | null,
 ): InteractionActionPlan {
   if (action === 'openUrl' && !url) {
-    return { action: 'unknown', index: null, text: null, url: null, reason: reason ?? 'Missing URL for openUrl', confidence: 'low' };
+    return {
+      action: 'unknown',
+      index: null,
+      text: null,
+      url: null,
+      reason: reason ?? 'Missing URL for openUrl',
+      confidence: 'low',
+    };
   }
 
   if ((action === 'click' || action === 'type') && index === null) {
-    return { action: 'unknown', index: null, text: null, url: null, reason: reason ?? 'Missing index for actionable command', confidence: 'low' };
+    return {
+      action: 'unknown',
+      index: null,
+      text: null,
+      url: null,
+      reason: reason ?? 'Missing index for actionable command',
+      confidence: 'low',
+    };
   }
 
   if (action === 'scrollUp' || action === 'scrollDown') {
@@ -96,7 +113,14 @@ function validateExecutableAction(
 
 function normalizeActionPlan(value: unknown): InteractionActionPlan {
   if (!value || typeof value !== 'object') {
-    return { action: 'unknown', index: null, text: null, url: null, reason: 'Invalid action item', confidence: 'low' };
+    return {
+      action: 'unknown',
+      index: null,
+      text: null,
+      url: null,
+      reason: 'Invalid action item',
+      confidence: 'low',
+    };
   }
 
   const parsed = value as Record<string, unknown>;

@@ -88,7 +88,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const updateActiveChat = useCallback(
-    (messages: ChatMessage[], contextUsage?: { used: number; total: number }, pageSource?: PageSource | null) => {
+    (
+      messages: ChatMessage[],
+      contextUsage?: { used: number; total: number },
+      pageSource?: PageSource | null,
+    ) => {
       if (!activeChatId) return;
       const existing = chatsRef.current.get(activeChatId);
       if (!existing) return;

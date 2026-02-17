@@ -1,4 +1,8 @@
-import type { InteractionActionPlan, InteractionExecutionResult, PageInteractionStepResult } from '@shared/types';
+import type {
+  InteractionActionPlan,
+  InteractionExecutionResult,
+  PageInteractionStepResult,
+} from '@shared/types';
 
 function formatAction(plan: InteractionActionPlan): string {
   const parts: string[] = [plan.action];
@@ -16,24 +20,33 @@ function isMappedPlanExecution(execution: InteractionExecutionResult): boolean {
   return execution.requestedAction !== 'unknown';
 }
 
-function collectPlanExecutions(executions: InteractionExecutionResult[]): InteractionExecutionResult[] {
+function collectPlanExecutions(
+  executions: InteractionExecutionResult[],
+): InteractionExecutionResult[] {
   return executions.filter(isMappedPlanExecution);
 }
 
-function formatStepLine(stepNumber: number, plan: InteractionActionPlan, execution: InteractionExecutionResult | undefined): string {
+function formatStepLine(
+  stepNumber: number,
+  plan: InteractionActionPlan,
+  execution: InteractionExecutionResult | undefined,
+): string {
   if (!execution) return `${stepNumber}. ${formatAction(plan)} | pending`;
   return `${stepNumber}. ${formatAction(plan)} | ${formatExecutionStatus(execution)} | ${execution.message}`;
 }
 
 function formatCaptureMeta(result: PageInteractionStepResult): string {
-  const { imageWidth, imageHeight, elementCount, promptElementCount, retryCount } = result.captureMeta;
+  const { imageWidth, imageHeight, elementCount, promptElementCount, retryCount } =
+    result.captureMeta;
   return `${imageWidth}x${imageHeight}, indexed ${elementCount}, prompted ${promptElementCount}, retries ${retryCount}`;
 }
 
 function formatStepSummary(result: PageInteractionStepResult): string {
   if (!result.plans.length) return 'No executed actions';
   const planExecutions = collectPlanExecutions(result.executions);
-  return result.plans.map((plan, index) => formatStepLine(index + 1, plan, planExecutions[index])).join('\n');
+  return result.plans
+    .map((plan, index) => formatStepLine(index + 1, plan, planExecutions[index]))
+    .join('\n');
 }
 
 function formatFinalAnswer(result: PageInteractionStepResult): string {
@@ -64,8 +77,11 @@ export function formatInteractionAssistantMessage(result: PageInteractionStepRes
   ].join('\n');
 }
 
-export function extractInteractionUsage(result: PageInteractionStepResult): { used: number; total: number } | undefined {
-  const used = result.debugInput.sessionInputUsageAfter ?? result.debugInput.sessionInputUsageBefore;
+export function extractInteractionUsage(
+  result: PageInteractionStepResult,
+): { used: number; total: number } | undefined {
+  const used =
+    result.debugInput.sessionInputUsageAfter ?? result.debugInput.sessionInputUsageBefore;
   const total = result.debugInput.sessionInputQuota;
   if (used === null || total === null) return undefined;
   return { used, total };

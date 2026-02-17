@@ -31,9 +31,14 @@ export const MessageBubble = memo(({ message, streaming = false }: MessageBubble
       <div className="flex justify-end">
         <div className="max-w-[85%] rounded-[20px] bg-brand-500 text-white px-4 py-2.5 text-sm leading-relaxed">
           {message.images?.length
-            ? renderImageList(message.images, 'max-w-[200px] max-h-[200px] rounded-[12px] object-cover')
+            ? renderImageList(
+                message.images,
+                'max-w-[200px] max-h-[200px] rounded-[12px] object-cover',
+              )
             : null}
-          {message.content && <span className="whitespace-pre-wrap break-words">{message.content}</span>}
+          {message.content && (
+            <span className="whitespace-pre-wrap break-words">{message.content}</span>
+          )}
         </div>
       </div>
     );
@@ -42,7 +47,10 @@ export const MessageBubble = memo(({ message, streaming = false }: MessageBubble
   return (
     <div className="text-neutral-700 text-sm leading-relaxed">
       {message.images?.length
-        ? renderImageList(message.images, 'w-full max-w-[720px] rounded-[14px] border border-neutral-200')
+        ? renderImageList(
+            message.images,
+            'w-full max-w-[720px] rounded-[14px] border border-neutral-200',
+          )
         : null}
       {isEmpty && streaming ? <TypingIndicator /> : <MarkdownContent content={message.content} />}
     </div>

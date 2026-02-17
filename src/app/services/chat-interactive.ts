@@ -52,10 +52,14 @@ function createProgressHandler(
   if (!enabled) return undefined;
   return (event: InteractionProgressEvent) => {
     if (event.type === 'line') {
-      setDevTraceItems((prev) => appendTraceItem(prev as DevTraceItem[], toLineTraceItem(event.line)));
+      setDevTraceItems((prev) =>
+        appendTraceItem(prev as DevTraceItem[], toLineTraceItem(event.line)),
+      );
       return;
     }
-    setDevTraceItems((prev) => appendTraceItem(prev as DevTraceItem[], toScreenshotTraceItem(event)));
+    setDevTraceItems((prev) =>
+      appendTraceItem(prev as DevTraceItem[], toScreenshotTraceItem(event)),
+    );
   };
 }
 
@@ -82,9 +86,9 @@ export async function executeInteractiveStep(
       text,
       onProgress || signal
         ? {
-          ...(onProgress ? { onProgress } : {}),
-          ...(signal ? { signal } : {}),
-        }
+            ...(onProgress ? { onProgress } : {}),
+            ...(signal ? { signal } : {}),
+          }
         : undefined,
     );
     const usage = extractInteractionUsage(result);
@@ -100,19 +104,29 @@ export async function executeInteractiveStep(
     if (isAbortError(error)) {
       if (isDevTraceEnabled) {
         setters.setDevTraceItems((prev) =>
-          appendTraceItem(prev as DevTraceItem[], toLineTraceItem('[stopped] User interrupted agent run')),
+          appendTraceItem(
+            prev as DevTraceItem[],
+            toLineTraceItem('[stopped] User interrupted agent run'),
+          ),
         );
       }
       const completedMessages = setAssistantCompletion(baseMessages, 'Stopped.');
       setters.setMessages(completedMessages);
       setters.setContextUsage(null);
-      setters.onMessagesChange?.(completedMessages, undefined, refs.pageSourceRef.current ?? undefined);
+      setters.onMessagesChange?.(
+        completedMessages,
+        undefined,
+        refs.pageSourceRef.current ?? undefined,
+      );
       return;
     }
 
     if (isDevTraceEnabled) {
       setters.setDevTraceItems((prev) =>
-        appendTraceItem(prev as DevTraceItem[], toLineTraceItem(`[error] ${extractErrorMessage(error)}`)),
+        appendTraceItem(
+          prev as DevTraceItem[],
+          toLineTraceItem(`[error] ${extractErrorMessage(error)}`),
+        ),
       );
     }
     const completedMessages = setAssistantCompletion(
@@ -121,7 +135,11 @@ export async function executeInteractiveStep(
     );
     setters.setMessages(completedMessages);
     setters.setContextUsage(null);
-    setters.onMessagesChange?.(completedMessages, undefined, refs.pageSourceRef.current ?? undefined);
+    setters.onMessagesChange?.(
+      completedMessages,
+      undefined,
+      refs.pageSourceRef.current ?? undefined,
+    );
   } finally {
     setters.setStreaming(false);
   }

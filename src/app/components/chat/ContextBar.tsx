@@ -30,7 +30,12 @@ export const ContextBar = memo(({ usage }: ContextBarProps) => {
             className="flex items-center justify-center w-5 h-5 rounded-[8px] text-red-400 hover:bg-red-500/10 transition-all duration-200"
           >
             <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-              <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path
+                d="M1 1l6 6M7 1L1 7"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
         </div>

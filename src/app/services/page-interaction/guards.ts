@@ -2,10 +2,28 @@ import type { InteractionActionPlan, InteractiveElementSnapshotItem } from '@sha
 
 const TYPE_INTENT_KEYWORDS = ['type', 'enter', 'input', 'fill', 'paste', 'write', 'insert', 'set'];
 const CLICK_INTENT_KEYWORDS = ['click', 'press', 'tap', 'open', 'go to', 'select', 'choose'];
-const COUPON_KEYWORDS = ['coupon', 'promo', 'discount', 'voucher', 'gift card', 'promo code', 'discount code'];
+const COUPON_KEYWORDS = [
+  'coupon',
+  'promo',
+  'discount',
+  'voucher',
+  'gift card',
+  'promo code',
+  'discount code',
+];
 const TYPEABLE_ROLES = new Set(['textbox', 'combobox', 'searchbox', 'spinbutton']);
 const TYPEABLE_TAGS = new Set(['input', 'textarea', 'select']);
-const BUTTON_LIKE_VALUES = new Set(['add', 'apply', 'submit', 'continue', 'checkout', 'cart', 'go', 'next', 'ok']);
+const BUTTON_LIKE_VALUES = new Set([
+  'add',
+  'apply',
+  'submit',
+  'continue',
+  'checkout',
+  'cart',
+  'go',
+  'next',
+  'ok',
+]);
 
 function hasKeyword(value: string, keywords: string[]): boolean {
   const normalized = value.toLowerCase();
@@ -39,7 +57,10 @@ function scoreByInstructionHints(elementText: string, instruction: string): numb
   if (/email/.test(normalizedInstruction) && /email/.test(targetText)) score += 6;
   if (/phone/.test(normalizedInstruction) && /phone|mobile|tel/.test(targetText)) score += 6;
   if (/name/.test(normalizedInstruction) && /name/.test(targetText)) score += 4;
-  if (hasKeyword(instruction, COUPON_KEYWORDS) && /coupon|promo|discount|voucher|gift|code/.test(targetText)) {
+  if (
+    hasKeyword(instruction, COUPON_KEYWORDS) &&
+    /coupon|promo|discount|voucher|gift|code/.test(targetText)
+  ) {
     score += 8;
   }
   return score;
@@ -47,13 +68,22 @@ function scoreByInstructionHints(elementText: string, instruction: string): numb
 
 function scoreTypeCandidate(element: InteractiveElementSnapshotItem, instruction: string): number {
   if (!isTypeableElement(element)) return -1;
-  const elementText = [element.text, element.ariaLabel, element.placeholder, element.name, element.id]
+  const elementText = [
+    element.text,
+    element.ariaLabel,
+    element.placeholder,
+    element.name,
+    element.id,
+  ]
     .filter(Boolean)
     .join(' ');
 
   let score = 1 + scoreByInstructionHints(elementText, instruction);
   if (element.tag === 'input') score += 2;
-  if (element.inputType && ['text', 'search', 'email', 'tel', 'url', 'password'].includes(element.inputType)) {
+  if (
+    element.inputType &&
+    ['text', 'search', 'email', 'tel', 'url', 'password'].includes(element.inputType)
+  ) {
     score += 3;
   }
   if (element.placeholder) score += 1;
@@ -62,7 +92,10 @@ function scoreTypeCandidate(element: InteractiveElementSnapshotItem, instruction
   return score;
 }
 
-function chooseTypeCandidate(elements: InteractiveElementSnapshotItem[], instruction: string): InteractiveElementSnapshotItem | null {
+function chooseTypeCandidate(
+  elements: InteractiveElementSnapshotItem[],
+  instruction: string,
+): InteractiveElementSnapshotItem | null {
   const scored = elements
     .map((element) => ({ element, score: scoreTypeCandidate(element, instruction) }))
     .sort((a, b) => b.score - a.score);
@@ -75,11 +108,17 @@ function isClickOnlyInstruction(instruction: string, preferredValue: string | nu
   const hasClickIntent = hasKeyword(instruction, CLICK_INTENT_KEYWORDS);
   const hasTypeIntent = hasKeyword(instruction, TYPE_INTENT_KEYWORDS);
   const explicitButton = /\b(button|btn)\b/.test(instruction.toLowerCase());
-  const isButtonValue = preferredValue ? BUTTON_LIKE_VALUES.has(preferredValue.toLowerCase()) : false;
+  const isButtonValue = preferredValue
+    ? BUTTON_LIKE_VALUES.has(preferredValue.toLowerCase())
+    : false;
   return hasClickIntent && !hasTypeIntent && (explicitButton || isButtonValue);
 }
 
-function patchMissingTypeText(plan: InteractionActionPlan, preferredValue: string | null, clickOnly: boolean): InteractionActionPlan {
+function patchMissingTypeText(
+  plan: InteractionActionPlan,
+  preferredValue: string | null,
+  clickOnly: boolean,
+): InteractionActionPlan {
   if (plan.action !== 'type' || plan.text || !preferredValue || clickOnly) return plan;
   const reason = `${plan.reason ?? ''} Filled missing text from instruction.`.trim();
   return { ...plan, text: preferredValue, reason };
@@ -90,11 +129,18 @@ function enforceTypingFirstForSinglePlan(
   instruction: string,
   elements: InteractiveElementSnapshotItem[],
 ): InteractionActionPlan {
-  if (plan.action === 'openUrl' || plan.action === 'done' || plan.action === 'scrollDown' || plan.action === 'scrollUp') return plan;
+  if (
+    plan.action === 'openUrl' ||
+    plan.action === 'done' ||
+    plan.action === 'scrollDown' ||
+    plan.action === 'scrollUp'
+  )
+    return plan;
   const preferredValue = extractQuotedValue(instruction) ?? extractCodeValue(instruction);
   const clickOnly = isClickOnlyInstruction(instruction, preferredValue);
   const patched = patchMissingTypeText(plan, preferredValue, clickOnly);
-  const shouldForceTyping = hasKeyword(instruction, TYPE_INTENT_KEYWORDS) || hasKeyword(instruction, COUPON_KEYWORDS);
+  const shouldForceTyping =
+    hasKeyword(instruction, TYPE_INTENT_KEYWORDS) || hasKeyword(instruction, COUPON_KEYWORDS);
   if (!shouldForceTyping || !preferredValue || clickOnly) return patched;
   if (patched.action === 'type' && patched.text) return patched;
 
@@ -111,8 +157,16 @@ function enforceTypingFirstForSinglePlan(
   };
 }
 
-function shouldPrependTypingAction(original: InteractionActionPlan, adjusted: InteractionActionPlan): boolean {
-  return original.action !== 'type' && adjusted.action === 'type' && adjusted.index !== null && adjusted.text !== null;
+function shouldPrependTypingAction(
+  original: InteractionActionPlan,
+  adjusted: InteractionActionPlan,
+): boolean {
+  return (
+    original.action !== 'type' &&
+    adjusted.action === 'type' &&
+    adjusted.index !== null &&
+    adjusted.text !== null
+  );
 }
 
 export function enforceTypingFirst(

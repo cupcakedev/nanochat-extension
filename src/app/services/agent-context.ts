@@ -69,9 +69,16 @@ export async function getAgentPageContext(
   } catch (err) {
     const errorMessage = getErrorMessage(err);
     if (isExpectedPageContextError(errorMessage)) {
-      logger.info('Page context unavailable in current tab (service page)', { tabId: tab.tabId, url: tab.url });
+      logger.info('Page context unavailable in current tab (service page)', {
+        tabId: tab.tabId,
+        url: tab.url,
+      });
     } else {
-      logger.warn('Page context fetch failed', { tabId: tab.tabId, url: tab.url, reason: errorMessage });
+      logger.warn('Page context fetch failed', {
+        tabId: tab.tabId,
+        url: tab.url,
+        reason: errorMessage,
+      });
     }
     return { tab, content: '' };
   }
@@ -82,7 +89,7 @@ export async function getAgentPageContext(
 function buildSystemPromptFromPageContext(tab: ActiveTab, content: string): string {
   if (!content.trim()) {
     return [
-      'You are a helpful AI assistant. The user\'s current tab is a service page where page content is not accessible.',
+      "You are a helpful AI assistant. The user's current tab is a service page where page content is not accessible.",
       '',
       `Current tab URL: ${tab.url}`,
       '',
@@ -90,7 +97,7 @@ function buildSystemPromptFromPageContext(tab: ActiveTab, content: string): stri
     ].join('\n');
   }
   return [
-    'You are a helpful AI assistant with access to the user\'s current web page.',
+    "You are a helpful AI assistant with access to the user's current web page.",
     '',
     `Current page:`,
     `URL: ${tab.url}`,
@@ -99,7 +106,7 @@ function buildSystemPromptFromPageContext(tab: ActiveTab, content: string): stri
     'Page content:',
     content,
     '',
-    'Answer the user\'s questions based on this page content when relevant. If the user asks about something not on the page, you can still help with general knowledge.',
+    "Answer the user's questions based on this page content when relevant. If the user asks about something not on the page, you can still help with general knowledge.",
   ].join('\n');
 }
 

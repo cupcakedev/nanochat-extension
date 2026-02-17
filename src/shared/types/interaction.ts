@@ -1,4 +1,11 @@
-export type InteractionActionType = 'click' | 'type' | 'openUrl' | 'scrollUp' | 'scrollDown' | 'done' | 'unknown';
+export type InteractionActionType =
+  | 'click'
+  | 'type'
+  | 'openUrl'
+  | 'scrollUp'
+  | 'scrollDown'
+  | 'done'
+  | 'unknown';
 export type ExecutableInteractionAction = Extract<InteractionActionType, 'click' | 'type'>;
 export type InteractionConfidence = 'high' | 'medium' | 'low';
 export type InteractionRunStatus = 'continue' | 'done' | 'fail' | 'max-steps';

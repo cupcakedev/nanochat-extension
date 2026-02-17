@@ -1,4 +1,12 @@
-import { memo, useCallback, useRef, useState, type KeyboardEvent, type ClipboardEvent, type DragEvent } from 'react';
+import {
+  memo,
+  useCallback,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ClipboardEvent,
+  type DragEvent,
+} from 'react';
 import { useImageAttachments } from '@app/hooks/useImageAttachments';
 import { useTextareaAutoResize } from '@app/hooks/useTextareaAutoResize';
 import type { ChatContextSendMode, ChatMode, ChatSendOptions } from '@app/types/mode';
@@ -84,7 +92,11 @@ export const ChatInput = memo(
       e.preventDefault();
       dragCounterRef.current += 1;
       const types = e.dataTransfer.types;
-      if (types.includes('Files') || types.includes('text/uri-list') || types.includes('text/html')) {
+      if (
+        types.includes('Files') ||
+        types.includes('text/uri-list') ||
+        types.includes('text/html')
+      ) {
         setDragging(true);
       }
     }, []);
@@ -122,12 +134,12 @@ export const ChatInput = memo(
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <div className={`rounded-[24px] bg-neutral-100/80 backdrop-blur-xl border transition-all duration-200 ${
-          dragging ? 'border-brand-800/60 ring-1 ring-brand-800/30' : 'border-white/5'
-        }`}>
-          {images.length > 0 && (
-            <ImagePreviewList images={images} onRemove={removeImage} />
-          )}
+        <div
+          className={`rounded-[24px] bg-neutral-100/80 backdrop-blur-xl border transition-all duration-200 ${
+            dragging ? 'border-brand-800/60 ring-1 ring-brand-800/30' : 'border-white/5'
+          }`}
+        >
+          {images.length > 0 && <ImagePreviewList images={images} onRemove={removeImage} />}
           <div className="px-5 pt-4 pb-2">
             <textarea
               ref={textareaRef}

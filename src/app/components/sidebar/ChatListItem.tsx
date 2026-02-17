@@ -17,17 +17,16 @@ export const ChatListItem = memo(({ summary, isActive, onSelect, onDelete }: Cha
     onKeyDown={(e) => e.key === 'Enter' && onSelect(summary.id)}
     className={`group relative flex items-center gap-3 pl-5 pr-3 py-2.5 rounded-[12px] cursor-pointer
       transition-all duration-200
-      ${isActive
-        ? 'bg-neutral-200/50 text-neutral-800'
-        : 'text-neutral-500 hover:bg-neutral-200/30 hover:text-neutral-700'
+      ${
+        isActive
+          ? 'bg-neutral-200/50 text-neutral-800'
+          : 'text-neutral-500 hover:bg-neutral-200/30 hover:text-neutral-700'
       }`}
   >
     {isActive && (
       <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1 h-3 bg-brand-500 rounded-full" />
     )}
-    <span className="flex-1 text-sm truncate font-medium">
-      {summary.title}
-    </span>
+    <span className="flex-1 text-sm truncate font-medium">{summary.title}</span>
     <button
       onClick={(e) => {
         e.stopPropagation();

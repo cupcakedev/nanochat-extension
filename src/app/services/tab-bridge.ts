@@ -61,7 +61,10 @@ function isSettled(tab: chrome.tabs.Tab, stableSince: number, stableIdleMs: numb
   return nowMs() - stableSince >= stableIdleMs;
 }
 
-export async function waitForTabSettled(tabId: number, options?: WaitForTabSettledOptions): Promise<void> {
+export async function waitForTabSettled(
+  tabId: number,
+  options?: WaitForTabSettledOptions,
+): Promise<void> {
   const config = toSettledWaitConfig(options);
   if (config.maxWaitMs === 0) return;
 
@@ -201,7 +204,11 @@ function normalizeUrl(url: string): string {
   return `https://${trimmed}`;
 }
 
-function waitForTabComplete(tabId: number, timeoutMs: number, contextLabel = 'openUrl'): Promise<void> {
+function waitForTabComplete(
+  tabId: number,
+  timeoutMs: number,
+  contextLabel = 'openUrl',
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => {
       chrome.tabs.onUpdated.removeListener(handleUpdate);
@@ -220,7 +227,11 @@ function waitForTabComplete(tabId: number, timeoutMs: number, contextLabel = 'op
   });
 }
 
-async function updateTabUrlAndWait(tabId: number, targetUrl: string, contextLabel: string): Promise<{ finalUrl: string }> {
+async function updateTabUrlAndWait(
+  tabId: number,
+  targetUrl: string,
+  contextLabel: string,
+): Promise<{ finalUrl: string }> {
   const updated = await chrome.tabs.update(tabId, { url: targetUrl });
   if (!updated?.id) throw new Error('Failed to update active tab URL');
   await waitForTabComplete(updated.id, 15000, contextLabel);
@@ -236,7 +247,10 @@ export async function openUrlInTab(tabId: number, url: string): Promise<{ finalU
   return result;
 }
 
-export async function openExtensionPageInTab(tabId: number, pagePath: string): Promise<{ finalUrl: string }> {
+export async function openExtensionPageInTab(
+  tabId: number,
+  pagePath: string,
+): Promise<{ finalUrl: string }> {
   const normalizedPath = pagePath.trim().replace(/^\/+/, '');
   if (!normalizedPath) throw new Error('openExtensionPageInTab received empty pagePath');
   const targetUrl = chrome.runtime.getURL(normalizedPath);

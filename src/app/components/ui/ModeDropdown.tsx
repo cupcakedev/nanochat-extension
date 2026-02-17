@@ -46,10 +46,13 @@ export const ModeDropdown = memo(({ mode, modeLocked, onModeChange }: ModeDropdo
     setOpen((v) => !v);
   }, [modeLocked]);
 
-  const handleSelect = useCallback((nextMode: ChatMode) => {
-    if (nextMode !== mode) onModeChange(nextMode);
-    setOpen(false);
-  }, [mode, onModeChange]);
+  const handleSelect = useCallback(
+    (nextMode: ChatMode) => {
+      if (nextMode !== mode) onModeChange(nextMode);
+      setOpen(false);
+    },
+    [mode, onModeChange],
+  );
 
   return (
     <div className="relative h-[38px]" ref={containerRef}>
@@ -59,9 +62,7 @@ export const ModeDropdown = memo(({ mode, modeLocked, onModeChange }: ModeDropdo
       >
         <span className={`flex items-center gap-2 ${modeLocked ? 'opacity-60' : ''}`}>
           {findOption(mode).label}
-          {findOption(mode).badge && (
-            <BadgeChip>{findOption(mode).badge}</BadgeChip>
-          )}
+          {findOption(mode).badge && <BadgeChip>{findOption(mode).badge}</BadgeChip>}
         </span>
         <svg
           width="10"
@@ -70,7 +71,13 @@ export const ModeDropdown = memo(({ mode, modeLocked, onModeChange }: ModeDropdo
           fill="none"
           className={`opacity-40 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         >
-          <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M1 1L5 5L9 1"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       </button>
 

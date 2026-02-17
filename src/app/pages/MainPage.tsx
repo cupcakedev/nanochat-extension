@@ -24,7 +24,9 @@ export const MainPage = () => {
 
   const handleSuggestionClick = useCallback(
     async (prompt: string, requiresContext: boolean) => {
-      const resolvedContextMode = requiresContext ? ChatContextSendMode.WithPageContext : contextMode;
+      const resolvedContextMode = requiresContext
+        ? ChatContextSendMode.WithPageContext
+        : contextMode;
       if (requiresContext) {
         const source = await fetchPageContextSource();
         if (!source) {
@@ -75,7 +77,9 @@ export const MainPage = () => {
                     streaming={state.streaming}
                     pageSource={state.messageListPageSource}
                   />
-                  {state.devTraceEnabled && <DevTracePanel items={state.devTraceItems} streaming={state.streaming} />}
+                  {state.devTraceEnabled && (
+                    <DevTracePanel items={state.devTraceItems} streaming={state.streaming} />
+                  )}
                   {state.shouldShowDevTokenStats && <TokenStats stats={state.tokenStats!} />}
                 </div>
               ) : (
@@ -108,7 +112,11 @@ export const MainPage = () => {
         ) : (
           state.isShowingOnboardingFlow && (
             <div className="h-full flex items-center justify-center">
-              <OnboardingScreen onDownload={state.download} loading={state.isSessionLoading} progress={state.progress} />
+              <OnboardingScreen
+                onDownload={state.download}
+                loading={state.isSessionLoading}
+                progress={state.progress}
+              />
             </div>
           )
         )}
