@@ -12,6 +12,8 @@ import { useMainPageState } from '@app/hooks/useMainPageState';
 import { useScrolled } from '@app/hooks/useScrolled';
 import { useTemporaryNotice } from '@app/hooks/useTemporaryNotice';
 import { toSendOptions } from '@app/services/chat-send-options';
+import { fetchPageContextSource } from '@app/services/page-context';
+import { ChatContextSendMode } from '@app/types/mode';
 import { SessionStatus } from '@shared/types';
 
 export const MainPage = () => {
@@ -19,16 +21,20 @@ export const MainPage = () => {
   const { scrolled, scrollRef } = useScrolled();
   const { notice: contextNotice, showNotice: showContextNotice } = useTemporaryNotice();
 
-  const hasPageContext = Boolean(state.chatContextSource ?? state.chatPageSource);
-
   const handleSuggestionClick = useCallback(
-    (prompt: string) => state.send(prompt, undefined, toSendOptions(state.mode, state.contextMode)),
-    [state.send, state.mode, state.contextMode],
-  );
-
-  const handleContextRequired = useCallback(
-    () => showContextNotice('This feature requires a webpage. Open a website and try again.'),
-    [showContextNotice],
+    async (prompt: string, requiresContext: boolean) => {
+      const contextMode = requiresContext ? ChatContextSendMode.WithPageContext : state.contextMode;
+      if (requiresContext) {
+        const source = await fetchPageContextSource();
+        if (!source) {
+          showContextNotice('This feature requires a webpage. Open a website and try again.');
+          return;
+        }
+        state.setChatContextSource(source);
+      }
+      state.send(prompt, undefined, toSendOptions(state.mode, contextMode));
+    },
+    [state.send, state.mode, state.contextMode, state.setChatContextSource, showContextNotice],
   );
 
   return (
@@ -73,12 +79,7 @@ export const MainPage = () => {
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center">
-                  <WelcomeScreen
-                    mode={state.mode}
-                    hasPageContext={hasPageContext}
-                    onSuggestionClick={handleSuggestionClick}
-                    onContextRequired={handleContextRequired}
-                  />
+                  <WelcomeScreen mode={state.mode} onSuggestionClick={handleSuggestionClick} />
                 </div>
               )}
             </div>

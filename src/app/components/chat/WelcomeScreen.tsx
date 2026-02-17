@@ -7,24 +7,16 @@ import type { ChatMode } from '@app/types/mode';
 
 interface WelcomeScreenProps {
   mode: ChatMode;
-  hasPageContext: boolean;
-  onSuggestionClick: (prompt: string) => void;
-  onContextRequired: () => void;
+  onSuggestionClick: (prompt: string, requiresContext: boolean) => void;
 }
 
-export const WelcomeScreen = memo(({ mode, hasPageContext, onSuggestionClick, onContextRequired }: WelcomeScreenProps) => {
+export const WelcomeScreen = memo(({ mode, onSuggestionClick }: WelcomeScreenProps) => {
   const suggestions = getSuggestionsForMode(mode);
   const description = getDescriptionForMode(mode);
 
   const handleClick = useCallback(
-    (suggestion: Suggestion) => () => {
-      if (suggestion.requiresContext && !hasPageContext) {
-        onContextRequired();
-        return;
-      }
-      onSuggestionClick(suggestion.prompt);
-    },
-    [hasPageContext, onSuggestionClick, onContextRequired],
+    (suggestion: Suggestion) => () => onSuggestionClick(suggestion.prompt, suggestion.requiresContext),
+    [onSuggestionClick],
   );
 
   return (

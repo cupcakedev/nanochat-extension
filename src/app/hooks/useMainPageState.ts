@@ -3,7 +3,7 @@ import { usePromptSession } from '@app/hooks/usePromptSession';
 import { useChat } from '@app/hooks/useChat';
 import { useChatContext } from '@app/hooks/useChatContext';
 import { useAgentMode } from '@app/hooks/useAgentMode';
-import { getActiveTab } from '@app/services/tab-bridge';
+import { fetchPageContextSource } from '@app/services/page-context';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@app/types/mode';
 import { SessionStatus } from '@shared/types';
 import type { PageSource } from '@shared/types';
@@ -46,15 +46,6 @@ function toActivePageSource(
   return { url: chip.url, title: chip.title, faviconUrl: chip.faviconUrl };
 }
 
-async function fetchChatContextSource(): Promise<PageSource | null> {
-  try {
-    const tab = await getActiveTab();
-    if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://')) return null;
-    return { url: tab.url, title: tab.title, faviconUrl: tab.favIconUrl };
-  } catch {
-    return null;
-  }
-}
 
 export function useMainPageState() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -73,7 +64,7 @@ export function useMainPageState() {
 
   useEffect(() => {
     if (hasInitialMessages) return;
-    fetchChatContextSource().then(setChatContextSource);
+    fetchPageContextSource().then(setChatContextSource);
   }, [activeChatId, hasInitialMessages]);
 
   const {
@@ -129,7 +120,7 @@ export function useMainPageState() {
   }, []);
 
   const addChatContext = useCallback(() => {
-    fetchChatContextSource().then(setChatContextSource);
+    fetchPageContextSource().then(setChatContextSource);
   }, []);
 
   return {
@@ -143,7 +134,7 @@ export function useMainPageState() {
     agentChipAnimationKey, chatPageSource, chatContextAnimationKey,
     chatContextSource, messageListPageSource, agentNotice, contextMode, inputDockRef,
     toggleSidebar, closeSidebar, handleNewChat, handleClearChat,
-    dismissChatContext, addChatContext,
+    dismissChatContext, addChatContext, setChatContextSource,
     selectChat, deleteChat, send, stop, retry, download,
     handleModeChange,
   };
