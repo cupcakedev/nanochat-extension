@@ -1,10 +1,32 @@
 {
 	"name": "nanochat-extension",
 	"version": "0.1.0",
+	"description": "On-device Chrome extension chat assistant with interactive browser agent mode",
+	"license": "MIT",
+	"author": "cupcakedev",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/cupcakedev/nanochat-extension.git"
+	},
+	"bugs": {
+		"url": "https://github.com/cupcakedev/nanochat-extension/issues"
+	},
+	"homepage": "https://github.com/cupcakedev/nanochat-extension#readme",
+	"keywords": [
+		"chrome-extension",
+		"mv3",
+		"prompt-api",
+		"on-device-ai",
+		"react"
+	],
+	"engines": {
+		"node": ">=20.0.0"
+	},
 	"type": "module",
 	"scripts": {
 		"dev": "vite build --watch --mode development",
-		"build": "tsc --noEmit && vite build",
+		"typecheck": "tsc --noEmit",
+		"build": "npm run typecheck && vite build",
 		"lint": "eslint src",
 		"lint:fix": "eslint src --fix",
 		"format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
