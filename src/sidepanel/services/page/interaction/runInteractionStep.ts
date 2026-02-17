@@ -129,6 +129,67 @@ export async function runPageInteractionStep(
     let lastRejectedDoneKey: string | null = null;
     let rejectedDoneStreak = 0;
     const strategyState = createInteractionStrategyState(task);
+    const runCompletionVerification = async (params: {
+      stepNumber: number;
+      pageUrl: string;
+      pageTitle: string;
+      plannerFinalAnswer: string | null;
+      plannerReason: string | null;
+      phase: 'verify' | 'verify-auto';
+    }): Promise<InteractionCompletionVerification> => {
+      const meaningfulExecutionCount = countMeaningfulExecutions(allExecutions);
+      const verificationCacheKey = buildVerificationCacheKey({
+        task,
+        pageUrl: params.pageUrl,
+        pageTitle: params.pageTitle,
+        plannerFinalAnswer: params.plannerFinalAnswer,
+        plannerReason: params.plannerReason,
+        meaningfulExecutionCount,
+      });
+      const cachedVerification = verificationCache.get(verificationCacheKey);
+      const verificationResult = cachedVerification
+        ? {
+            verification: cachedVerification,
+            rawOutput: '{"cached":true}',
+          }
+        : await verifyTaskCompletion({
+            task,
+            pageUrl: params.pageUrl,
+            pageTitle: params.pageTitle,
+            history: allExecutions,
+            plannerFinalAnswer: params.plannerFinalAnswer,
+            signal: options?.signal,
+          }).catch((error) => {
+            if (isAbortError(error)) throw error;
+            const message = `Verifier error: ${extractErrorMessage(error)}`;
+            return {
+              verification: {
+                complete: false,
+                reason: message,
+                confidence: 'low' as const,
+              },
+              rawOutput: message,
+            };
+          });
+
+      const verification = verificationResult.verification;
+      if (!cachedVerification) verificationCache.set(verificationCacheKey, verification);
+      lastVerification = verification;
+      emitProgressLine(options, formatVerificationLine(params.stepNumber, verification));
+      if (verificationResult.rawOutput) {
+        emitProgressLine(
+          options,
+          formatVerificationRawLine(params.stepNumber, verificationResult.rawOutput),
+        );
+      }
+      if (params.phase === 'verify-auto' && verification.complete) {
+        emitProgressLine(
+          options,
+          `[${params.stepNumber}] verify-auto | completion confirmed independently of planner status`,
+        );
+      }
+      return verification;
+    };
 
     for (let stepNumber = 1; stepNumber <= AGENT_MAX_STEPS; stepNumber += 1) {
     throwIfAborted(options?.signal);
@@ -319,51 +380,14 @@ export async function runPageInteractionStep(
         continue;
       }
 
-      const verificationCacheKey = buildVerificationCacheKey({
-        task,
+      const verification = await runCompletionVerification({
+        stepNumber,
         pageUrl: snapshot.pageUrl,
         pageTitle: snapshot.pageTitle,
         plannerFinalAnswer: decision.decision.finalAnswer,
         plannerReason: decision.decision.reason,
-        meaningfulExecutionCount,
+        phase: 'verify',
       });
-      const cachedVerification = verificationCache.get(verificationCacheKey);
-      const verificationResult = cachedVerification
-        ? {
-            verification: cachedVerification,
-            rawOutput: '{"cached":true}',
-          }
-        : await verifyTaskCompletion({
-            task,
-            pageUrl: snapshot.pageUrl,
-            pageTitle: snapshot.pageTitle,
-            history: allExecutions,
-            plannerFinalAnswer: decision.decision.finalAnswer,
-            signal: options?.signal,
-          }).catch((error) => {
-            if (isAbortError(error)) throw error;
-            const message = `Verifier error: ${extractErrorMessage(error)}`;
-            return {
-              verification: {
-                complete: false,
-                reason: message,
-                confidence: 'low' as const,
-              },
-              rawOutput: message,
-            };
-          });
-      const verification = verificationResult.verification;
-      if (!cachedVerification) {
-        verificationCache.set(verificationCacheKey, verification);
-      }
-      lastVerification = verification;
-      emitProgressLine(options, formatVerificationLine(stepNumber, verification));
-      if (verificationResult.rawOutput) {
-        emitProgressLine(
-          options,
-          formatVerificationRawLine(stepNumber, verificationResult.rawOutput),
-        );
-      }
       if (verification.complete) {
         finalStatus = 'done';
         finalAnswer = decision.decision.finalAnswer ?? verification.reason;
@@ -570,6 +594,20 @@ export async function runPageInteractionStep(
         finalAnswer = 'Maximum agent steps reached';
         break;
       }
+    }
+
+    const autoVerification = await runCompletionVerification({
+      stepNumber,
+      pageUrl: snapshot.pageUrl,
+      pageTitle: snapshot.pageTitle,
+      plannerFinalAnswer: decision.decision.finalAnswer,
+      plannerReason: decision.decision.reason,
+      phase: 'verify-auto',
+    });
+    if (autoVerification.complete) {
+      finalStatus = 'done';
+      finalAnswer = decision.decision.finalAnswer ?? autoVerification.reason;
+      break;
     }
   }
 

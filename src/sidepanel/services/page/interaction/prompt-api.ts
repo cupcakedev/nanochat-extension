@@ -35,6 +35,8 @@ Completion policy:
 - status=done only when current page evidence proves full completion.
 - status=continue when additional navigation or interaction is required.
 - status=fail only for blocked/impossible states; include a clear reason.
+- Prefer early completion: if the minimal user objective is already satisfied, return done immediately.
+- Do not keep browsing after completion unless user explicitly requests multiple items or repeated steps.
 
 Memory policy:
 - Always return currentState, even on fail/done.
