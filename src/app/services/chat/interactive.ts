@@ -4,19 +4,19 @@ import {
   setAssistantCompletion,
   toContextUsage,
   type ContextUsage,
-} from '@app/services/chat-message-utils';
+} from '@app/services/chat/message-utils';
 import {
   shouldEnableDevTrace,
   toLineTraceItem,
   toScreenshotTraceItem,
   appendTraceItem,
-} from '@app/services/chat-dev-trace';
+} from '@app/services/chat/dev-trace';
 import {
   extractInteractionUsage,
   formatInteractionAssistantMessage,
   runPageInteractionStep,
   type InteractionProgressEvent,
-} from '@app/services/page-interaction';
+} from '@app/services/page/interaction';
 import type { DevTraceItem } from '@app/types/dev-trace';
 import type { ChatMode } from '@app/types/mode';
 import type { ChatMessage, PageSource } from '@shared/types';

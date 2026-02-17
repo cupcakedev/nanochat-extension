@@ -8,7 +8,7 @@ import {
   openUrlInTab,
   setInteractionScroll,
   waitForTabSettled,
-} from '@app/services/tab-bridge';
+} from '@app/services/page/tab-bridge';
 import { createLogger } from '@shared/utils';
 import type {
   ExecutableInteractionAction,

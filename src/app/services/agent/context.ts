@@ -1,7 +1,7 @@
 import { createLogger } from '@shared/utils';
 import type { InteractiveElementSnapshotItem } from '@shared/types';
-import type { ActiveTab, GetPageContentOptions } from './tab-bridge';
-import { getActiveTab, getPageContent } from './tab-bridge';
+import type { ActiveTab, GetPageContentOptions } from '@app/services/page/tab-bridge';
+import { getActiveTab, getPageContent } from '@app/services/page/tab-bridge';
 
 const logger = createLogger('agent-context');
 

@@ -10,7 +10,7 @@ import {
 import { useImageAttachments } from '@app/hooks/useImageAttachments';
 import { useTextareaAutoResize } from '@app/hooks/useTextareaAutoResize';
 import type { ChatContextSendMode, ChatMode, ChatSendOptions } from '@app/types/mode';
-import { toSendOptions } from '@app/services/chat-send-options';
+import { toSendOptions } from '@app/services/chat';
 import { ImagePreviewList } from './ImagePreviewList';
 import { ChatInputFooter } from './ChatInputFooter';
 

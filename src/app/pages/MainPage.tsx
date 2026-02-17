@@ -11,8 +11,8 @@ import { OnboardingScreen } from '@app/components/status/OnboardingScreen';
 import { useMainPageState } from '@app/hooks/useMainPageState';
 import { useScrolled } from '@app/hooks/useScrolled';
 import { useTemporaryNotice } from '@app/hooks/useTemporaryNotice';
-import { toSendOptions } from '@app/services/chat-send-options';
-import { fetchPageContextSource } from '@app/services/page-context';
+import { toSendOptions } from '@app/services/chat';
+import { fetchPageContextSource } from '@app/services/page';
 import { ChatContextSendMode } from '@app/types/mode';
 import { SessionStatus } from '@shared/types';
 

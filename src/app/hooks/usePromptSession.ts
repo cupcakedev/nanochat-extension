@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PromptAPIService } from '@app/services/prompt-api';
+import { PromptAPIService } from '@app/services/prompt';
 import { SessionStatus } from '@shared/types';
 import type { LoadingProgress } from '@shared/types';
 

@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import type { PromptAPIService } from '@app/services/prompt-api';
+import type { PromptAPIService } from '@app/services/prompt';
 import {
   AgentContextUnavailableError,
   buildAgentSystemPromptWithContext,
-} from '@app/services/agent-context';
+} from '@app/services/agent';
 import {
   createChatMessage,
   extractErrorMessage,
   resolveChatContextSendMode,
   toContextUsage,
   type ContextUsage,
-} from '@app/services/chat-message-utils';
-import { shouldEnableDevTrace } from '@app/services/chat-dev-trace';
-import { executeChatStream } from '@app/services/chat-streaming';
-import { executeInteractiveStep } from '@app/services/chat-interactive';
+} from '@app/services/chat';
+import { shouldEnableDevTrace } from '@app/services/chat';
+import { executeChatStream } from '@app/services/chat';
+import { executeInteractiveStep } from '@app/services/chat';
 import type { DevTraceItem } from '@app/types/dev-trace';
 import { ChatContextSendMode, ChatMode } from '@app/types/mode';
 import type { ChatSendOptions } from '@app/types/mode';

@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import type { PromptAPIService } from '@app/services/prompt-api';
+import type { PromptAPIService } from '@app/services/prompt/api';
 import {
   appendTokenToLastMessage,
   calculateTokenStats,
@@ -9,7 +9,7 @@ import {
   toContextUsage,
   trimLastMessageTrailingWhitespace,
   type ContextUsage,
-} from '@app/services/chat-message-utils';
+} from '@app/services/chat/message-utils';
 import type { ChatMode } from '@app/types/mode';
 import { createLogger } from '@shared/utils';
 import type { ChatMessage, PageSource, TokenStats } from '@shared/types';

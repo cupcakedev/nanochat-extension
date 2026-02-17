@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import type { ContextUsage } from '@app/services/chat-message-utils';
+import type { ContextUsage } from '@app/services/chat';
 
 interface ContextBarProps {
   usage: ContextUsage;

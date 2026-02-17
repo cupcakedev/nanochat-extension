@@ -1,7 +1,7 @@
 import { createLogger } from '@shared/utils';
 import type { ChatMessage, LoadingProgress } from '@shared/types';
 import { TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS } from '@shared/constants';
-import { toLanguageModelMessage, summarizePrompt } from './prompt-message-converter';
+import { toLanguageModelMessage, summarizePrompt } from './message-converter';
 
 const logger = createLogger('prompt-api');
 

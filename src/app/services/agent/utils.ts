@@ -1,5 +1,5 @@
 import type { MutableRefObject } from 'react';
-import { AGENT_CONTEXT_UNAVAILABLE_MESSAGE } from './agent-context';
+import { AGENT_CONTEXT_UNAVAILABLE_MESSAGE } from './context';
 
 export interface AgentContextChip {
   url: string;

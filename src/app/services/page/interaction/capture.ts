@@ -1,4 +1,4 @@
-import { captureScreenshot, setInteractionScroll } from '@app/services/tab-bridge';
+import { captureScreenshot, setInteractionScroll } from '@app/services/page/tab-bridge';
 
 export interface ViewportCaptureResult {
   canvas: HTMLCanvasElement;

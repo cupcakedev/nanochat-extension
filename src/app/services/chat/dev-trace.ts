@@ -1,6 +1,6 @@
 import { DevTraceKind } from '@app/types/dev-trace';
 import type { DevTraceItem } from '@app/types/dev-trace';
-import type { InteractionProgressEvent } from '@app/services/page-interaction';
+import type { InteractionProgressEvent } from '@app/services/page/interaction';
 import { ChatMode } from '@app/types/mode';
 
 export function readDevTraceFlag(): boolean {

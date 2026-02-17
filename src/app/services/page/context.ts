@@ -1,4 +1,4 @@
-import { getActiveTab } from '@app/services/tab-bridge';
+import { getActiveTab } from '@app/services/page/tab-bridge';
 import type { PageSource } from '@shared/types';
 
 const IGNORED_PREFIXES = ['chrome://', 'chrome-extension://'];

@@ -3,7 +3,7 @@ import { usePromptSession } from '@app/hooks/usePromptSession';
 import { useChat } from '@app/hooks/useChat';
 import { useChatContext } from '@app/hooks/useChatContext';
 import { useAgentMode } from '@app/hooks/useAgentMode';
-import { fetchPageContextSource } from '@app/services/page-context';
+import { fetchPageContextSource } from '@app/services/page';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@app/types/mode';
 import { SessionStatus } from '@shared/types';
 import type { PageSource } from '@shared/types';

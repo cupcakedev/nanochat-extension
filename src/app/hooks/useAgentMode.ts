@@ -1,16 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
-import type { PromptAPIService } from '@app/services/prompt-api';
-import {
-  AGENT_CONTEXT_UNAVAILABLE_MESSAGE,
-  getAgentPageContext,
-} from '@app/services/agent-context';
-import {
-  clearTimerRef,
-  extractAgentErrorMessage,
-  resolveSiteTitle,
-} from '@app/services/agent-utils';
-import type { AgentContextChip } from '@app/services/agent-utils';
+import type { PromptAPIService } from '@app/services/prompt';
+import { AGENT_CONTEXT_UNAVAILABLE_MESSAGE, getAgentPageContext } from '@app/services/agent';
+import { clearTimerRef, extractAgentErrorMessage, resolveSiteTitle } from '@app/services/agent';
+import type { AgentContextChip } from '@app/services/agent';
 import { ChatMode, requiresPageContext } from '@app/types/mode';
 import { useTabChangeListener } from './useTabChangeListener';
 
