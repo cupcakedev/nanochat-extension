@@ -26,7 +26,7 @@ Safety and integrity:
 - Prefer explicit evidence over assumptions.
 
 Action policy:
-- Prefer click on visible indexed elements before openUrl when both can reach goal.
+- Use click on indexed elements or openUrl to navigate; choose whichever is most direct.
 - Use type only with a valid index and meaningful non-empty text.
 - Use scrollDown/scrollUp to reveal content; each scroll is one viewport.
 - Do not repeat the same failed action unchanged.
@@ -86,7 +86,7 @@ const PLANNER_INITIAL_PROMPTS: [
   {
     role: 'assistant',
     content:
-      '{"thinking":"Target URL is explicit and unreachable from visible controls, so direct navigation is justified.","status":"continue","finalAnswer":null,"reason":null,"currentState":{"evaluationPreviousGoal":"Failed - required destination link is not visible.","memory":"Direct docs URL is known and no matching indexed element exists on current page.","nextGoal":"Open the known docs URL directly."},"actions":[{"action":"openUrl","index":null,"text":null,"url":"https://docs.example.com","reason":"Target URL is known and not reachable via visible indexed elements","confidence":"high"}]}',
+      '{"thinking":"Target URL is explicit; direct navigation via openUrl is the most efficient path.","status":"continue","finalAnswer":null,"reason":null,"currentState":{"evaluationPreviousGoal":"Failed - required destination link is not visible.","memory":"Direct docs URL is known. No matching indexed element on current page.","nextGoal":"Open the known docs URL directly."},"actions":[{"action":"openUrl","index":null,"text":null,"url":"https://docs.example.com","reason":"Navigate directly to the known target URL","confidence":"high"}]}',
   },
   {
     role: 'user',

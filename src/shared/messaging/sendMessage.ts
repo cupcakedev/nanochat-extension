@@ -5,6 +5,12 @@ export const sendMessageToTab = <T extends MessageType>(
   message: Extract<ExtensionMessage, { type: T }>,
 ): Promise<MessageResponseMap[T]> => chrome.tabs.sendMessage(tabId, message);
 
+export const sendMessageToFrame = <T extends MessageType>(
+  tabId: number,
+  frameId: number,
+  message: Extract<ExtensionMessage, { type: T }>,
+): Promise<MessageResponseMap[T]> => chrome.tabs.sendMessage(tabId, message, { frameId });
+
 export const sendMessageToBackground = <T extends MessageType>(
   message: Extract<ExtensionMessage, { type: T }>,
 ): Promise<MessageResponseMap[T]> => chrome.runtime.sendMessage(message);

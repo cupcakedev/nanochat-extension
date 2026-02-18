@@ -76,6 +76,29 @@ const handleMessage: MessageHandler = (message, _sender, sendResponse) => {
       clearInteractionHighlights();
       sendResponse({ cleared: true });
       return;
+
+    case 'GET_IFRAME_RECTS': {
+      const iframes: Array<{
+        url: string;
+        rect: { x: number; y: number; width: number; height: number };
+      }> = [];
+      document.querySelectorAll('iframe').forEach((iframe) => {
+        const rect = iframe.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          iframes.push({
+            url: iframe.src || '',
+            rect: {
+              x: Math.round(rect.left),
+              y: Math.round(rect.top),
+              width: Math.round(rect.width),
+              height: Math.round(rect.height),
+            },
+          });
+        }
+      });
+      sendResponse({ iframes });
+      return;
+    }
   }
 };
 

@@ -1,6 +1,7 @@
 import type {
   ExecuteActionPayload,
   ExecuteActionResponse,
+  InteractionRect,
   InteractionSnapshotPayload,
 } from './interaction';
 
@@ -11,7 +12,8 @@ export type MessageType =
   | 'GET_INTERACTION_SNAPSHOT'
   | 'SET_INTERACTION_SCROLL'
   | 'EXECUTE_INTERACTION_ACTION'
-  | 'CLEAR_INTERACTION_HIGHLIGHTS';
+  | 'CLEAR_INTERACTION_HIGHLIGHTS'
+  | 'GET_IFRAME_RECTS';
 
 export interface BaseMessage<T extends MessageType> {
   type: T;
@@ -38,6 +40,7 @@ export interface ExecuteInteractionActionMessage extends BaseMessage<'EXECUTE_IN
 }
 
 export type ClearInteractionHighlightsMessage = BaseMessage<'CLEAR_INTERACTION_HIGHLIGHTS'>;
+export type GetIframeRectsMessage = BaseMessage<'GET_IFRAME_RECTS'>;
 
 export type ExtensionMessage =
   | PingMessage
@@ -46,7 +49,8 @@ export type ExtensionMessage =
   | GetInteractionSnapshotMessage
   | SetInteractionScrollMessage
   | ExecuteInteractionActionMessage
-  | ClearInteractionHighlightsMessage;
+  | ClearInteractionHighlightsMessage
+  | GetIframeRectsMessage;
 
 export interface MessageResponseMap {
   PING: { pong: boolean };
@@ -56,4 +60,5 @@ export interface MessageResponseMap {
   SET_INTERACTION_SCROLL: { top: number };
   EXECUTE_INTERACTION_ACTION: ExecuteActionResponse;
   CLEAR_INTERACTION_HIGHLIGHTS: { cleared: boolean };
+  GET_IFRAME_RECTS: { iframes: Array<{ url: string; rect: InteractionRect }> };
 }

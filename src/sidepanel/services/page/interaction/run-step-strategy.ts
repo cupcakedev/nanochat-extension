@@ -142,7 +142,9 @@ export function buildPlannerStrategyHints(
     );
   }
   if (state.noProgressStreak >= 3) {
-    constraints.push('Prefer targeted navigation/openUrl over additional repeated on-page clicks.');
+    constraints.push(
+      'Try a fundamentally different approach: openUrl, type, or click a different element.',
+    );
   }
 
   return {

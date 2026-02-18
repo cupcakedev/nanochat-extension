@@ -1,7 +1,9 @@
 import { createLogger } from '@shared/utils';
-import { sendMessageToTab } from '@shared/messaging';
+import { sendMessageToTab, sendMessageToFrame } from '@shared/messaging';
 import type {
   InteractionSnapshotPayload,
+  InteractiveElementSnapshotItem,
+  InteractionRect,
   ExecuteActionResponse,
   ExecutableInteractionAction,
 } from '@shared/types';
@@ -122,7 +124,7 @@ export async function getPageContent(
   options?: GetPageContentOptions,
 ): Promise<string> {
   logger.info('getPageContent:request', { tabId });
-  const response = await sendMessageToTab<'GET_PAGE_CONTENT'>(tabId, {
+  const response = await sendMessageToFrame<'GET_PAGE_CONTENT'>(tabId, 0, {
     type: 'GET_PAGE_CONTENT',
     payload: options,
   });
@@ -135,9 +137,143 @@ export async function setAgentIndicatorPosition(
   bottomOffset: number,
 ): Promise<void> {
   logger.info('setAgentIndicatorPosition:request', { tabId, bottomOffset });
-  await sendMessageToTab<'SET_AGENT_INDICATOR_POSITION'>(tabId, {
+  await sendMessageToFrame<'SET_AGENT_INDICATOR_POSITION'>(tabId, 0, {
     type: 'SET_AGENT_INDICATOR_POSITION',
     payload: { bottomOffset },
+  });
+}
+
+interface FrameIndexEntry {
+  frameId: number;
+  localIndex: number;
+}
+
+let frameIndexMap = new Map<number, FrameIndexEntry>();
+
+function clearFrameIndexMap(): void {
+  frameIndexMap = new Map();
+}
+
+interface FrameInfo {
+  frameId: number;
+  parentFrameId: number;
+  url: string;
+}
+
+async function getAllFrames(tabId: number): Promise<FrameInfo[]> {
+  try {
+    const frames = await chrome.webNavigation.getAllFrames({ tabId });
+    return (frames ?? []).map((f) => ({
+      frameId: f.frameId,
+      parentFrameId: f.parentFrameId,
+      url: f.url,
+    }));
+  } catch {
+    return [{ frameId: 0, parentFrameId: -1, url: '' }];
+  }
+}
+
+async function getIframeRectsFromFrame(
+  tabId: number,
+  frameId: number,
+): Promise<Array<{ url: string; rect: InteractionRect }>> {
+  try {
+    const response = await sendMessageToFrame<'GET_IFRAME_RECTS'>(tabId, frameId, {
+      type: 'GET_IFRAME_RECTS',
+    });
+    return response.iframes;
+  } catch {
+    return [];
+  }
+}
+
+async function getFrameSnapshot(
+  tabId: number,
+  frameId: number,
+  options?: { maxElements?: number; viewportOnly?: boolean; viewportSegments?: number },
+): Promise<InteractionSnapshotPayload | null> {
+  try {
+    return await sendMessageToFrame<'GET_INTERACTION_SNAPSHOT'>(tabId, frameId, {
+      type: 'GET_INTERACTION_SNAPSHOT',
+      payload: options,
+    });
+  } catch {
+    return null;
+  }
+}
+
+function computeFrameOffsets(
+  frames: FrameInfo[],
+  iframeRectsByParent: Map<number, Array<{ url: string; rect: InteractionRect }>>,
+): Map<number, { x: number; y: number }> {
+  const offsets = new Map<number, { x: number; y: number }>();
+  offsets.set(0, { x: 0, y: 0 });
+
+  const childrenByParent = new Map<number, FrameInfo[]>();
+  for (const frame of frames) {
+    if (frame.frameId === 0) continue;
+    const siblings = childrenByParent.get(frame.parentFrameId) ?? [];
+    siblings.push(frame);
+    childrenByParent.set(frame.parentFrameId, siblings);
+  }
+
+  const queue = [0];
+  while (queue.length > 0) {
+    const parentId = queue.shift()!;
+    const parentOffset = offsets.get(parentId) ?? { x: 0, y: 0 };
+    const children = childrenByParent.get(parentId) ?? [];
+    const parentRects = iframeRectsByParent.get(parentId) ?? [];
+    const usedRectIndices = new Set<number>();
+
+    for (const child of children) {
+      let matchIdx = -1;
+      for (let i = 0; i < parentRects.length; i++) {
+        if (usedRectIndices.has(i)) continue;
+        if (normalizeFrameUrl(parentRects[i].url) === normalizeFrameUrl(child.url)) {
+          matchIdx = i;
+          break;
+        }
+      }
+      if (matchIdx >= 0) {
+        usedRectIndices.add(matchIdx);
+        const rect = parentRects[matchIdx].rect;
+        offsets.set(child.frameId, { x: parentOffset.x + rect.x, y: parentOffset.y + rect.y });
+      }
+      queue.push(child.frameId);
+    }
+  }
+
+  return offsets;
+}
+
+function normalizeFrameUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return url;
+  }
+}
+
+function offsetElements(
+  elements: InteractiveElementSnapshotItem[],
+  offset: { x: number; y: number },
+  globalIndexStart: number,
+  frameId: number,
+): InteractiveElementSnapshotItem[] {
+  return elements.map((el, i) => {
+    const globalIndex = globalIndexStart + i;
+    frameIndexMap.set(globalIndex, { frameId, localIndex: el.index });
+    return {
+      ...el,
+      index: globalIndex,
+      rect: {
+        x: el.rect.x + offset.x,
+        y: el.rect.y + offset.y,
+        width: el.rect.width,
+        height: el.rect.height,
+      },
+    };
   });
 }
 
@@ -146,21 +282,92 @@ export async function getInteractionSnapshot(
   options?: { maxElements?: number; viewportOnly?: boolean; viewportSegments?: number },
 ): Promise<InteractionSnapshotPayload> {
   logger.info('getInteractionSnapshot:request', { tabId, ...options });
-  const response = await sendMessageToTab<'GET_INTERACTION_SNAPSHOT'>(tabId, {
-    type: 'GET_INTERACTION_SNAPSHOT',
-    payload: options,
-  });
+  clearFrameIndexMap();
+
+  const frames = await getAllFrames(tabId);
+  const childFrames = frames.filter((f) => f.frameId !== 0);
+
+  const mainSnapshot = await getFrameSnapshot(tabId, 0, options);
+  if (!mainSnapshot) throw new Error('Failed to get interaction snapshot from main frame');
+
+  if (childFrames.length === 0) {
+    mainSnapshot.interactiveElements.forEach((el) => {
+      frameIndexMap.set(el.index, { frameId: 0, localIndex: el.index });
+    });
+    logger.info('getInteractionSnapshot:response', {
+      tabId,
+      elementCount: mainSnapshot.interactiveElements.length,
+      pageUrl: mainSnapshot.pageUrl,
+      frames: 1,
+    });
+    return mainSnapshot;
+  }
+
+  const parentFrameIds = new Set(childFrames.map((f) => f.parentFrameId));
+  const iframeRectsByParent = new Map<number, Array<{ url: string; rect: InteractionRect }>>();
+  await Promise.all(
+    [...parentFrameIds].map(async (parentId) => {
+      const rects = await getIframeRectsFromFrame(tabId, parentId);
+      iframeRectsByParent.set(parentId, rects);
+    }),
+  );
+
+  const offsets = computeFrameOffsets(frames, iframeRectsByParent);
+
+  const maxPerFrame = Math.max(
+    6,
+    Math.floor((options?.maxElements ?? 50) / (childFrames.length + 1)),
+  );
+  const childSnapshots = await Promise.all(
+    childFrames.map(async (frame) => {
+      const offset = offsets.get(frame.frameId);
+      if (!offset) return null;
+      const snap = await getFrameSnapshot(tabId, frame.frameId, {
+        ...options,
+        maxElements: maxPerFrame,
+      });
+      if (!snap || snap.interactiveElements.length === 0) return null;
+      return { snapshot: snap, frameId: frame.frameId, offset };
+    }),
+  );
+
+  let globalIndex = 1;
+  const allElements: InteractiveElementSnapshotItem[] = [];
+
+  const mainOffset = { x: 0, y: 0 };
+  const mainElements = offsetElements(mainSnapshot.interactiveElements, mainOffset, globalIndex, 0);
+  allElements.push(...mainElements);
+  globalIndex += mainElements.length;
+
+  for (const child of childSnapshots) {
+    if (!child) continue;
+    const childElements = offsetElements(
+      child.snapshot.interactiveElements,
+      child.offset,
+      globalIndex,
+      child.frameId,
+    );
+    allElements.push(...childElements);
+    globalIndex += childElements.length;
+  }
+
+  const merged: InteractionSnapshotPayload = {
+    ...mainSnapshot,
+    interactiveElements: allElements,
+  };
+
   logger.info('getInteractionSnapshot:response', {
     tabId,
-    elementCount: response.interactiveElements.length,
-    pageUrl: response.pageUrl,
+    elementCount: allElements.length,
+    pageUrl: merged.pageUrl,
+    frames: 1 + childSnapshots.filter(Boolean).length,
   });
-  return response;
+  return merged;
 }
 
 export async function setInteractionScroll(tabId: number, top: number): Promise<number> {
   logger.info('setInteractionScroll:request', { tabId, top });
-  const response = await sendMessageToTab<'SET_INTERACTION_SCROLL'>(tabId, {
+  const response = await sendMessageToFrame<'SET_INTERACTION_SCROLL'>(tabId, 0, {
     type: 'SET_INTERACTION_SCROLL',
     payload: { top },
   });
@@ -174,10 +381,20 @@ export async function executeAction(
   index: number,
   text?: string | null,
 ): Promise<ExecuteActionResponse> {
-  logger.info('executeAction:request', { tabId, action, index, textLength: text?.length ?? 0 });
-  const response = await sendMessageToTab<'EXECUTE_INTERACTION_ACTION'>(tabId, {
+  const entry = frameIndexMap.get(index);
+  const frameId = entry?.frameId ?? 0;
+  const localIndex = entry?.localIndex ?? index;
+  logger.info('executeAction:request', {
+    tabId,
+    action,
+    index,
+    frameId,
+    localIndex,
+    textLength: text?.length ?? 0,
+  });
+  const response = await sendMessageToFrame<'EXECUTE_INTERACTION_ACTION'>(tabId, frameId, {
     type: 'EXECUTE_INTERACTION_ACTION',
-    payload: { action, index, text },
+    payload: { action, index: localIndex, text },
   });
   logger.info('executeAction:response', { tabId, ok: response.ok, message: response.message });
   return response;

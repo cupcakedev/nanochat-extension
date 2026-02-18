@@ -8,7 +8,8 @@
 		"unlimitedStorage",
 		"activeTab",
 		"tabs",
-		"sidePanel"
+		"sidePanel",
+		"webNavigation"
 	],
 	"host_permissions": [
 		"<all_urls>"
@@ -27,7 +28,8 @@
 			],
 			"js": [
 				"src/content/index.tsx"
-			]
+			],
+			"all_frames": true
 		}
 	],
 	"icons": {
