@@ -31,7 +31,6 @@ function writePreferredMode(mode: ChatMode): void {
   try {
     localStorage.setItem(PREFERRED_MODE_KEY, mode);
   } catch {
-    //
   }
 }
 
@@ -72,7 +71,6 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
       clearTimerRef(noticeTimerRef);
       clearTimerRef(chipRevealTimerRef);
       serviceRef.current.destroySession();
-      setMode(ChatMode.Chat);
       setAgentContextChipVisible(false);
       setAgentContextChip(null);
       setAgentNotice(message);
@@ -138,30 +136,31 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
         try {
           await fetchAndApplyContext(false);
           setMode(initial);
-        } catch {
-          setMode(ChatMode.Chat);
+        } catch (error) {
+          setMode(initial);
+          showAgentUnavailable(extractAgentErrorMessage(error));
         }
       })();
     }
-  }, [fetchAndApplyContext]);
+  }, [fetchAndApplyContext, showAgentUnavailable]);
 
   const restorePreferredMode = useCallback(() => {
     clearAgentVisuals();
     const preferred = readPreferredMode();
+    setMode(preferred);
+
     if (!requiresPageContext(preferred)) {
-      setMode(preferred);
       return;
     }
-    setMode(ChatMode.Chat);
+
     void (async () => {
       try {
         await fetchAndApplyContext(false);
-        setMode(preferred);
-      } catch {
-        setMode(ChatMode.Chat);
+      } catch (error) {
+        showAgentUnavailable(extractAgentErrorMessage(error));
       }
     })();
-  }, [clearAgentVisuals, fetchAndApplyContext]);
+  }, [clearAgentVisuals, fetchAndApplyContext, showAgentUnavailable]);
 
   const refreshAgentContext = useCallback(async () => {
     if (refreshingRef.current) return;
@@ -186,10 +185,10 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
         return;
       }
 
+      setMode(nextMode);
       void (async () => {
         try {
           await fetchAndApplyContext(true);
-          setMode(nextMode);
         } catch (error) {
           showAgentUnavailable(extractAgentErrorMessage(error));
         }

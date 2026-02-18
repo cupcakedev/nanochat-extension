@@ -6,7 +6,7 @@ import { getActiveTab, getPageContent } from '@sidepanel/services/page/tab-bridg
 const logger = createLogger('agent-context');
 
 export const AGENT_CONTEXT_UNAVAILABLE_MESSAGE =
-  'Page context is available only on regular web pages. Open a website tab and try again.';
+  'This feature requires a webpage. Open a website and try again.';
 
 export class AgentContextUnavailableError extends Error {
   constructor(message = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) {
@@ -80,7 +80,10 @@ export async function getAgentPageContext(
         reason: errorMessage,
       });
     }
-    return { tab, content: '' };
+    if (err instanceof AgentContextUnavailableError) {
+      throw err;
+    }
+    throw new AgentContextUnavailableError();
   }
 
   return { tab, content };
