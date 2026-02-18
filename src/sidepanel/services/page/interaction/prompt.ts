@@ -80,7 +80,10 @@ function formatExecutionHistory(history: InteractionExecutionResult[]): string {
 
 function formatModelMemoryTimeline(timeline: string[]): string {
   if (!timeline.length) return 'none';
-  return timeline.slice(-3).map((line, index) => `${index + 1}. ${line}`).join('\n');
+  return timeline
+    .slice(-3)
+    .map((line, index) => `${index + 1}. ${line}`)
+    .join('\n');
 }
 
 export function buildInteractionPrompt(params: {

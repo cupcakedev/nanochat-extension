@@ -4,7 +4,7 @@ import { StopIcon } from '@sidepanel/components/icons/StopIcon';
 import { SendIcon } from '@sidepanel/components/icons/SendIcon';
 import { ImageIcon } from '@sidepanel/components/icons/ImageIcon';
 import { ActionButton } from './ActionButton';
-import {GlobeIcon} from "@sidepanel/components/icons/GlobeIcon.tsx";
+import { GlobeIcon } from '@sidepanel/components/icons/GlobeIcon.tsx';
 
 interface ChatInputFooterProps {
   fileInputRef: RefObject<HTMLInputElement | null>;

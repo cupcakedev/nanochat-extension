@@ -31,6 +31,7 @@ function writePreferredMode(mode: ChatMode): void {
   try {
     localStorage.setItem(PREFERRED_MODE_KEY, mode);
   } catch {
+    //
   }
 }
 

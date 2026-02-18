@@ -22,7 +22,9 @@ export const DownloadPrompt = memo(({ onDownload }: DownloadPromptProps) => (
       <h3 className="text-xs font-semibold text-neutral-800 mb-2">System Requirements</h3>
       <div className="space-y-1.5">
         <div className="flex items-start gap-2">
-          <span className="text-[10px] uppercase font-bold text-neutral-500 mt-0.5 min-w-[24px]">GPU</span>
+          <span className="text-[10px] uppercase font-bold text-neutral-500 mt-0.5 min-w-[24px]">
+            GPU
+          </span>
           <span className="text-xs text-neutral-600">Strictly more than 4 GB of VRAM</span>
         </div>
 
@@ -33,7 +35,9 @@ export const DownloadPrompt = memo(({ onDownload }: DownloadPromptProps) => (
         </div>
 
         <div className="flex items-start gap-2">
-          <span className="text-[10px] uppercase font-bold text-neutral-500 mt-0.5 min-w-[24px]">CPU</span>
+          <span className="text-[10px] uppercase font-bold text-neutral-500 mt-0.5 min-w-[24px]">
+            CPU
+          </span>
           <span className="text-xs text-neutral-600">16 GB of RAM and 4 CPU cores or more</span>
         </div>
       </div>

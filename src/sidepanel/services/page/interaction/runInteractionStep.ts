@@ -16,7 +16,11 @@ import type {
 } from '@shared/types';
 import { captureStackedViewport } from './capture';
 import { enforceTypingFirst } from './guards';
-import { estimateTokens, resetInteractionPromptSessions, warmInteractionPromptSessions } from './prompt-api';
+import {
+  estimateTokens,
+  resetInteractionPromptSessions,
+  warmInteractionPromptSessions,
+} from './prompt-api';
 import { verifyTaskCompletion } from './verifier';
 import {
   formatExecutionLines,
@@ -192,424 +196,428 @@ export async function runPageInteractionStep(
     };
 
     for (let stepNumber = 1; stepNumber <= AGENT_MAX_STEPS; stepNumber += 1) {
-    throwIfAborted(options?.signal);
-    const activeTab = { ...pinnedTab };
-    lastTabId = activeTab.tabId;
-    await waitForTabSettled(activeTab.tabId, {
-      maxWaitMs: INTERACTION_TAB_SETTLE_MAX_WAIT_MS,
-      pollIntervalMs: INTERACTION_TAB_SETTLE_POLL_MS,
-      stableIdleMs: INTERACTION_TAB_SETTLE_IDLE_MS,
-    });
-    throwIfAborted(options?.signal);
-
-    let snapshot: InteractionSnapshotPayload;
-    let capture: Awaited<ReturnType<typeof captureStackedViewport>>;
-    const snapshotOptions = {
-      maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
-      viewportOnly: true,
-      viewportSegments: AGENT_VIEWPORT_SEGMENTS,
-    } as const;
-    try {
-      snapshot = await getInteractionSnapshot(activeTab.tabId, snapshotOptions);
-      const baseViewportHeight = Math.max(
-        1,
-        Math.round(snapshot.viewportHeight / AGENT_VIEWPORT_SEGMENTS),
-      );
-      capture = await captureStackedViewport({
-        windowId: activeTab.windowId,
-        tabId: activeTab.tabId,
-        baseScrollY: snapshot.scrollY,
-        viewportHeight: baseViewportHeight,
-        viewportSegments: AGENT_VIEWPORT_SEGMENTS,
-        settleMs: INTERACTION_CAPTURE_SETTLE_MS,
-      });
-      if (
-        capture.capturedScrollTop !== null &&
-        Math.abs(capture.capturedScrollTop - snapshot.scrollY) > 1
-      ) {
-        snapshot = await getInteractionSnapshot(activeTab.tabId, snapshotOptions);
-      }
       throwIfAborted(options?.signal);
-    } catch (error) {
-      if (isAbortError(error)) throw error;
-      if (!isContentConnectionUnavailableError(error)) throw error;
-
-      const placeholderUrl = chrome.runtime.getURL(AGENT_PLACEHOLDER_PAGE_PATH);
-      if (!isSameDestination(activeTab.url, placeholderUrl)) {
-        const placeholderOpenResult = await openExtensionPageInTab(
-          activeTab.tabId,
-          AGENT_PLACEHOLDER_PAGE_PATH,
-        );
-        emitProgressLine(
-          options,
-          `[${stepNumber}] recovery | content connection unavailable, opened placeholder ${placeholderOpenResult.finalUrl}`,
-        );
-      } else {
-        emitProgressLine(
-          options,
-          `[${stepNumber}] recovery | content connection unavailable, keeping placeholder page`,
-        );
-      }
-
+      const activeTab = { ...pinnedTab };
+      lastTabId = activeTab.tabId;
       await waitForTabSettled(activeTab.tabId, {
         maxWaitMs: INTERACTION_TAB_SETTLE_MAX_WAIT_MS,
         pollIntervalMs: INTERACTION_TAB_SETTLE_POLL_MS,
         stableIdleMs: INTERACTION_TAB_SETTLE_IDLE_MS,
       });
       throwIfAborted(options?.signal);
-      const recoveredTab = await getTabById(pinnedTab.tabId);
-      capture = await captureStackedViewport({
-        windowId: recoveredTab.windowId,
-        tabId: recoveredTab.tabId,
-        baseScrollY: 0,
-        viewportHeight: 1,
-        viewportSegments: 1,
-        settleMs: INTERACTION_CAPTURE_SETTLE_MS,
-      });
-      throwIfAborted(options?.signal);
-      snapshot = buildSyntheticSnapshot({
-        pageUrl: recoveredTab.url || placeholderUrl,
-        pageTitle: recoveredTab.title || 'NanoChat',
-        viewportWidth: capture.canvas.width,
-        viewportHeight: capture.canvas.height,
-      });
-    }
 
-    emitProgressLine(
-      options,
-      formatObserveLine(stepNumber, snapshot.pageUrl, snapshot.interactiveElements.length),
-    );
-    updateInteractionStrategyState(strategyState, snapshot);
-    lastPageUrl = snapshot.pageUrl;
-    lastPageTitle = snapshot.pageTitle;
-    const scrollContext = {
-      scrollY: snapshot.scrollY,
-      viewportHeight: snapshot.viewportHeight,
-    };
-    const strategyHints = buildPlannerStrategyHints(strategyState, snapshot, allExecutions);
+      let snapshot: InteractionSnapshotPayload;
+      let capture: Awaited<ReturnType<typeof captureStackedViewport>>;
+      const snapshotOptions = {
+        maxElements: INTERACTION_SNAPSHOT_MAX_ELEMENTS,
+        viewportOnly: true,
+        viewportSegments: AGENT_VIEWPORT_SEGMENTS,
+      } as const;
+      try {
+        snapshot = await getInteractionSnapshot(activeTab.tabId, snapshotOptions);
+        const baseViewportHeight = Math.max(
+          1,
+          Math.round(snapshot.viewportHeight / AGENT_VIEWPORT_SEGMENTS),
+        );
+        capture = await captureStackedViewport({
+          windowId: activeTab.windowId,
+          tabId: activeTab.tabId,
+          baseScrollY: snapshot.scrollY,
+          viewportHeight: baseViewportHeight,
+          viewportSegments: AGENT_VIEWPORT_SEGMENTS,
+          settleMs: INTERACTION_CAPTURE_SETTLE_MS,
+        });
+        if (
+          capture.capturedScrollTop !== null &&
+          Math.abs(capture.capturedScrollTop - snapshot.scrollY) > 1
+        ) {
+          snapshot = await getInteractionSnapshot(activeTab.tabId, snapshotOptions);
+        }
+        throwIfAborted(options?.signal);
+      } catch (error) {
+        if (isAbortError(error)) throw error;
+        if (!isContentConnectionUnavailableError(error)) throw error;
 
-    const decision = await requestPlannerDecision({
-      task,
-      stepNumber,
-      maxSteps: AGENT_MAX_STEPS,
-      pageUrl: snapshot.pageUrl,
-      pageTitle: snapshot.pageTitle,
-      scrollY: snapshot.scrollY,
-      viewportHeight: snapshot.viewportHeight,
-      history: allExecutions,
-      elements: snapshot.interactiveElements,
-      modelMemoryState: plannerMemoryState,
-      modelMemoryTimeline: plannerMemoryTimeline,
-      strategyHints,
-      baseCanvas: capture.canvas,
-      viewport: { width: snapshot.viewportWidth, height: snapshot.viewportHeight },
-      onProgress: options?.onProgress,
-      signal: options?.signal,
-    });
-    plannerMemoryState = decision.decision.currentState;
-    const memoryLine = toMemoryTimelineLine(
-      stepNumber,
-      snapshot.pageUrl,
-      decision.decision.currentState,
-    );
-    const lastMemoryLine =
-      plannerMemoryTimeline.length > 0 ? plannerMemoryTimeline[plannerMemoryTimeline.length - 1] : null;
-    if (memoryLine !== lastMemoryLine) {
-      plannerMemoryTimeline.push(memoryLine);
-      if (plannerMemoryTimeline.length > 12) {
-        plannerMemoryTimeline.splice(0, plannerMemoryTimeline.length - 12);
+        const placeholderUrl = chrome.runtime.getURL(AGENT_PLACEHOLDER_PAGE_PATH);
+        if (!isSameDestination(activeTab.url, placeholderUrl)) {
+          const placeholderOpenResult = await openExtensionPageInTab(
+            activeTab.tabId,
+            AGENT_PLACEHOLDER_PAGE_PATH,
+          );
+          emitProgressLine(
+            options,
+            `[${stepNumber}] recovery | content connection unavailable, opened placeholder ${placeholderOpenResult.finalUrl}`,
+          );
+        } else {
+          emitProgressLine(
+            options,
+            `[${stepNumber}] recovery | content connection unavailable, keeping placeholder page`,
+          );
+        }
+
+        await waitForTabSettled(activeTab.tabId, {
+          maxWaitMs: INTERACTION_TAB_SETTLE_MAX_WAIT_MS,
+          pollIntervalMs: INTERACTION_TAB_SETTLE_POLL_MS,
+          stableIdleMs: INTERACTION_TAB_SETTLE_IDLE_MS,
+        });
+        throwIfAborted(options?.signal);
+        const recoveredTab = await getTabById(pinnedTab.tabId);
+        capture = await captureStackedViewport({
+          windowId: recoveredTab.windowId,
+          tabId: recoveredTab.tabId,
+          baseScrollY: 0,
+          viewportHeight: 1,
+          viewportSegments: 1,
+          settleMs: INTERACTION_CAPTURE_SETTLE_MS,
+        });
+        throwIfAborted(options?.signal);
+        snapshot = buildSyntheticSnapshot({
+          pageUrl: recoveredTab.url || placeholderUrl,
+          pageTitle: recoveredTab.title || 'NanoChat',
+          viewportWidth: capture.canvas.width,
+          viewportHeight: capture.canvas.height,
+        });
       }
-    }
 
-    rawResponses.push(decision.rawResponse);
-    emitProgressLine(
-      options,
-      formatPlannerLine(stepNumber, decision.decision.status, decision.decision.actions.length),
-    );
-    emitProgressLine(options, formatPlannerRawLine(stepNumber, decision.rawResponse));
-    lastDecision = decision;
-    lastElementCount = snapshot.interactiveElements.length;
-    lastPromptElementCount = decision.promptElements.length;
-    totalRetries += decision.retryCount;
-
-    if (decision.decision.status === 'done') {
-      const meaningfulExecutionCount = countMeaningfulExecutions(allExecutions);
-      const doneStatusRecoveryPlans = enforceTypingFirst(
-        buildDoneStatusNavigationPlans({
-          currentUrl: snapshot.pageUrl,
-          decision: decision.decision,
-        }),
-        task,
-        decision.promptElements,
+      emitProgressLine(
+        options,
+        formatObserveLine(stepNumber, snapshot.pageUrl, snapshot.interactiveElements.length),
       );
-      if (doneStatusRecoveryPlans.length > 0) {
-        emitProgressLine(
-          options,
-          `[${stepNumber}] recovery | done status has off-page target, forcing actions=${doneStatusRecoveryPlans.length}`,
-        );
-        formatPlanLines(stepNumber, doneStatusRecoveryPlans).forEach((line) =>
-          emitProgressLine(options, line),
-        );
-        allPlans.push(...doneStatusRecoveryPlans);
+      updateInteractionStrategyState(strategyState, snapshot);
+      lastPageUrl = snapshot.pageUrl;
+      lastPageTitle = snapshot.pageTitle;
+      const scrollContext = {
+        scrollY: snapshot.scrollY,
+        viewportHeight: snapshot.viewportHeight,
+      };
+      const strategyHints = buildPlannerStrategyHints(strategyState, snapshot, allExecutions);
 
-        const doneStatusRecoveries = await executePlannedActions(
-          activeTab.tabId,
-          doneStatusRecoveryPlans,
-          scrollContext,
-          options?.signal,
-        );
-        formatExecutionLines(stepNumber, doneStatusRecoveries).forEach((line) =>
-          emitProgressLine(options, line),
-        );
-        allExecutions.push(...doneStatusRecoveries);
+      const decision = await requestPlannerDecision({
+        task,
+        stepNumber,
+        maxSteps: AGENT_MAX_STEPS,
+        pageUrl: snapshot.pageUrl,
+        pageTitle: snapshot.pageTitle,
+        scrollY: snapshot.scrollY,
+        viewportHeight: snapshot.viewportHeight,
+        history: allExecutions,
+        elements: snapshot.interactiveElements,
+        modelMemoryState: plannerMemoryState,
+        modelMemoryTimeline: plannerMemoryTimeline,
+        strategyHints,
+        baseCanvas: capture.canvas,
+        viewport: { width: snapshot.viewportWidth, height: snapshot.viewportHeight },
+        onProgress: options?.onProgress,
+        signal: options?.signal,
+      });
+      plannerMemoryState = decision.decision.currentState;
+      const memoryLine = toMemoryTimelineLine(
+        stepNumber,
+        snapshot.pageUrl,
+        decision.decision.currentState,
+      );
+      const lastMemoryLine =
+        plannerMemoryTimeline.length > 0
+          ? plannerMemoryTimeline[plannerMemoryTimeline.length - 1]
+          : null;
+      if (memoryLine !== lastMemoryLine) {
+        plannerMemoryTimeline.push(memoryLine);
+        if (plannerMemoryTimeline.length > 12) {
+          plannerMemoryTimeline.splice(0, plannerMemoryTimeline.length - 12);
+        }
+      }
 
-        if (!doneStatusRecoveries.length) {
-          finalStatus = 'fail';
-          finalAnswer = 'Done-status recovery produced no executable actions';
+      rawResponses.push(decision.rawResponse);
+      emitProgressLine(
+        options,
+        formatPlannerLine(stepNumber, decision.decision.status, decision.decision.actions.length),
+      );
+      emitProgressLine(options, formatPlannerRawLine(stepNumber, decision.rawResponse));
+      lastDecision = decision;
+      lastElementCount = snapshot.interactiveElements.length;
+      lastPromptElementCount = decision.promptElements.length;
+      totalRetries += decision.retryCount;
+
+      if (decision.decision.status === 'done') {
+        const meaningfulExecutionCount = countMeaningfulExecutions(allExecutions);
+        const doneStatusRecoveryPlans = enforceTypingFirst(
+          buildDoneStatusNavigationPlans({
+            currentUrl: snapshot.pageUrl,
+            decision: decision.decision,
+          }),
+          task,
+          decision.promptElements,
+        );
+        if (doneStatusRecoveryPlans.length > 0) {
+          emitProgressLine(
+            options,
+            `[${stepNumber}] recovery | done status has off-page target, forcing actions=${doneStatusRecoveryPlans.length}`,
+          );
+          formatPlanLines(stepNumber, doneStatusRecoveryPlans).forEach((line) =>
+            emitProgressLine(options, line),
+          );
+          allPlans.push(...doneStatusRecoveryPlans);
+
+          const doneStatusRecoveries = await executePlannedActions(
+            activeTab.tabId,
+            doneStatusRecoveryPlans,
+            scrollContext,
+            options?.signal,
+          );
+          formatExecutionLines(stepNumber, doneStatusRecoveries).forEach((line) =>
+            emitProgressLine(options, line),
+          );
+          allExecutions.push(...doneStatusRecoveries);
+
+          if (!doneStatusRecoveries.length) {
+            finalStatus = 'fail';
+            finalAnswer = 'Done-status recovery produced no executable actions';
+            break;
+          }
+
+          const lastDoneStatusRecovery = doneStatusRecoveries[doneStatusRecoveries.length - 1];
+          if (!lastDoneStatusRecovery.executed && stepNumber >= AGENT_MAX_STEPS) {
+            finalStatus = 'max-steps';
+            finalAnswer = 'Maximum agent steps reached';
+            break;
+          }
+          lastRejectedDoneKey = null;
+          rejectedDoneStreak = 0;
+          continue;
+        }
+
+        const verification = await runCompletionVerification({
+          stepNumber,
+          pageUrl: snapshot.pageUrl,
+          pageTitle: snapshot.pageTitle,
+          plannerFinalAnswer: decision.decision.finalAnswer,
+          plannerReason: decision.decision.reason,
+          phase: 'verify',
+        });
+        if (verification.complete) {
+          finalStatus = 'done';
+          finalAnswer = decision.decision.finalAnswer ?? verification.reason;
+          lastRejectedDoneKey = null;
+          rejectedDoneStreak = 0;
           break;
         }
 
-        const lastDoneStatusRecovery = doneStatusRecoveries[doneStatusRecoveries.length - 1];
-        if (!lastDoneStatusRecovery.executed && stepNumber >= AGENT_MAX_STEPS) {
+        const recoveryPlans = enforceTypingFirst(
+          buildRejectedDoneRecoveryPlans({
+            currentUrl: snapshot.pageUrl,
+            decision: decision.decision,
+          }),
+          task,
+          decision.promptElements,
+        );
+        if (recoveryPlans.length > 0) {
+          emitProgressLine(
+            options,
+            `[${stepNumber}] recovery | verifier rejected done, fallback actions=${recoveryPlans.length}`,
+          );
+          formatPlanLines(stepNumber, recoveryPlans).forEach((line) =>
+            emitProgressLine(options, line),
+          );
+          allPlans.push(...recoveryPlans);
+
+          const recoveryExecutions = await executePlannedActions(
+            activeTab.tabId,
+            recoveryPlans,
+            scrollContext,
+            options?.signal,
+          );
+          formatExecutionLines(stepNumber, recoveryExecutions).forEach((line) =>
+            emitProgressLine(options, line),
+          );
+          allExecutions.push(...recoveryExecutions);
+
+          if (!recoveryExecutions.length) {
+            finalStatus = 'fail';
+            finalAnswer = 'Recovery produced no executable actions';
+            break;
+          }
+
+          const lastRecoveryExecution = recoveryExecutions[recoveryExecutions.length - 1];
+          if (!lastRecoveryExecution.executed && stepNumber >= AGENT_MAX_STEPS) {
+            finalStatus = 'max-steps';
+            finalAnswer = 'Maximum agent steps reached';
+            break;
+          }
+          lastRejectedDoneKey = null;
+          rejectedDoneStreak = 0;
+          continue;
+        }
+
+        const explorationPlans = buildRejectedDoneExplorationPlans({
+          task,
+          currentUrl: snapshot.pageUrl,
+          elements: snapshot.interactiveElements,
+          attemptedClickKeys: attemptedRejectedDoneClickKeys,
+        });
+        if (explorationPlans.length > 0) {
+          emitProgressLine(
+            options,
+            `[${stepNumber}] recovery | verifier rejected done, forcing exploratory click actions=${explorationPlans.length}`,
+          );
+          formatPlanLines(stepNumber, explorationPlans).forEach((line) =>
+            emitProgressLine(options, line),
+          );
+          allPlans.push(...explorationPlans);
+
+          const explorationExecutions = await executePlannedActions(
+            activeTab.tabId,
+            explorationPlans,
+            scrollContext,
+            options?.signal,
+          );
+          formatExecutionLines(stepNumber, explorationExecutions).forEach((line) =>
+            emitProgressLine(options, line),
+          );
+          allExecutions.push(...explorationExecutions);
+
+          for (const plan of explorationPlans) {
+            if (plan.action === 'click' && plan.index !== null) {
+              attemptedRejectedDoneClickKeys.add(
+                buildExplorationClickKey(snapshot.pageUrl, plan.index),
+              );
+            }
+          }
+
+          if (!explorationExecutions.length) {
+            finalStatus = 'fail';
+            finalAnswer = 'Exploration recovery produced no executable actions';
+            break;
+          }
+          lastRejectedDoneKey = null;
+          rejectedDoneStreak = 0;
+          continue;
+        }
+
+        allExecutions.push(verifierExecution(verification.reason));
+        const doneLoopKey = buildDoneLoopKey({
+          task,
+          pageUrl: snapshot.pageUrl,
+          meaningfulExecutionCount,
+        });
+        rejectedDoneStreak = lastRejectedDoneKey === doneLoopKey ? rejectedDoneStreak + 1 : 1;
+        lastRejectedDoneKey = doneLoopKey;
+
+        if (rejectedDoneStreak >= DONE_LOOP_RECOVERY_THRESHOLD) {
+          const stuckRecoveryPlans = buildStuckDoneRecoveryPlans({
+            task,
+            currentUrl: snapshot.pageUrl,
+          });
+          emitProgressLine(
+            options,
+            `[${stepNumber}] recovery | repeated done-loop detected, forcing actions=${stuckRecoveryPlans.length}`,
+          );
+          formatPlanLines(stepNumber, stuckRecoveryPlans).forEach((line) =>
+            emitProgressLine(options, line),
+          );
+          allPlans.push(...stuckRecoveryPlans);
+
+          const stuckRecoveryExecutions = await executePlannedActions(
+            activeTab.tabId,
+            stuckRecoveryPlans,
+            scrollContext,
+            options?.signal,
+          );
+          formatExecutionLines(stepNumber, stuckRecoveryExecutions).forEach((line) =>
+            emitProgressLine(options, line),
+          );
+          allExecutions.push(...stuckRecoveryExecutions);
+
+          if (!stuckRecoveryExecutions.length) {
+            finalStatus = 'fail';
+            finalAnswer = 'Done-loop recovery produced no executable actions';
+            break;
+          }
+
+          const lastStuckRecoveryExecution =
+            stuckRecoveryExecutions[stuckRecoveryExecutions.length - 1];
+          if (!lastStuckRecoveryExecution.executed && stepNumber >= AGENT_MAX_STEPS) {
+            finalStatus = 'max-steps';
+            finalAnswer = 'Maximum agent steps reached';
+            break;
+          }
+
+          lastRejectedDoneKey = null;
+          rejectedDoneStreak = 0;
+          continue;
+        }
+
+        if (stepNumber >= AGENT_MAX_STEPS) {
+          finalStatus = 'max-steps';
+          finalAnswer = verification.reason;
+          break;
+        }
+        continue;
+      }
+
+      if (decision.decision.status === 'fail') {
+        finalStatus = 'fail';
+        finalAnswer = decision.decision.finalAnswer ?? decision.decision.reason;
+        break;
+      }
+
+      lastRejectedDoneKey = null;
+      rejectedDoneStreak = 0;
+      const strategyAdjustedPlans = applyStrategyPlanGuard({
+        state: strategyState,
+        snapshot,
+        plans: decision.decision.actions,
+        history: allExecutions,
+      });
+      if (strategyAdjustedPlans !== decision.decision.actions) {
+        emitProgressLine(
+          options,
+          `[${stepNumber}] strategy | no progress detected, switched to focused navigation plan`,
+        );
+      }
+      const plans = enforceTypingFirst(strategyAdjustedPlans, task, decision.promptElements);
+      formatPlanLines(stepNumber, plans).forEach((line) => emitProgressLine(options, line));
+      allPlans.push(...plans);
+
+      const executions = await executePlannedActions(
+        activeTab.tabId,
+        plans,
+        scrollContext,
+        options?.signal,
+      );
+      formatExecutionLines(stepNumber, executions).forEach((line) =>
+        emitProgressLine(options, line),
+      );
+      allExecutions.push(...executions);
+
+      if (!executions.length) {
+        finalStatus = 'fail';
+        finalAnswer = 'Planner returned executable actions but none were executed';
+        break;
+      }
+
+      const lastExecution = executions[executions.length - 1];
+      if (!lastExecution.executed && lastExecution.requestedAction !== 'unknown') {
+        if (stepNumber >= AGENT_MAX_STEPS) {
           finalStatus = 'max-steps';
           finalAnswer = 'Maximum agent steps reached';
           break;
         }
-        lastRejectedDoneKey = null;
-        rejectedDoneStreak = 0;
-        continue;
       }
 
-      const verification = await runCompletionVerification({
+      const autoVerification = await runCompletionVerification({
         stepNumber,
         pageUrl: snapshot.pageUrl,
         pageTitle: snapshot.pageTitle,
         plannerFinalAnswer: decision.decision.finalAnswer,
         plannerReason: decision.decision.reason,
-        phase: 'verify',
+        phase: 'verify-auto',
       });
-      if (verification.complete) {
+      if (autoVerification.complete) {
         finalStatus = 'done';
-        finalAnswer = decision.decision.finalAnswer ?? verification.reason;
-        lastRejectedDoneKey = null;
-        rejectedDoneStreak = 0;
-        break;
-      }
-
-      const recoveryPlans = enforceTypingFirst(
-        buildRejectedDoneRecoveryPlans({
-          currentUrl: snapshot.pageUrl,
-          decision: decision.decision,
-        }),
-        task,
-        decision.promptElements,
-      );
-      if (recoveryPlans.length > 0) {
-        emitProgressLine(
-          options,
-          `[${stepNumber}] recovery | verifier rejected done, fallback actions=${recoveryPlans.length}`,
-        );
-        formatPlanLines(stepNumber, recoveryPlans).forEach((line) =>
-          emitProgressLine(options, line),
-        );
-        allPlans.push(...recoveryPlans);
-
-        const recoveryExecutions = await executePlannedActions(
-          activeTab.tabId,
-          recoveryPlans,
-          scrollContext,
-          options?.signal,
-        );
-        formatExecutionLines(stepNumber, recoveryExecutions).forEach((line) =>
-          emitProgressLine(options, line),
-        );
-        allExecutions.push(...recoveryExecutions);
-
-        if (!recoveryExecutions.length) {
-          finalStatus = 'fail';
-          finalAnswer = 'Recovery produced no executable actions';
-          break;
-        }
-
-        const lastRecoveryExecution = recoveryExecutions[recoveryExecutions.length - 1];
-        if (!lastRecoveryExecution.executed && stepNumber >= AGENT_MAX_STEPS) {
-          finalStatus = 'max-steps';
-          finalAnswer = 'Maximum agent steps reached';
-          break;
-        }
-        lastRejectedDoneKey = null;
-        rejectedDoneStreak = 0;
-        continue;
-      }
-
-      const explorationPlans = buildRejectedDoneExplorationPlans({
-        task,
-        currentUrl: snapshot.pageUrl,
-        elements: snapshot.interactiveElements,
-        attemptedClickKeys: attemptedRejectedDoneClickKeys,
-      });
-      if (explorationPlans.length > 0) {
-        emitProgressLine(
-          options,
-          `[${stepNumber}] recovery | verifier rejected done, forcing exploratory click actions=${explorationPlans.length}`,
-        );
-        formatPlanLines(stepNumber, explorationPlans).forEach((line) =>
-          emitProgressLine(options, line),
-        );
-        allPlans.push(...explorationPlans);
-
-        const explorationExecutions = await executePlannedActions(
-          activeTab.tabId,
-          explorationPlans,
-          scrollContext,
-          options?.signal,
-        );
-        formatExecutionLines(stepNumber, explorationExecutions).forEach((line) =>
-          emitProgressLine(options, line),
-        );
-        allExecutions.push(...explorationExecutions);
-
-        for (const plan of explorationPlans) {
-          if (plan.action === 'click' && plan.index !== null) {
-            attemptedRejectedDoneClickKeys.add(
-              buildExplorationClickKey(snapshot.pageUrl, plan.index),
-            );
-          }
-        }
-
-        if (!explorationExecutions.length) {
-          finalStatus = 'fail';
-          finalAnswer = 'Exploration recovery produced no executable actions';
-          break;
-        }
-        lastRejectedDoneKey = null;
-        rejectedDoneStreak = 0;
-        continue;
-      }
-
-      allExecutions.push(verifierExecution(verification.reason));
-      const doneLoopKey = buildDoneLoopKey({
-        task,
-        pageUrl: snapshot.pageUrl,
-        meaningfulExecutionCount,
-      });
-      rejectedDoneStreak = lastRejectedDoneKey === doneLoopKey ? rejectedDoneStreak + 1 : 1;
-      lastRejectedDoneKey = doneLoopKey;
-
-      if (rejectedDoneStreak >= DONE_LOOP_RECOVERY_THRESHOLD) {
-        const stuckRecoveryPlans = buildStuckDoneRecoveryPlans({
-          task,
-          currentUrl: snapshot.pageUrl,
-        });
-        emitProgressLine(
-          options,
-          `[${stepNumber}] recovery | repeated done-loop detected, forcing actions=${stuckRecoveryPlans.length}`,
-        );
-        formatPlanLines(stepNumber, stuckRecoveryPlans).forEach((line) =>
-          emitProgressLine(options, line),
-        );
-        allPlans.push(...stuckRecoveryPlans);
-
-        const stuckRecoveryExecutions = await executePlannedActions(
-          activeTab.tabId,
-          stuckRecoveryPlans,
-          scrollContext,
-          options?.signal,
-        );
-        formatExecutionLines(stepNumber, stuckRecoveryExecutions).forEach((line) =>
-          emitProgressLine(options, line),
-        );
-        allExecutions.push(...stuckRecoveryExecutions);
-
-        if (!stuckRecoveryExecutions.length) {
-          finalStatus = 'fail';
-          finalAnswer = 'Done-loop recovery produced no executable actions';
-          break;
-        }
-
-        const lastStuckRecoveryExecution =
-          stuckRecoveryExecutions[stuckRecoveryExecutions.length - 1];
-        if (!lastStuckRecoveryExecution.executed && stepNumber >= AGENT_MAX_STEPS) {
-          finalStatus = 'max-steps';
-          finalAnswer = 'Maximum agent steps reached';
-          break;
-        }
-
-        lastRejectedDoneKey = null;
-        rejectedDoneStreak = 0;
-        continue;
-      }
-
-      if (stepNumber >= AGENT_MAX_STEPS) {
-        finalStatus = 'max-steps';
-        finalAnswer = verification.reason;
-        break;
-      }
-      continue;
-    }
-
-    if (decision.decision.status === 'fail') {
-      finalStatus = 'fail';
-      finalAnswer = decision.decision.finalAnswer ?? decision.decision.reason;
-      break;
-    }
-
-    lastRejectedDoneKey = null;
-    rejectedDoneStreak = 0;
-    const strategyAdjustedPlans = applyStrategyPlanGuard({
-      state: strategyState,
-      snapshot,
-      plans: decision.decision.actions,
-      history: allExecutions,
-    });
-    if (strategyAdjustedPlans !== decision.decision.actions) {
-      emitProgressLine(
-        options,
-        `[${stepNumber}] strategy | no progress detected, switched to focused navigation plan`,
-      );
-    }
-    const plans = enforceTypingFirst(strategyAdjustedPlans, task, decision.promptElements);
-    formatPlanLines(stepNumber, plans).forEach((line) => emitProgressLine(options, line));
-    allPlans.push(...plans);
-
-    const executions = await executePlannedActions(
-      activeTab.tabId,
-      plans,
-      scrollContext,
-      options?.signal,
-    );
-    formatExecutionLines(stepNumber, executions).forEach((line) => emitProgressLine(options, line));
-    allExecutions.push(...executions);
-
-    if (!executions.length) {
-      finalStatus = 'fail';
-      finalAnswer = 'Planner returned executable actions but none were executed';
-      break;
-    }
-
-    const lastExecution = executions[executions.length - 1];
-    if (!lastExecution.executed && lastExecution.requestedAction !== 'unknown') {
-      if (stepNumber >= AGENT_MAX_STEPS) {
-        finalStatus = 'max-steps';
-        finalAnswer = 'Maximum agent steps reached';
+        finalAnswer = decision.decision.finalAnswer ?? autoVerification.reason;
         break;
       }
     }
-
-    const autoVerification = await runCompletionVerification({
-      stepNumber,
-      pageUrl: snapshot.pageUrl,
-      pageTitle: snapshot.pageTitle,
-      plannerFinalAnswer: decision.decision.finalAnswer,
-      plannerReason: decision.decision.reason,
-      phase: 'verify-auto',
-    });
-    if (autoVerification.complete) {
-      finalStatus = 'done';
-      finalAnswer = decision.decision.finalAnswer ?? autoVerification.reason;
-      break;
-    }
-  }
 
     if (finalStatus === 'continue') {
       finalStatus = 'max-steps';

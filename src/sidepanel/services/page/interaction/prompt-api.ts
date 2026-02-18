@@ -125,7 +125,8 @@ const VERIFIER_INITIAL_PROMPTS: [
   },
   {
     role: 'assistant',
-    content: '{"complete":true,"reason":"Current URL matches requested destination.","confidence":"high"}',
+    content:
+      '{"complete":true,"reason":"Current URL matches requested destination.","confidence":"high"}',
   },
   {
     role: 'user',
