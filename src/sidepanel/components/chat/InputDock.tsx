@@ -26,6 +26,7 @@ interface InputDockProps {
   contextMode: ChatContextSendMode;
   onDismissChatContext: () => void;
   onAddChatContext: () => void;
+  isFullScreen?: boolean;
 }
 
 function resolveContextChip(
@@ -72,6 +73,7 @@ export const InputDock = memo(
     contextMode,
     onDismissChatContext,
     onAddChatContext,
+    isFullScreen,
   }: InputDockProps) => {
     const chip = resolveContextChip(
       mode,
@@ -82,7 +84,7 @@ export const InputDock = memo(
     );
     const contextAnimationKey =
       mode === ChatMode.Chat ? chatContextAnimationKey : agentChipAnimationKey;
-    const showAddContext = mode !== ChatMode.Agent && !chatContextSource;
+    const showAddContext = mode !== ChatMode.Agent && !chatContextSource && !isFullScreen;
 
     return (
       <div ref={dockRef} className="absolute bottom-0 left-0 right-0 z-20 px-6 pt-3 pb-4">

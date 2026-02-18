@@ -35,8 +35,12 @@ function writePreferredMode(mode: ChatMode): void {
   }
 }
 
-export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessages: boolean) {
-  const [mode, setMode] = useState<ChatMode>(readPreferredMode);
+export function useAgentMode(
+  serviceRef: RefObject<PromptAPIService>,
+  hasMessages: boolean,
+  isFullScreen: boolean,
+) {
+  const [mode, setMode] = useState<ChatMode>(isFullScreen ? ChatMode.Chat : readPreferredMode);
   const [agentContextChip, setAgentContextChip] = useState<AgentContextChip | null>(null);
   const [agentContextChipVisible, setAgentContextChipVisible] = useState(false);
   const [agentNotice, setAgentNotice] = useState<string | null>(null);
@@ -131,6 +135,7 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
   useEffect(() => {
     if (initialModeAppliedRef.current) return;
     initialModeAppliedRef.current = true;
+    if (isFullScreen) return;
     const initial = readPreferredMode();
     if (requiresPageContext(initial)) {
       void (async () => {
@@ -143,7 +148,7 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
         }
       })();
     }
-  }, [fetchAndApplyContext, showAgentUnavailable]);
+  }, [fetchAndApplyContext, isFullScreen, showAgentUnavailable]);
 
   const restorePreferredMode = useCallback(() => {
     clearAgentVisuals();
@@ -179,6 +184,7 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
 
   const handleModeChange = useCallback(
     (nextMode: ChatMode) => {
+      if (isFullScreen) return;
       writePreferredMode(nextMode);
 
       if (!requiresPageContext(nextMode)) {
@@ -195,7 +201,7 @@ export function useAgentMode(serviceRef: RefObject<PromptAPIService>, hasMessage
         }
       })();
     },
-    [fetchAndApplyContext, resetAgentState, showAgentUnavailable],
+    [fetchAndApplyContext, isFullScreen, resetAgentState, showAgentUnavailable],
   );
 
   return {

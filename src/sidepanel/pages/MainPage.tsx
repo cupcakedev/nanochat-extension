@@ -66,12 +66,15 @@ export const MainPage = () => {
               mode={state.mode}
               modeLocked={state.hasMessages}
               onModeChange={state.handleModeChange}
+              isFullScreen={state.isFullScreen}
               scrolled={scrolled}
             />
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto pb-48">
               {state.hasMessages ? (
-                <div className="max-w-3xl mx-auto w-full pt-14 px-4">
+                <div
+                  className={`max-w-3xl mx-auto w-full px-4 ${state.isFullScreen ? 'pt-20' : 'pt-14'}`}
+                >
                   <MessageList
                     messages={state.messages}
                     streaming={state.streaming}
@@ -107,6 +110,7 @@ export const MainPage = () => {
               contextMode={state.contextMode}
               onDismissChatContext={state.dismissChatContext}
               onAddChatContext={state.addChatContext}
+              isFullScreen={state.isFullScreen}
             />
           </>
         ) : (
