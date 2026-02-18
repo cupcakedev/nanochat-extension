@@ -167,24 +167,21 @@ export function applyStrategyPlanGuard(params: {
   const lastExecution = history[history.length - 1] ?? null;
   const repeatedSameAction = planFingerprint(firstPlan) === executionFingerprint(lastExecution);
 
-  if (!repeatedSameAction && state.noProgressStreak < 3) return plans;
+  if (!repeatedSameAction) return plans;
   if (plans.some((plan) => plan.action === 'openUrl' && typeof plan.url === 'string')) return plans;
 
-  if (firstPlan.action === 'scrollDown' || firstPlan.action === 'scrollUp') {
-    if (state.noProgressStreak >= 3) {
-      return [
-        {
-          action: 'openUrl',
-          index: null,
-          text: null,
-          url: buildFallbackSearchUrl(state.task, snapshot.pageUrl),
-          reason:
-            'Strategy guard: repeated no-progress state, switching to targeted navigation search.',
-          confidence: 'high',
-        },
-      ];
-    }
-    return plans;
+  if (state.noProgressStreak >= 3) {
+    return [
+      {
+        action: 'openUrl',
+        index: null,
+        text: null,
+        url: buildFallbackSearchUrl(state.task, snapshot.pageUrl),
+        reason:
+          'Strategy guard: repeated no-progress state, switching to targeted navigation search.',
+        confidence: 'high',
+      },
+    ];
   }
 
   return [
