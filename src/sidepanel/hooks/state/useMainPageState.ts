@@ -3,6 +3,7 @@ import { usePromptSession } from '@sidepanel/hooks/prompt';
 import { useChat } from '@sidepanel/hooks/chat';
 import { useChatContext } from '@sidepanel/hooks/chat';
 import { useAgentMode } from '@sidepanel/hooks/agent';
+import { useFullScreenMode } from '@sidepanel/hooks/ui';
 import { fetchPageContextSource } from '@sidepanel/services/page';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@sidepanel/types/mode';
 import { SessionStatus } from '@shared/types';
@@ -47,6 +48,7 @@ function toActivePageSource(
 }
 
 export function useMainPageState() {
+  const isFullScreen = useFullScreenMode();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatContextSource, setChatContextSource] = useState<PageSource | null>(null);
   const contextMode = chatContextSource
@@ -84,7 +86,7 @@ export function useMainPageState() {
     showAgentUnavailable,
     restorePreferredMode,
     inputDockRef,
-  } = useAgentMode(serviceRef, hasInitialMessages);
+  } = useAgentMode(serviceRef, hasInitialMessages, isFullScreen);
 
   const activePageSource = toActivePageSource(mode, agentContextChip);
 
@@ -162,6 +164,7 @@ export function useMainPageState() {
 
   return {
     NOOP,
+    isFullScreen,
     isSidebarOpen,
     isReady,
     isShowingOnboardingFlow,
