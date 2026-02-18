@@ -15,7 +15,19 @@ const HIGHLIGHT_COLORS = [
   '#10b981',
 ];
 
+const LABEL_FONT = 'bold 14px ui-sans-serif, system-ui, -apple-system, sans-serif';
+const LABEL_HEIGHT = 20;
+const LABEL_PAD_X = 6;
+const LABEL_PAD_Y = 14;
+
 interface ViewportSize {
+  width: number;
+  height: number;
+}
+
+interface LabelRect {
+  x: number;
+  y: number;
   width: number;
   height: number;
 }
@@ -40,22 +52,40 @@ function resolveScale(imageSize: number, viewportSize: number): number {
   return imageSize / viewportSize;
 }
 
+function rectsOverlap(a: LabelRect, b: LabelRect): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+function nudgeLabel(rect: LabelRect, placed: LabelRect[], canvasHeight: number): LabelRect {
+  let current = rect;
+  const maxAttempts = 6;
+  for (let i = 0; i < maxAttempts; i++) {
+    if (!placed.some((p) => rectsOverlap(current, p))) return current;
+    const nextY = current.y + LABEL_HEIGHT;
+    if (nextY + LABEL_HEIGHT > canvasHeight) return current;
+    current = { ...current, y: nextY };
+  }
+  return current;
+}
+
+function measureLabelWidth(context: CanvasRenderingContext2D, index: number): number {
+  context.font = LABEL_FONT;
+  return Math.ceil(context.measureText(String(index)).width + LABEL_PAD_X * 2);
+}
+
 function drawLabel(
   context: CanvasRenderingContext2D,
   index: number,
   x: number,
   y: number,
+  width: number,
   color: string,
 ): void {
-  const text = String(index);
-  context.font = 'bold 16px ui-sans-serif, system-ui, -apple-system, sans-serif';
-  const metrics = context.measureText(text);
-  const width = Math.ceil(metrics.width + 14);
-  const height = 22;
+  context.font = LABEL_FONT;
   context.fillStyle = color;
-  context.fillRect(x, y, width, height);
+  context.fillRect(x, y, width, LABEL_HEIGHT);
   context.fillStyle = '#ffffff';
-  context.fillText(text, x + 7, y + 16);
+  context.fillText(String(index), x + LABEL_PAD_X, y + LABEL_PAD_Y);
 }
 
 function drawElementOverlay(
@@ -71,13 +101,13 @@ function drawElementOverlay(
   const height = Math.max(1, Math.round(element.rect.height * scaleY));
 
   context.strokeStyle = color;
-  context.fillStyle = `${color}33`;
+  context.fillStyle = `${color}18`;
   context.lineWidth = Math.max(1, Math.round((scaleX + scaleY) * 0.8));
   context.fillRect(x, y, width, height);
   context.strokeRect(x, y, width, height);
 
   const labelX = Math.max(0, x + Math.max(0, width - 36));
-  const labelY = Math.max(0, y - 22);
+  const labelY = Math.max(0, y - LABEL_HEIGHT);
   return { labelX, labelY };
 }
 
@@ -92,17 +122,25 @@ export function annotateInteractionCanvas(
 
   const scaleX = resolveScale(canvas.width, viewport.width);
   const scaleY = resolveScale(canvas.height, viewport.height);
-  const labels: Array<{ index: number; x: number; y: number; color: string }> = [];
+  const pending: Array<{ index: number; x: number; y: number; color: string }> = [];
 
   elements.forEach((element, position) => {
     const color = HIGHLIGHT_COLORS[position % HIGHLIGHT_COLORS.length];
     const { labelX, labelY } = drawElementOverlay(context, element, scaleX, scaleY, color);
-    labels.push({ index: element.index, x: labelX, y: labelY, color });
+    pending.push({ index: element.index, x: labelX, y: labelY, color });
   });
 
-  labels.forEach((label) => {
-    drawLabel(context, label.index, label.x, label.y, label.color);
-  });
+  const placed: LabelRect[] = [];
+  for (const label of pending) {
+    const w = measureLabelWidth(context, label.index);
+    const rect = nudgeLabel(
+      { x: label.x, y: label.y, width: w, height: LABEL_HEIGHT },
+      placed,
+      canvas.height,
+    );
+    drawLabel(context, label.index, rect.x, rect.y, w, label.color);
+    placed.push(rect);
+  }
 
   return canvas;
 }
