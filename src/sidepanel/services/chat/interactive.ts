@@ -95,7 +95,6 @@ export async function executeInteractiveStep(
     const completedMessages = setAssistantCompletion(
       baseMessages,
       formatInteractionAssistantMessage(result),
-      [result.screenshotDataUrl],
     );
     setters.setMessages(completedMessages);
     setters.setContextUsage(usage ? toContextUsage(usage) : null);
