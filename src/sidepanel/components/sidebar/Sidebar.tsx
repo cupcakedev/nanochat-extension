@@ -5,6 +5,7 @@ import { PlusIcon } from '@sidepanel/components/icons/PlusIcon';
 import { ChatListItem } from '@sidepanel/components/sidebar/ChatListItem';
 import { SidebarFooter } from '@sidepanel/components/sidebar/SidebarFooter';
 import { AboutModal } from '@sidepanel/components/sidebar/AboutModal';
+import { SettingsModal } from '@sidepanel/components/sidebar/SettingsModal';
 import { groupChatsByDate, type ChatGroup } from '@shared/utils/dateUtils';
 
 interface SidebarProps {
@@ -27,6 +28,9 @@ export const Sidebar = memo(
     onNewChat,
     onClose,
   }: SidebarProps) => {
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const openSettings = useCallback(() => setSettingsOpen(true), []);
+    const closeSettings = useCallback(() => setSettingsOpen(false), []);
     const [aboutOpen, setAboutOpen] = useState(false);
     const openAbout = useCallback(() => setAboutOpen(true), []);
     const closeAbout = useCallback(() => setAboutOpen(false), []);
@@ -106,9 +110,10 @@ export const Sidebar = memo(
             )}
           </div>
 
-          <SidebarFooter onAboutClick={openAbout} />
+          <SidebarFooter onSettingsClick={openSettings} onAboutClick={openAbout} />
         </aside>
 
+        <SettingsModal isOpen={settingsOpen} onClose={closeSettings} />
         <AboutModal isOpen={aboutOpen} onClose={closeAbout} />
       </>
     );
