@@ -55,6 +55,30 @@ const INTERACTIVE_ROLES = new Set([
   'dropdown',
 ]);
 
+const IGNORED_TAGS = new Set([
+  'svg',
+  'path',
+  'circle',
+  'line',
+  'rect',
+  'polygon',
+  'polyline',
+  'ellipse',
+  'g',
+  'use',
+  'image',
+  'defs',
+  'clippath',
+  'mask',
+  'symbol',
+  'br',
+  'hr',
+  'wbr',
+  'col',
+  'source',
+  'track',
+]);
+
 const INTERACTIVE_DATA_ACTIONS = new Set(['a-dropdown-select', 'a-dropdown-button']);
 const DEFAULT_MAX_ELEMENTS = 50;
 const DEFAULT_VIEWPORT_SEGMENTS = 1;
@@ -83,6 +107,7 @@ function isDisabled(element: HTMLElement): boolean {
 function isInteractiveElement(element: HTMLElement): boolean {
   const tag = element.tagName.toLowerCase();
   if (tag === 'body' || tag === 'html') return false;
+  if (IGNORED_TAGS.has(tag)) return false;
   if (INTERACTIVE_TAGS.has(tag)) return true;
   const role = element.getAttribute('role')?.toLowerCase();
   if (role && INTERACTIVE_ROLES.has(role)) return true;
@@ -176,15 +201,38 @@ function queryCandidates(): HTMLElement[] {
   return result;
 }
 
+function hasMeaningfulContent(element: HTMLElement): boolean {
+  const tag = element.tagName.toLowerCase();
+  if (INTERACTIVE_TAGS.has(tag)) return true;
+  const role = element.getAttribute('role')?.toLowerCase();
+  if (role && INTERACTIVE_ROLES.has(role)) return true;
+  const text = normalizeText(element.innerText ?? element.textContent);
+  if (text && text.toLowerCase() !== tag) return true;
+  const aria = normalizeText(element.getAttribute('aria-label'));
+  if (aria) return true;
+  const title = normalizeText(element.getAttribute('title'));
+  if (title) return true;
+  if (element.id) return true;
+  return false;
+}
+
 function interactionPriority(element: HTMLElement): number {
-  if (element instanceof HTMLAnchorElement && /\/watch\?v=/i.test(element.href)) return 0;
-  if (element instanceof HTMLAnchorElement) return 1;
+  const tag = element.tagName.toLowerCase();
+  const role = element.getAttribute('role')?.toLowerCase();
+  if (tag === 'a' || tag === 'button' || tag === 'input' || tag === 'textarea' || tag === 'select')
+    return 0;
   if (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement ||
-    element instanceof HTMLSelectElement
+    role &&
+    (role === 'button' ||
+      role === 'link' ||
+      role === 'tab' ||
+      role === 'textbox' ||
+      role === 'combobox' ||
+      role === 'searchbox' ||
+      role === 'menuitem')
   )
-    return 2;
+    return 1;
+  if (tag === 'summary' || tag === 'details' || tag === 'label' || tag === 'option') return 2;
   return 3;
 }
 
@@ -205,7 +253,10 @@ function sortByPriorityAndPosition(elements: HTMLElement[]): HTMLElement[] {
 function collectInteractiveElements(maxElements: number, viewportOnly: boolean): HTMLElement[] {
   return sortByPriorityAndPosition(
     queryCandidates().filter(
-      (element) => isInteractiveElement(element) && isElementUserVisible(element, viewportOnly),
+      (element) =>
+        isInteractiveElement(element) &&
+        hasMeaningfulContent(element) &&
+        isElementUserVisible(element, viewportOnly),
     ),
   ).slice(0, Math.max(1, maxElements));
 }
