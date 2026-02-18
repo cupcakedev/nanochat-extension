@@ -79,7 +79,7 @@ export type {
 } from './run-step-types';
 export type { InteractionRunOptions };
 
-const AGENT_MAX_STEPS = 12;
+const AGENT_MAX_STEPS = 6;
 const AGENT_VIEWPORT_SEGMENTS = 1;
 const AGENT_PLACEHOLDER_PAGE_PATH = 'src/placeholder.html';
 
