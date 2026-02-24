@@ -5,7 +5,7 @@ export function useSidepanelConnection() {
     let port: chrome.runtime.Port | null = null;
 
     const setup = async () => {
-      const tab = await chromeo.tabs.getCurrent();
+      const tab = await chrome.tabs.getCurrent();
       if (tab !== undefined) return;
 
       port = chrome.runtime.connect({ name: 'sidepanel' });
