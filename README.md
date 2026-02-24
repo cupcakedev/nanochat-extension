@@ -2,6 +2,9 @@
 
 NanoChat is an on-device Chrome extension with a sidepanel chat UI and an interactive browser-agent mode.
 
+> Available on Chrome Web Store:  
+> [Install NanoChat](https://chromewebstore.google.com/detail/nanochat/blpleeefgeopjgdgjelpldcabhipkjbd)
+
 ## Highlights
 
 - On-device LLM chat using Chrome Prompt API
