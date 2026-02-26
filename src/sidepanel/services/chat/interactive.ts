@@ -148,10 +148,7 @@ export async function executeInteractiveStep(
       return;
     }
 
-    const completedMessages = setAssistantCompletion(
-      baseMessages,
-      `Error: ${errorMessage}`,
-    );
+    const completedMessages = setAssistantCompletion(baseMessages, `Error: ${errorMessage}`);
     setters.setMessages(completedMessages);
     setters.setContextUsage(null);
     setters.onMessagesChange?.(
