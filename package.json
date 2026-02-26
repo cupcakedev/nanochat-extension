@@ -1,6 +1,6 @@
 {
 	"name": "nanochat-extension",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "On-device Chrome extension chat assistant with interactive browser agent mode",
 	"license": "MIT",
 	"author": "cupcakedev",
