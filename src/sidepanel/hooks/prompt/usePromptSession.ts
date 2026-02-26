@@ -4,7 +4,6 @@ import { SessionStatus } from '@shared/types';
 import type { LoadingProgress } from '@shared/types';
 import { createLogger } from '@shared/utils';
 
-const DOWNLOADING_RECHECK_MS = 2000;
 const logger = createLogger('prompt-session');
 
 function toErrorPayload(err: unknown) {
@@ -25,14 +24,12 @@ export function usePromptSession() {
   const [status, setStatus] = useState<SessionStatus>(SessionStatus.Idle);
   const [progress, setProgress] = useState<LoadingProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [waitingForDownload, setWaitingForDownload] = useState(false);
 
   const createSession = useCallback(async () => {
     logger.info('createSession:start');
     setStatus(SessionStatus.Loading);
     setError(null);
     setProgress(null);
-    setWaitingForDownload(false);
 
     const abortController = new AbortController();
     abortRef.current = abortController;
@@ -63,7 +60,7 @@ export function usePromptSession() {
     logger.info('checkAndInit:start');
     setStatus(SessionStatus.Loading);
     setError(null);
-    setWaitingForDownload(false);
+    setProgress(null);
 
     try {
       const availability = await serviceRef.current.checkAvailability();
@@ -83,10 +80,8 @@ export function usePromptSession() {
       }
 
       if (availability === 'downloading') {
-        setStatus(SessionStatus.Loading);
-        setProgress(null);
-        setWaitingForDownload(true);
-        logger.info('checkAndInit:status=loading (downloading)');
+        logger.info('checkAndInit:status=downloading -> createSession');
+        await createSession();
         return;
       }
 
@@ -126,16 +121,6 @@ export function usePromptSession() {
       service.destroySession();
     };
   }, [checkAndInit]);
-
-  useEffect(() => {
-    if (!waitingForDownload) return;
-    logger.info('downloading:recheck-scheduled', { delayMs: DOWNLOADING_RECHECK_MS });
-    const timer = window.setTimeout(() => {
-      logger.info('downloading:recheck-run');
-      void checkAndInit();
-    }, DOWNLOADING_RECHECK_MS);
-    return () => window.clearTimeout(timer);
-  }, [checkAndInit, waitingForDownload]);
 
   return { status, progress, error, retry, download, cancelDownload, serviceRef };
 }
