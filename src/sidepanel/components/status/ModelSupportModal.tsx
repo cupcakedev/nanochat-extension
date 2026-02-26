@@ -25,7 +25,8 @@ export const ModelSupportModal = memo(({ isOpen, onRetry }: ModelSupportModalPro
               Enable Prompt API in Chrome to continue.
             </p>
             <p className="text-[11px] text-neutral-500 leading-relaxed">
-              Open Flag. Set <span className="font-medium">Enabled</span> and <span className="font-medium">Relaunch Chrome</span>.
+              Open Flag. Set <span className="font-medium">Enabled</span> and{' '}
+              <span className="font-medium">Relaunch Chrome</span>.
             </p>
           </div>
 

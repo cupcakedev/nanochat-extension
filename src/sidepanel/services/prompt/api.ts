@@ -125,11 +125,7 @@ export class PromptAPIService {
     mode: SessionMode,
     signal?: AbortSignal,
   ): Promise<void> {
-    if (
-      this.session &&
-      this.currentSystemPrompt === systemPrompt &&
-      this.currentMode === mode
-    ) {
+    if (this.session && this.currentSystemPrompt === systemPrompt && this.currentMode === mode) {
       return;
     }
 
