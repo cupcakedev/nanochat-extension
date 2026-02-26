@@ -4,6 +4,7 @@ import {
   appendTokenToLastMessage,
   calculateTokenStats,
   extractErrorMessage,
+  isMultimodalInputUnsupportedError,
   replaceLastMessageContent,
   resolvePageSourceForPersist,
   toContextUsage,
@@ -33,6 +34,7 @@ export interface ChatStreamSetters {
     contextUsage?: { used: number; total: number },
     pageSource?: PageSource | null,
   ) => void;
+  onMultimodalInputUnsupported?: (message: string) => void;
 }
 
 export async function executeChatStream(
@@ -66,8 +68,19 @@ export async function executeChatStream(
     );
   } catch (error) {
     if (!abortController.signal.aborted) {
+      const message = extractErrorMessage(error);
+      if (isMultimodalInputUnsupportedError(error)) {
+        setters.onMultimodalInputUnsupported?.(message);
+        setters.setMessages((prev) =>
+          replaceLastMessageContent(
+            prev as ChatMessage[],
+            'Image input is unavailable in this Chrome profile. Enable the multimodal Prompt API flag and relaunch Chrome.',
+          ),
+        );
+        return;
+      }
       setters.setMessages((prev) =>
-        replaceLastMessageContent(prev as ChatMessage[], `Error: ${extractErrorMessage(error)}`),
+        replaceLastMessageContent(prev as ChatMessage[], `Error: ${message}`),
       );
     }
   } finally {

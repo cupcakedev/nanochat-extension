@@ -47,6 +47,7 @@ export function useChat(
   const [chatContextChipSourceOverride, setChatContextChipSourceOverride] = useState<
     PageSource | null | undefined
   >(undefined);
+  const [multimodalModalOpen, setMultimodalModalOpen] = useState(false);
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(
     initialContextUsage ? toContextUsage(initialContextUsage) : null,
   );
@@ -68,10 +69,19 @@ export function useChat(
       setTokenStats(null);
       setDevTraceItems([]);
       setChatContextChipSourceOverride(undefined);
+      setMultimodalModalOpen(false);
       setContextUsage(ctx ? toContextUsage(ctx) : null);
     },
     [],
   );
+
+  const showMultimodalUnsupportedModal = useCallback((_message: string) => {
+    setMultimodalModalOpen(true);
+  }, []);
+
+  const closeMultimodalUnsupportedModal = useCallback(() => {
+    setMultimodalModalOpen(false);
+  }, []);
 
   useEffect(() => {
     if (chatIdRef.current === chatId) return;
@@ -156,6 +166,7 @@ export function useChat(
         setTokenStats,
         setContextUsage,
         onMessagesChange,
+        onMultimodalInputUnsupported: showMultimodalUnsupportedModal,
       };
       await executeChatStream(
         userMessage,
@@ -167,7 +178,7 @@ export function useChat(
         setters,
       );
     },
-    [mode, onAgentContextUnavailable, onMessagesChange, serviceRef],
+    [mode, onAgentContextUnavailable, onMessagesChange, serviceRef, showMultimodalUnsupportedModal],
   );
 
   const stop = useCallback(() => {
@@ -182,6 +193,8 @@ export function useChat(
     devTraceItems,
     devTraceEnabled,
     chatContextChipSourceOverride,
+    multimodalModalOpen,
+    closeMultimodalUnsupportedModal,
     send,
     stop,
   };
