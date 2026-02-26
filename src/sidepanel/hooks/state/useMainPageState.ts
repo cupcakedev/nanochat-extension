@@ -131,7 +131,9 @@ export function useMainPageState() {
   const hasMessages = messages.length > 0;
   const isSessionLoading = status === SessionStatus.Loading;
   const isShowingOnboardingFlow =
-    status === SessionStatus.NeedsDownload || (isSessionLoading && !hasMessages);
+    status === SessionStatus.NeedsDownload ||
+    status === SessionStatus.Error ||
+    (isSessionLoading && !hasMessages);
   const shouldShowDevTokenStats = import.meta.env.DEV && tokenStats !== null && !streaming;
   const isReady = loaded && !isShowingOnboardingFlow;
 

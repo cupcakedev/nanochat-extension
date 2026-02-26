@@ -9,6 +9,7 @@ import { ContextBar } from '@sidepanel/components/chat/ContextBar';
 import { DevTracePanel } from '@sidepanel/components/chat/DevTracePanel';
 import { OnboardingScreen } from '@sidepanel/components/status/OnboardingScreen';
 import { MultimodalSupportModal } from '@sidepanel/components/status/MultimodalSupportModal';
+import { ModelSupportModal } from '@sidepanel/components/status/ModelSupportModal';
 import { useMainPageState } from '@sidepanel/hooks/state';
 import { useScrolled } from '@sidepanel/hooks/ui';
 import { useTemporaryNotice } from '@sidepanel/hooks/ui';
@@ -126,6 +127,8 @@ export const MainPage = () => {
           )
         )}
       </main>
+
+      <ModelSupportModal isOpen={state.status === SessionStatus.Error} onRetry={state.retry} />
 
       <MultimodalSupportModal
         isOpen={state.multimodalModalOpen}
