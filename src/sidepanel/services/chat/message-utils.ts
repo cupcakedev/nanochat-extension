@@ -46,6 +46,17 @@ export function extractErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'An error occurred during generation';
 }
 
+export function isMultimodalInputUnsupportedError(err: unknown): boolean {
+  const message = extractErrorMessage(err).toLowerCase();
+  return (
+    message.includes('image input is currently unavailable') ||
+    message.includes("multimodal session couldn't be created") ||
+    message.includes('model capability is not available') ||
+    message.includes('notallowederror') ||
+    (message.includes('unable to create a session') && message.includes('image'))
+  );
+}
+
 export function toContextUsage(raw: { used: number; total: number }): ContextUsage {
   return { ...raw, percent: Math.round((raw.used / raw.total) * 100) };
 }

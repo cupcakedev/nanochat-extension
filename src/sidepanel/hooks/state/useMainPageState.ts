@@ -98,6 +98,8 @@ export function useMainPageState() {
     devTraceItems,
     devTraceEnabled,
     chatContextChipSourceOverride,
+    multimodalModalOpen,
+    closeMultimodalUnsupportedModal,
     send,
     stop,
   } = useChat(
@@ -129,7 +131,9 @@ export function useMainPageState() {
   const hasMessages = messages.length > 0;
   const isSessionLoading = status === SessionStatus.Loading;
   const isShowingOnboardingFlow =
-    status === SessionStatus.NeedsDownload || (isSessionLoading && !hasMessages);
+    status === SessionStatus.NeedsDownload ||
+    status === SessionStatus.Error ||
+    (isSessionLoading && !hasMessages);
   const shouldShowDevTokenStats = import.meta.env.DEV && tokenStats !== null && !streaming;
   const isReady = loaded && !isShowingOnboardingFlow;
 
@@ -190,6 +194,7 @@ export function useMainPageState() {
     chatContextAnimationKey,
     chatContextSource,
     messageListPageSource,
+    multimodalModalOpen,
     agentNotice,
     contextMode,
     inputDockRef,
@@ -204,6 +209,7 @@ export function useMainPageState() {
     deleteChat,
     send,
     stop,
+    closeMultimodalUnsupportedModal,
     retry,
     download,
     handleModeChange,
