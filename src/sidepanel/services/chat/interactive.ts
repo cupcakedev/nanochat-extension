@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import {
   extractErrorMessage,
+  isMultimodalInputUnsupportedError,
   setAssistantCompletion,
   toContextUsage,
   type ContextUsage,
@@ -37,6 +38,7 @@ export interface InteractiveSetters {
     contextUsage?: { used: number; total: number },
     pageSource?: PageSource | null,
   ) => void;
+  onMultimodalInputUnsupported?: (message: string) => void;
 }
 
 function isAbortError(error: unknown): boolean {
@@ -128,9 +130,27 @@ export async function executeInteractiveStep(
         ),
       );
     }
+
+    const errorMessage = extractErrorMessage(error);
+    if (isMultimodalInputUnsupportedError(error)) {
+      setters.onMultimodalInputUnsupported?.(errorMessage);
+      const completedMessages = setAssistantCompletion(
+        baseMessages,
+        'Image input is unavailable in this Chrome profile. Enable the multimodal Prompt API flag and relaunch Chrome.',
+      );
+      setters.setMessages(completedMessages);
+      setters.setContextUsage(null);
+      setters.onMessagesChange?.(
+        completedMessages,
+        undefined,
+        refs.pageSourceRef.current ?? undefined,
+      );
+      return;
+    }
+
     const completedMessages = setAssistantCompletion(
       baseMessages,
-      `Error: ${extractErrorMessage(error)}`,
+      `Error: ${errorMessage}`,
     );
     setters.setMessages(completedMessages);
     setters.setContextUsage(null);

@@ -107,6 +107,7 @@ export function useChat(
           setContextUsage,
           setChatContextChipSourceOverride,
           onMessagesChange,
+          onMultimodalInputUnsupported: showMultimodalUnsupportedModal,
         };
         const abortController = new AbortController();
         abortRef.current = abortController;
