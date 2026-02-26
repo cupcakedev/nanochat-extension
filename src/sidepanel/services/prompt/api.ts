@@ -1,16 +1,27 @@
 import { createLogger } from '@shared/utils';
 import type { ChatMessage, LoadingProgress } from '@shared/types';
-import { TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS } from '@shared/constants';
+import { TEXT_LANGUAGE_MODEL_OPTIONS } from '@shared/constants';
 import { toLanguageModelMessage, summarizePrompt } from './message-converter';
 
 const logger = createLogger('prompt-api');
+
+function toErrorPayload(err: unknown) {
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    };
+  }
+  return { value: String(err) };
+}
 
 export class PromptAPIService {
   private session: LanguageModel | null = null;
   private currentSystemPrompt: string | null = null;
 
-  async checkAvailability(): Promise<string> {
-    const availability = await LanguageModel.availability(TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS);
+  async checkAvailability(): Promise<Availability> {
+    const availability = await LanguageModel.availability(TEXT_LANGUAGE_MODEL_OPTIONS);
     logger.info('Model availability:', availability);
     return availability;
   }
@@ -21,19 +32,46 @@ export class PromptAPIService {
   ): Promise<void> {
     this.destroySession();
 
-    this.session = await LanguageModel.create({
-      ...TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS,
-      signal,
-      monitor: (monitor) => {
-        monitor.addEventListener('downloadprogress', (e) => {
-          const progress = e.loaded / e.total;
-          onProgress?.({
-            progress,
-            text: `Downloading model: ${Math.round(progress * 100)}%`,
+    logger.info('createSession:start', { hasSignal: !!signal });
+    let lastLoggedProgressBucket = -1;
+
+    try {
+      this.session = await LanguageModel.create({
+        ...TEXT_LANGUAGE_MODEL_OPTIONS,
+        signal,
+        monitor: (monitor) => {
+          monitor.addEventListener('downloadprogress', (e) => {
+            const progress = e.loaded / e.total;
+            const progressBucket = Math.floor(progress * 10);
+            if (progressBucket !== lastLoggedProgressBucket) {
+              lastLoggedProgressBucket = progressBucket;
+              logger.info('createSession:downloadprogress', {
+                loaded: e.loaded,
+                total: e.total,
+                progress,
+              });
+            }
+            onProgress?.({
+              progress,
+              text: `Downloading model: ${Math.round(progress * 100)}%`,
+            });
           });
-        });
-      },
-    });
+        },
+      });
+    } catch (err) {
+      let availabilityAfterError: Availability | 'unknown' = 'unknown';
+      try {
+        availabilityAfterError = await this.checkAvailability();
+      } catch {
+        availabilityAfterError = 'unknown';
+      }
+      logger.error('createSession:failed', {
+        availabilityAfterError,
+        error: toErrorPayload(err),
+      });
+      throw err;
+    }
+
     this.currentSystemPrompt = null;
     logger.info('Session created', {
       inputUsage: this.session.inputUsage,
@@ -49,14 +87,35 @@ export class PromptAPIService {
       this.session = null;
     }
 
-    this.session = await LanguageModel.create({
-      ...TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS,
-      ...(systemPrompt ? { initialPrompts: [{ role: 'system', content: systemPrompt }] } : {}),
+    logger.info('ensureSession:create:start', {
+      hasSystemPrompt: !!systemPrompt,
     });
+
+    try {
+      this.session = await LanguageModel.create({
+        ...TEXT_LANGUAGE_MODEL_OPTIONS,
+        ...(systemPrompt ? { initialPrompts: [{ role: 'system', content: systemPrompt }] } : {}),
+      });
+    } catch (err) {
+      let availabilityAfterError: Availability | 'unknown' = 'unknown';
+      try {
+        availabilityAfterError = await this.checkAvailability();
+      } catch {
+        availabilityAfterError = 'unknown';
+      }
+      logger.error('ensureSession:create:failed', {
+        availabilityAfterError,
+        hasSystemPrompt: !!systemPrompt,
+        error: toErrorPayload(err),
+      });
+      throw err;
+    }
+
     this.currentSystemPrompt = systemPrompt;
     logger.info('Session created', {
       inputUsage: this.session.inputUsage,
       inputQuota: this.session.inputQuota,
+      hasSystemPrompt: !!systemPrompt,
     });
   }
 
