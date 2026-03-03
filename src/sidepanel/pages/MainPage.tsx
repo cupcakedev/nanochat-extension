@@ -18,6 +18,8 @@ import { fetchPageContextSource } from '@sidepanel/services/page';
 import { ChatContextSendMode } from '@sidepanel/types/mode';
 import { SessionStatus } from '@shared/types';
 
+const NOOP = () => {};
+
 export const MainPage = () => {
   const state = useMainPageState();
   const { scrolled, scrollRef } = useScrolled();
@@ -48,10 +50,10 @@ export const MainPage = () => {
         chatSummaries={state.isReady ? state.chatSummaries : []}
         activeChatId={state.isReady ? state.activeChatId : null}
         isOpen={state.isReady && state.isSidebarOpen}
-        onSelectChat={state.isReady ? state.selectChat : state.NOOP}
-        onDeleteChat={state.isReady ? state.deleteChat : state.NOOP}
-        onNewChat={state.isReady ? state.handleNewChat : state.NOOP}
-        onClose={state.isReady ? state.closeSidebar : state.NOOP}
+        onSelectChat={state.isReady ? state.selectChat : NOOP}
+        onDeleteChat={state.isReady ? state.deleteChat : NOOP}
+        onNewChat={state.isReady ? state.handleNewChat : NOOP}
+        onClose={state.isReady ? state.closeSidebar : NOOP}
       />
 
       <main className="flex-1 flex flex-col relative min-w-0">

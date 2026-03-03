@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { PromptAPIService } from '@sidepanel/services/prompt';
-import { AGENT_CONTEXT_UNAVAILABLE_MESSAGE, getAgentPageContext } from '@sidepanel/services/agent';
 import {
+  AGENT_CONTEXT_UNAVAILABLE_MESSAGE,
   clearTimerRef,
   extractAgentErrorMessage,
+  getAgentPageContext,
   resolveSiteTitle,
 } from '@sidepanel/services/agent';
 import type { AgentContextChip } from '@sidepanel/services/agent';

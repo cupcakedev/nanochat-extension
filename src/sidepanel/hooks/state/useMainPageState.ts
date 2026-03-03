@@ -9,8 +9,6 @@ import { ChatContextSendMode, ChatMode, requiresPageContext } from '@sidepanel/t
 import { SessionStatus } from '@shared/types';
 import type { PageSource } from '@shared/types';
 
-const NOOP = () => {};
-
 function resolveChatPageSource(
   persistedPageSource: PageSource | null | undefined,
   override: PageSource | null | undefined,
@@ -69,9 +67,7 @@ export function useMainPageState() {
   const hasInitialMessages = initialMessages.length > 0;
 
   useEffect(() => {
-    if (hasInitialMessages) {
-      return;
-    }
+    if (hasInitialMessages) return;
     fetchPageContextSource().then(setChatContextSource);
   }, [activeChatId, hasInitialMessages]);
 
@@ -112,10 +108,7 @@ export function useMainPageState() {
     showAgentUnavailable,
   );
 
-  const chatPageSource = resolveChatPageSource(
-    activeChat?.pageSource,
-    chatContextChipSourceOverride,
-  );
+  const chatPageSource = resolveChatPageSource(activeChat?.pageSource, chatContextChipSourceOverride);
   const hasMessages = messages.length > 0;
   const chatContextSourceForDock = hasMessages ? null : chatContextSource;
   const effectiveContextSource = hasMessages ? (chatPageSource ?? null) : chatContextSource;
@@ -171,37 +164,41 @@ export function useMainPageState() {
   }, []);
 
   return {
-    NOOP,
-    isFullScreen,
-    isSidebarOpen,
     isReady,
     isShowingOnboardingFlow,
     isSessionLoading,
-    hasMessages,
-    shouldShowDevTokenStats,
+    status,
+    progress,
+    error,
     chatSummaries,
     activeChatId,
     messages,
     streaming,
+    hasMessages,
     tokenStats,
     contextUsage,
     devTraceItems,
     devTraceEnabled,
-    status,
-    progress,
-    error,
+    shouldShowDevTokenStats,
     mode,
     agentContextChip,
     agentContextChipVisible,
     agentChipAnimationKey,
-    chatPageSource,
-    chatContextAnimationKey,
-    chatContextSource: chatContextSourceForDock,
-    messageListPageSource,
-    multimodalModalOpen,
     agentNotice,
+    chatPageSource,
+    chatContextSource: chatContextSourceForDock,
+    chatContextAnimationKey,
+    messageListPageSource,
     contextMode,
+    multimodalModalOpen,
+    isFullScreen,
+    isSidebarOpen,
     inputDockRef,
+    send,
+    stop,
+    retry,
+    download,
+    handleModeChange,
     toggleSidebar,
     closeSidebar,
     handleNewChat,
@@ -211,11 +208,6 @@ export function useMainPageState() {
     setChatContextSource,
     selectChat,
     deleteChat,
-    send,
-    stop,
     closeMultimodalUnsupportedModal,
-    retry,
-    download,
-    handleModeChange,
   };
 }
