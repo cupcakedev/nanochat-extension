@@ -242,7 +242,83 @@ function destroyCachedSession(cache: PromptSessionCache): void {
   cache.creating = null;
 }
 
-function createPlannerSession(): Promise<LanguageModel> {
+function toMultimodalUnsupportedError(err: unknown): Error {
+  const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  return new Error(
+    `Image input is currently unavailable in this Chrome profile (Prompt API multimodal session couldn't be created). ${detail}`,
+  );
+}
+
+function ensureLanguageModelDefined(): void {
+  if (typeof LanguageModel === 'undefined') {
+    throw new Error('LanguageModel is not defined');
+  }
+}
+
+async function checkAvailabilityBeforeCreate(
+  options: LanguageModelCreateCoreOptions,
+  timeoutMs: number,
+): Promise<Availability | 'unknown'> {
+  ensureLanguageModelDefined();
+  try {
+    return await withTimeout(LanguageModel.availability(options), timeoutMs, 'Prompt availability');
+  } catch {
+    return 'unknown';
+  }
+}
+
+async function tryCreateSessionForProbe(
+  options: LanguageModelCreateCoreOptions,
+  timeoutMs: number,
+): Promise<boolean> {
+  if (typeof LanguageModel === 'undefined') return false;
+  let session: LanguageModel | null = null;
+  try {
+    await checkAvailabilityBeforeCreate(options, timeoutMs);
+    session = await withTimeout(
+      LanguageModel.create(options),
+      timeoutMs,
+      'Prompt capability probe',
+    );
+    return true;
+  } catch {
+    return false;
+  } finally {
+    session?.destroy();
+  }
+}
+
+async function isMultimodalOnlyFailure(): Promise<boolean> {
+  const textOk = await tryCreateSessionForProbe(
+    TEXT_LANGUAGE_MODEL_OPTIONS,
+    INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
+  );
+  if (!textOk) return false;
+
+  const textImageOk = await tryCreateSessionForProbe(
+    TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS,
+    INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
+  );
+  return !textImageOk;
+}
+
+async function throwMappedPlannerSessionError(error: unknown, scope: string): Promise<never> {
+  const multimodalOnlyFailure = await isMultimodalOnlyFailure().catch(() => false);
+  logger.error(`${scope}:failed`, {
+    multimodalOnlyFailure,
+    error: error instanceof Error ? { name: error.name, message: error.message } : String(error),
+  });
+  if (multimodalOnlyFailure) {
+    throw toMultimodalUnsupportedError(error);
+  }
+  throw error instanceof Error ? error : new Error(String(error));
+}
+
+async function createPlannerSession(): Promise<LanguageModel> {
+  await checkAvailabilityBeforeCreate(
+    TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS,
+    INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
+  );
   return withTimeout(
     LanguageModel.create({
       ...TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS,
@@ -253,7 +329,11 @@ function createPlannerSession(): Promise<LanguageModel> {
   );
 }
 
-function createVerifierSession(): Promise<LanguageModel> {
+async function createVerifierSession(): Promise<LanguageModel> {
+  await checkAvailabilityBeforeCreate(
+    TEXT_LANGUAGE_MODEL_OPTIONS,
+    INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
+  );
   return withTimeout(
     LanguageModel.create({
       ...TEXT_LANGUAGE_MODEL_OPTIONS,
@@ -301,7 +381,12 @@ async function getOrCreateVerifierSession(): Promise<LanguageModel> {
 }
 
 export async function warmInteractionPromptSessions(): Promise<void> {
-  await Promise.all([getOrCreatePlannerSession(), getOrCreateVerifierSession()]);
+  await Promise.all([
+    getOrCreatePlannerSession().catch((error) =>
+      throwMappedPlannerSessionError(error, 'planner-session:warm'),
+    ),
+    getOrCreateVerifierSession(),
+  ]);
 }
 
 export function resetInteractionPromptSessions(): void {
@@ -444,20 +529,13 @@ export async function runTextImagePrompt(
     throw aborted;
   }
 
-  const availability = await withTimeout(
-    LanguageModel.availability(TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS),
-    INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
-    'Prompt availability',
-  );
-  if (availability === 'unavailable') {
-    throw new Error('Chrome Prompt API is unavailable in this browser profile');
-  }
-
   const { signal: requestSignal, cleanup } = deriveRequestSignal(
     signal,
     INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
   );
-  const session = await getOrCreatePlannerSession();
+  const session = await getOrCreatePlannerSession().catch((error) =>
+    throwMappedPlannerSessionError(error, 'planner-session:create'),
+  );
   const sessionAny = session as unknown as { inputUsage?: unknown; inputQuota?: unknown };
   const bitmap = await createImageBitmap(imageCanvas);
   const input = buildPromptInput(prompt, bitmap);
@@ -486,6 +564,9 @@ export async function runTextImagePrompt(
       sessionInputQuota,
       sessionInputQuotaRemaining: remainingQuota(sessionInputQuota, usage),
     };
+  } catch (error) {
+    await throwMappedPlannerSessionError(error, 'planner-session:prompt');
+    throw error instanceof Error ? error : new Error(String(error));
   } finally {
     cleanup();
     bitmap.close();

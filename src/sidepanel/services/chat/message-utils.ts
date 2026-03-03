@@ -52,6 +52,7 @@ export function isMultimodalInputUnsupportedError(err: unknown): boolean {
     message.includes('image input is currently unavailable') ||
     message.includes("multimodal session couldn't be created") ||
     message.includes('model capability is not available') ||
+    message.includes('check the result of availability() first') ||
     message.includes('notallowederror') ||
     (message.includes('unable to create a session') && message.includes('image'))
   );

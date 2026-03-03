@@ -122,13 +122,19 @@ export const MainPage = () => {
                 onDownload={state.download}
                 loading={state.isSessionLoading}
                 progress={state.progress}
+                error={state.error}
               />
             </div>
           )
         )}
       </main>
 
-      <ModelSupportModal isOpen={state.status === SessionStatus.Error} onRetry={state.retry} />
+      <ModelSupportModal
+        isOpen={
+          state.status === SessionStatus.Error && state.error === 'LanguageModel is not defined'
+        }
+        onRetry={state.retry}
+      />
 
       <MultimodalSupportModal
         isOpen={state.multimodalModalOpen}

@@ -10,18 +10,6 @@ function modeToOptions(mode: SessionMode): LanguageModelCreateCoreOptions {
   return mode === 'text+image' ? TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS : TEXT_LANGUAGE_MODEL_OPTIONS;
 }
 
-function isMultimodalSessionUnavailableError(err: unknown): boolean {
-  if (err instanceof DOMException) {
-    if (err.name === 'NotSupportedError' || err.name === 'NotAllowedError') return true;
-  }
-  if (!(err instanceof Error)) return false;
-  return (
-    /unable to create a session/i.test(err.message) ||
-    /model capability is not available/i.test(err.message) ||
-    /notallowederror/i.test(err.message)
-  );
-}
-
 function toMultimodalUnsupportedError(err: unknown): Error {
   const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
   return new Error(
@@ -40,12 +28,51 @@ function toErrorPayload(err: unknown) {
   return { value: String(err) };
 }
 
+function ensureLanguageModelDefined(): void {
+  if (typeof LanguageModel === 'undefined') {
+    throw new Error('LanguageModel is not defined');
+  }
+}
+
+async function checkAvailabilityBeforeCreate(mode: SessionMode): Promise<Availability | 'unknown'> {
+  ensureLanguageModelDefined();
+  try {
+    return await LanguageModel.availability(modeToOptions(mode));
+  } catch {
+    return 'unknown';
+  }
+}
+
+async function tryCreateSessionForProbe(mode: SessionMode): Promise<boolean> {
+  if (typeof LanguageModel === 'undefined') return false;
+
+  let session: LanguageModel | null = null;
+  try {
+    await checkAvailabilityBeforeCreate(mode);
+    session = await LanguageModel.create(modeToOptions(mode));
+    return true;
+  } catch {
+    return false;
+  } finally {
+    session?.destroy();
+  }
+}
+
+async function isMultimodalOnlyFailure(): Promise<boolean> {
+  const textOk = await tryCreateSessionForProbe('text');
+  if (!textOk) return false;
+
+  const textImageOk = await tryCreateSessionForProbe('text+image');
+  return !textImageOk;
+}
+
 export class PromptAPIService {
   private session: LanguageModel | null = null;
   private currentSystemPrompt: string | null = null;
   private currentMode: SessionMode | null = null;
 
   async checkAvailability(mode: SessionMode = 'text'): Promise<Availability> {
+    ensureLanguageModelDefined();
     const availability = await LanguageModel.availability(modeToOptions(mode));
     logger.info('Model availability:', { mode, availability });
     return availability;
@@ -60,6 +87,8 @@ export class PromptAPIService {
 
     logger.info('createSession:start', { hasSignal: !!signal, mode });
     let lastLoggedProgressBucket = -1;
+
+    const availabilityBeforeCreate = await checkAvailabilityBeforeCreate(mode);
 
     try {
       this.session = await LanguageModel.create({
@@ -85,29 +114,20 @@ export class PromptAPIService {
         },
       });
     } catch (err) {
-      let availabilityAfterError: Availability | 'unknown' = 'unknown';
-      let textAvailabilityAfterError: Availability | 'unknown' = 'unknown';
-      try {
-        availabilityAfterError = await this.checkAvailability(mode);
-      } catch {
-        availabilityAfterError = 'unknown';
-      }
-      if (mode === 'text+image') {
-        try {
-          textAvailabilityAfterError = await this.checkAvailability('text');
-        } catch {
-          textAvailabilityAfterError = 'unknown';
-        }
-      }
+      const multimodalOnlyFailure =
+        mode === 'text+image' && !signal?.aborted ? await isMultimodalOnlyFailure() : false;
+
       logger.error('createSession:failed', {
         mode,
-        availabilityAfterError,
-        textAvailabilityAfterError,
+        availabilityBeforeCreate,
+        multimodalOnlyFailure,
         error: toErrorPayload(err),
       });
-      if (mode === 'text+image' && isMultimodalSessionUnavailableError(err)) {
+
+      if (multimodalOnlyFailure) {
         throw toMultimodalUnsupportedError(err);
       }
+
       throw err;
     }
 
@@ -115,6 +135,7 @@ export class PromptAPIService {
     this.currentMode = mode;
     logger.info('Session created', {
       mode,
+      availabilityBeforeCreate,
       inputUsage: this.session.inputUsage,
       inputQuota: this.session.inputQuota,
     });
@@ -139,6 +160,8 @@ export class PromptAPIService {
       mode,
     });
 
+    const availabilityBeforeCreate = await checkAvailabilityBeforeCreate(mode);
+
     try {
       this.session = await LanguageModel.create({
         ...modeToOptions(mode),
@@ -146,30 +169,21 @@ export class PromptAPIService {
         ...(systemPrompt ? { initialPrompts: [{ role: 'system', content: systemPrompt }] } : {}),
       });
     } catch (err) {
-      let availabilityAfterError: Availability | 'unknown' = 'unknown';
-      let textAvailabilityAfterError: Availability | 'unknown' = 'unknown';
-      try {
-        availabilityAfterError = await this.checkAvailability(mode);
-      } catch {
-        availabilityAfterError = 'unknown';
-      }
-      if (mode === 'text+image') {
-        try {
-          textAvailabilityAfterError = await this.checkAvailability('text');
-        } catch {
-          textAvailabilityAfterError = 'unknown';
-        }
-      }
+      const multimodalOnlyFailure =
+        mode === 'text+image' && !signal?.aborted ? await isMultimodalOnlyFailure() : false;
+
       logger.error('ensureSession:create:failed', {
         mode,
-        availabilityAfterError,
-        textAvailabilityAfterError,
+        availabilityBeforeCreate,
+        multimodalOnlyFailure,
         hasSystemPrompt: !!systemPrompt,
         error: toErrorPayload(err),
       });
-      if (mode === 'text+image' && isMultimodalSessionUnavailableError(err)) {
+
+      if (multimodalOnlyFailure) {
         throw toMultimodalUnsupportedError(err);
       }
+
       throw err;
     }
 
@@ -177,6 +191,7 @@ export class PromptAPIService {
     this.currentMode = mode;
     logger.info('Session created', {
       mode,
+      availabilityBeforeCreate,
       inputUsage: this.session.inputUsage,
       inputQuota: this.session.inputQuota,
       hasSystemPrompt: !!systemPrompt,

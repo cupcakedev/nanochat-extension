@@ -62,6 +62,13 @@ export function usePromptSession() {
     setError(null);
     setProgress(null);
 
+    if (typeof LanguageModel === 'undefined') {
+      setError('LanguageModel is not defined');
+      setStatus(SessionStatus.Error);
+      logger.warn('checkAndInit:status=error (language-model-missing)');
+      return;
+    }
+
     try {
       const availability = await serviceRef.current.checkAvailability();
       logger.info('checkAndInit:availability', { availability });
