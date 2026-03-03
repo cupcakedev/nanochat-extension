@@ -7,14 +7,15 @@ import {
 } from '@sidepanel/services/agent';
 import {
   createChatMessage,
+  executeChatStream,
+  executeInteractiveStep,
   extractErrorMessage,
   resolveChatContextSendMode,
+  shouldEnableDevTrace,
   toContextUsage,
-  type ContextUsage,
 } from '@sidepanel/services/chat';
-import { shouldEnableDevTrace } from '@sidepanel/services/chat';
-import { executeChatStream } from '@sidepanel/services/chat';
-import { executeInteractiveStep } from '@sidepanel/services/chat';
+import type { ContextUsage } from '@sidepanel/types/chat';
+import type { ChatStreamRefs, ChatStreamSetters, InteractiveRefs, InteractiveSetters } from '@sidepanel/types/execution';
 import type { DevTraceItem } from '@sidepanel/types/dev-trace';
 import { ChatContextSendMode, ChatMode } from '@sidepanel/types/mode';
 import type { ChatSendOptions } from '@sidepanel/types/mode';
@@ -26,7 +27,7 @@ export type { ContextUsage };
 
 const logger = createLogger('useChat');
 
-interface LockedChatContext {
+interface PerChatPageContext {
   systemPrompt: string;
   pageSource: PageSource;
 }
@@ -56,11 +57,13 @@ export function useChat(
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(
     initialContextUsage ? toContextUsage(initialContextUsage) : null,
   );
+
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
   const pageSourceRef = useRef(pageSource);
   const chatIdRef = useRef(chatId);
-  const lockedContextByChatIdRef = useRef<Map<string, LockedChatContext>>(new Map());
+  const lockedContextByChatIdRef = useRef<Map<string, PerChatPageContext>>(new Map());
+
   const devTraceEnabled = shouldEnableDevTrace(mode);
 
   messagesRef.current = messages;
@@ -95,18 +98,52 @@ export function useChat(
     resetState(initialMessages, initialContextUsage);
   }, [chatId, initialContextUsage, initialMessages, resetState]);
 
+  const fetchPageContext = useCallback(
+    async (
+      options: ChatSendOptions | undefined,
+      currentChatId: string | null,
+    ): Promise<PerChatPageContext | null> => {
+      if (resolveChatContextSendMode(options) !== ChatContextSendMode.WithPageContext) {
+        setChatContextChipSourceOverride(null);
+        return null;
+      }
+
+      const locked = currentChatId
+        ? lockedContextByChatIdRef.current.get(currentChatId)
+        : undefined;
+      if (locked) {
+        setChatContextChipSourceOverride(locked.pageSource);
+        return locked;
+      }
+
+      const ctx = await buildAgentSystemPromptWithContext();
+      const pageSource: PageSource = {
+        url: ctx.tab.url,
+        title: ctx.tab.title,
+        faviconUrl: ctx.tab.favIconUrl,
+      };
+      setChatContextChipSourceOverride(pageSource);
+      if (currentChatId && !lockedContextByChatIdRef.current.has(currentChatId)) {
+        lockedContextByChatIdRef.current.set(currentChatId, {
+          systemPrompt: ctx.systemPrompt,
+          pageSource,
+        });
+      }
+      return { systemPrompt: ctx.systemPrompt, pageSource };
+    },
+    [],
+  );
+
   const send = useCallback(
     async (text: string, images?: string[], options?: ChatSendOptions) => {
       logger.info('send:start', { mode, textLength: text.length, imageCount: images?.length ?? 0 });
-
-      const interactiveRefs = { messagesRef, pageSourceRef };
-      const streamRefs = { serviceRef, messagesRef, pageSourceRef, abortRef };
 
       const userMessage = createChatMessage(MessageRole.User, text, images);
       const assistantMessage = createChatMessage(MessageRole.Assistant, '');
 
       if (mode === ChatMode.Agent) {
-        const setters = {
+        const agentRefs: InteractiveRefs = { messagesRef, pageSourceRef };
+        const agentHandlers: InteractiveSetters = {
           setMessages,
           setStreaming,
           setDevTraceItems,
@@ -123,69 +160,38 @@ export function useChat(
             userMessage,
             assistantMessage,
             mode,
-            interactiveRefs,
-            setters,
+            agentRefs,
+            agentHandlers,
             abortController.signal,
           );
         } finally {
-          if (abortRef.current === abortController) {
-            abortRef.current = null;
-          }
+          if (abortRef.current === abortController) abortRef.current = null;
         }
         return;
       }
 
-      let systemPrompt: string | null = null;
-      let pageSourceOverride: PageSource | null | undefined = null;
-      if (resolveChatContextSendMode(options) === ChatContextSendMode.WithPageContext) {
-        const currentChatId = chatIdRef.current;
-        const lockedContext = currentChatId
-          ? lockedContextByChatIdRef.current.get(currentChatId)
-          : undefined;
-
-        if (lockedContext) {
-          systemPrompt = lockedContext.systemPrompt;
-          pageSourceOverride = lockedContext.pageSource;
-          setChatContextChipSourceOverride(pageSourceOverride);
-        } else {
-          try {
-            const contextPrompt = await buildAgentSystemPromptWithContext();
-            systemPrompt = contextPrompt.systemPrompt;
-            pageSourceOverride = {
-              url: contextPrompt.tab.url,
-              title: contextPrompt.tab.title,
-              faviconUrl: contextPrompt.tab.favIconUrl,
-            };
-            setChatContextChipSourceOverride(pageSourceOverride);
-
-            if (currentChatId && !lockedContextByChatIdRef.current.has(currentChatId)) {
-              lockedContextByChatIdRef.current.set(currentChatId, {
-                systemPrompt: contextPrompt.systemPrompt,
-                pageSource: pageSourceOverride,
-              });
-            }
-          } catch (error) {
-            if (error instanceof AgentContextUnavailableError) {
-              onAgentContextUnavailable?.(error.message);
-              return;
-            }
-            const failedMessages = [
-              ...messagesRef.current,
-              userMessage,
-              createChatMessage(MessageRole.Assistant, `Error: ${extractErrorMessage(error)}`),
-            ];
-            setMessages(failedMessages);
-            setStreaming(false);
-            setTokenStats(null);
-            onMessagesChange?.(failedMessages, undefined, pageSourceRef.current ?? undefined);
-            return;
-          }
+      let pageContext: PerChatPageContext | null = null;
+      try {
+        pageContext = await fetchPageContext(options, chatIdRef.current);
+      } catch (error) {
+        if (error instanceof AgentContextUnavailableError) {
+          onAgentContextUnavailable?.(error.message);
+          return;
         }
-      } else {
-        setChatContextChipSourceOverride(null);
+        const errorMessages = [
+          ...messagesRef.current,
+          userMessage,
+          createChatMessage(MessageRole.Assistant, `Error: ${extractErrorMessage(error)}`),
+        ];
+        setMessages(errorMessages);
+        setStreaming(false);
+        setTokenStats(null);
+        onMessagesChange?.(errorMessages, undefined, pageSourceRef.current ?? undefined);
+        return;
       }
 
-      const setters = {
+      const chatRefs: ChatStreamRefs = { serviceRef, messagesRef, pageSourceRef, abortRef };
+      const chatHandlers: ChatStreamSetters = {
         setMessages,
         setStreaming,
         setTokenStats,
@@ -196,14 +202,21 @@ export function useChat(
       await executeChatStream(
         userMessage,
         assistantMessage,
-        systemPrompt,
-        pageSourceOverride,
+        pageContext?.systemPrompt ?? null,
+        pageContext?.pageSource ?? null,
         mode,
-        streamRefs,
-        setters,
+        chatRefs,
+        chatHandlers,
       );
     },
-    [mode, onAgentContextUnavailable, onMessagesChange, serviceRef, showMultimodalUnsupportedModal],
+    [
+      fetchPageContext,
+      mode,
+      onAgentContextUnavailable,
+      onMessagesChange,
+      serviceRef,
+      showMultimodalUnsupportedModal,
+    ],
   );
 
   const stop = useCallback(() => {
