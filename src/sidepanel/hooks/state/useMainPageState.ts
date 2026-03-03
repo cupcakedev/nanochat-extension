@@ -51,9 +51,6 @@ export function useMainPageState() {
   const isFullScreen = useFullScreenMode();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatContextSource, setChatContextSource] = useState<PageSource | null>(null);
-  const contextMode = chatContextSource
-    ? ChatContextSendMode.WithPageContext
-    : ChatContextSendMode.WithoutPageContext;
 
   const { status, progress, error, retry, download, serviceRef } = usePromptSession();
 
@@ -72,7 +69,9 @@ export function useMainPageState() {
   const hasInitialMessages = initialMessages.length > 0;
 
   useEffect(() => {
-    if (hasInitialMessages) return;
+    if (hasInitialMessages) {
+      return;
+    }
     fetchPageContextSource().then(setChatContextSource);
   }, [activeChatId, hasInitialMessages]);
 
@@ -117,6 +116,12 @@ export function useMainPageState() {
     activeChat?.pageSource,
     chatContextChipSourceOverride,
   );
+  const hasMessages = messages.length > 0;
+  const chatContextSourceForDock = hasMessages ? null : chatContextSource;
+  const effectiveContextSource = hasMessages ? (chatPageSource ?? null) : chatContextSource;
+  const contextMode = effectiveContextSource
+    ? ChatContextSendMode.WithPageContext
+    : ChatContextSendMode.WithoutPageContext;
   const messageListPageSource = resolveMessageListPageSource(
     mode,
     activeChat?.pageSource,
@@ -128,7 +133,6 @@ export function useMainPageState() {
     messages.length,
   );
 
-  const hasMessages = messages.length > 0;
   const isSessionLoading = status === SessionStatus.Loading;
   const isShowingOnboardingFlow =
     status === SessionStatus.NeedsDownload ||
@@ -192,7 +196,7 @@ export function useMainPageState() {
     agentChipAnimationKey,
     chatPageSource,
     chatContextAnimationKey,
-    chatContextSource,
+    chatContextSource: chatContextSourceForDock,
     messageListPageSource,
     multimodalModalOpen,
     agentNotice,

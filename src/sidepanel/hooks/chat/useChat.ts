@@ -26,6 +26,11 @@ export type { ContextUsage };
 
 const logger = createLogger('useChat');
 
+interface LockedChatContext {
+  systemPrompt: string;
+  pageSource: PageSource;
+}
+
 export function useChat(
   serviceRef: RefObject<PromptAPIService>,
   chatId: string | null,
@@ -55,6 +60,7 @@ export function useChat(
   const messagesRef = useRef(messages);
   const pageSourceRef = useRef(pageSource);
   const chatIdRef = useRef(chatId);
+  const lockedContextByChatIdRef = useRef<Map<string, LockedChatContext>>(new Map());
   const devTraceEnabled = shouldEnableDevTrace(mode);
 
   messagesRef.current = messages;
@@ -132,30 +138,48 @@ export function useChat(
       let systemPrompt: string | null = null;
       let pageSourceOverride: PageSource | null | undefined = null;
       if (resolveChatContextSendMode(options) === ChatContextSendMode.WithPageContext) {
-        try {
-          const contextPrompt = await buildAgentSystemPromptWithContext();
-          systemPrompt = contextPrompt.systemPrompt;
-          pageSourceOverride = {
-            url: contextPrompt.tab.url,
-            title: contextPrompt.tab.title,
-            faviconUrl: contextPrompt.tab.favIconUrl,
-          };
+        const currentChatId = chatIdRef.current;
+        const lockedContext = currentChatId
+          ? lockedContextByChatIdRef.current.get(currentChatId)
+          : undefined;
+
+        if (lockedContext) {
+          systemPrompt = lockedContext.systemPrompt;
+          pageSourceOverride = lockedContext.pageSource;
           setChatContextChipSourceOverride(pageSourceOverride);
-        } catch (error) {
-          if (error instanceof AgentContextUnavailableError) {
-            onAgentContextUnavailable?.(error.message);
+        } else {
+          try {
+            const contextPrompt = await buildAgentSystemPromptWithContext();
+            systemPrompt = contextPrompt.systemPrompt;
+            pageSourceOverride = {
+              url: contextPrompt.tab.url,
+              title: contextPrompt.tab.title,
+              faviconUrl: contextPrompt.tab.favIconUrl,
+            };
+            setChatContextChipSourceOverride(pageSourceOverride);
+
+            if (currentChatId && !lockedContextByChatIdRef.current.has(currentChatId)) {
+              lockedContextByChatIdRef.current.set(currentChatId, {
+                systemPrompt: contextPrompt.systemPrompt,
+                pageSource: pageSourceOverride,
+              });
+            }
+          } catch (error) {
+            if (error instanceof AgentContextUnavailableError) {
+              onAgentContextUnavailable?.(error.message);
+              return;
+            }
+            const failedMessages = [
+              ...messagesRef.current,
+              userMessage,
+              createChatMessage(MessageRole.Assistant, `Error: ${extractErrorMessage(error)}`),
+            ];
+            setMessages(failedMessages);
+            setStreaming(false);
+            setTokenStats(null);
+            onMessagesChange?.(failedMessages, undefined, pageSourceRef.current ?? undefined);
             return;
           }
-          const failedMessages = [
-            ...messagesRef.current,
-            userMessage,
-            createChatMessage(MessageRole.Assistant, `Error: ${extractErrorMessage(error)}`),
-          ];
-          setMessages(failedMessages);
-          setStreaming(false);
-          setTokenStats(null);
-          onMessagesChange?.(failedMessages, undefined, pageSourceRef.current ?? undefined);
-          return;
         }
       } else {
         setChatContextChipSourceOverride(null);
