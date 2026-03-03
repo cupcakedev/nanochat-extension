@@ -1,5 +1,3 @@
-import type { RefObject } from 'react';
-import type { PromptAPIService } from '@sidepanel/services/prompt/api';
 import {
   appendTokenToLastMessage,
   calculateTokenStats,
@@ -9,33 +7,13 @@ import {
   resolvePageSourceForPersist,
   toContextUsage,
   trimLastMessageTrailingWhitespace,
-  type ContextUsage,
 } from '@sidepanel/services/chat/message-utils';
+import type { ChatStreamRefs, ChatStreamSetters } from '@sidepanel/types/execution';
 import type { ChatMode } from '@sidepanel/types/mode';
 import { createLogger } from '@shared/utils';
-import type { ChatMessage, PageSource, TokenStats } from '@shared/types';
+import type { ChatMessage, PageSource } from '@shared/types';
 
 const logger = createLogger('chat-streaming');
-
-export interface ChatStreamRefs {
-  serviceRef: RefObject<PromptAPIService>;
-  messagesRef: RefObject<ChatMessage[]>;
-  pageSourceRef: RefObject<PageSource | null | undefined>;
-  abortRef: RefObject<AbortController | null>;
-}
-
-export interface ChatStreamSetters {
-  setMessages: (updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
-  setStreaming: (v: boolean) => void;
-  setTokenStats: (v: TokenStats | null) => void;
-  setContextUsage: (v: ContextUsage | null) => void;
-  onMessagesChange?: (
-    messages: ChatMessage[],
-    contextUsage?: { used: number; total: number },
-    pageSource?: PageSource | null,
-  ) => void;
-  onMultimodalInputUnsupported?: (message: string) => void;
-}
 
 export async function executeChatStream(
   userMessage: ChatMessage,

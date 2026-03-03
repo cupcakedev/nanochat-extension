@@ -2,12 +2,7 @@ import type { ChatMessage, PageSource, TokenStats } from '@shared/types';
 import { MessageRole } from '@shared/types';
 import { ChatContextSendMode } from '@sidepanel/types/mode';
 import type { ChatSendOptions } from '@sidepanel/types/mode';
-
-export interface ContextUsage {
-  used: number;
-  total: number;
-  percent: number;
-}
+import type { ContextUsage } from '@sidepanel/types/chat';
 
 export function replaceLastMessageContent(prev: ChatMessage[], content: string): ChatMessage[] {
   const updated = [...prev];

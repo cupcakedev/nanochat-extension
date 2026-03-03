@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import type { ContextUsage } from '@sidepanel/services/chat';
+import type { ContextUsage } from '@sidepanel/types/chat';
 
 interface ContextBarProps {
   usage: ContextUsage;
