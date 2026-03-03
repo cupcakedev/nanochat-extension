@@ -3,6 +3,7 @@ import {
   calculateTokenStats,
   extractErrorMessage,
   isMultimodalInputUnsupportedError,
+  isQuotaExceededError,
   replaceLastMessageContent,
   resolvePageSourceForPersist,
   toContextUsage,
@@ -14,6 +15,9 @@ import { createLogger } from '@shared/utils';
 import type { ChatMessage, PageSource } from '@shared/types';
 
 const logger = createLogger('chat-streaming');
+
+const QUOTA_EXCEEDED_USER_MESSAGE =
+  'Your message is too long — the context window is full. Start a new chat or shorten your message.';
 
 export async function executeChatStream(
   userMessage: ChatMessage,
@@ -32,6 +36,7 @@ export async function executeChatStream(
   (refs.abortRef as { current: AbortController | null }).current = abortController;
   const startTime = performance.now();
   let tokenCount = 0;
+  let overrideContent: string | null = null;
 
   try {
     const allMessages = [...refs.messagesRef.current, userMessage];
@@ -46,23 +51,23 @@ export async function executeChatStream(
     );
   } catch (error) {
     if (!abortController.signal.aborted) {
-      const message = extractErrorMessage(error);
       if (isMultimodalInputUnsupportedError(error)) {
-        setters.onMultimodalInputUnsupported?.(message);
-        setters.setMessages((prev) =>
-          replaceLastMessageContent(
-            prev as ChatMessage[],
-            'Image input is unavailable in this Chrome profile. Enable the multimodal Prompt API flag and relaunch Chrome.',
-          ),
-        );
-        return;
+        setters.onMultimodalInputUnsupported?.(extractErrorMessage(error));
+        overrideContent =
+          'Image input is unavailable in this Chrome profile. Enable the multimodal Prompt API flag and relaunch Chrome.';
+      } else if (isQuotaExceededError(error)) {
+        overrideContent = QUOTA_EXCEEDED_USER_MESSAGE;
+      } else {
+        overrideContent = `Error: ${extractErrorMessage(error)}`;
       }
-      setters.setMessages((prev) =>
-        replaceLastMessageContent(prev as ChatMessage[], `Error: ${message}`),
-      );
     }
   } finally {
-    const trimmedMessages = trimLastMessageTrailingWhitespace(refs.messagesRef.current);
+    const baseMessages = trimLastMessageTrailingWhitespace(refs.messagesRef.current);
+    const finalMessages =
+      overrideContent !== null
+        ? replaceLastMessageContent(baseMessages as ChatMessage[], overrideContent)
+        : baseMessages;
+
     const usage = refs.serviceRef.current.getContextUsage();
     const rawUsage = usage ? { used: usage.used, total: usage.total } : undefined;
     const stats = tokenCount > 0 ? calculateTokenStats(tokenCount, startTime) : null;
@@ -71,7 +76,7 @@ export async function executeChatStream(
       pageSourceOverride,
     );
 
-    setters.setMessages(trimmedMessages);
+    setters.setMessages(finalMessages);
     setters.setStreaming(false);
     setters.setTokenStats(stats);
     setters.setContextUsage(rawUsage ? toContextUsage(rawUsage) : null);
@@ -84,6 +89,6 @@ export async function executeChatStream(
       tokensPerSecond: stats?.tokensPerSecond.toFixed(1),
     });
 
-    setters.onMessagesChange?.(trimmedMessages, rawUsage, pageSourceToPersist);
+    setters.onMessagesChange?.(finalMessages, rawUsage, pageSourceToPersist);
   }
 }

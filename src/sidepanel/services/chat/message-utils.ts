@@ -41,6 +41,12 @@ export function extractErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'An error occurred during generation';
 }
 
+export function isQuotaExceededError(err: unknown): boolean {
+  if (err instanceof Error && err.name === 'QuotaExceededError') return true;
+  const message = extractErrorMessage(err).toLowerCase();
+  return message.includes('quota exceeded') || message.includes('the input is too large');
+}
+
 export function isMultimodalInputUnsupportedError(err: unknown): boolean {
   const message = extractErrorMessage(err).toLowerCase();
   return (
