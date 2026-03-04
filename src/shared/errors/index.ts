@@ -4,6 +4,7 @@ export enum AppErrorCode {
   LanguageModelNotDefined = 'language_model_not_defined',
   SessionNotInitialized = 'session_not_initialized',
   PromptApiMultimodalUnavailable = 'prompt_api_multimodal_unavailable',
+  PromptApiInsufficientStorage = 'prompt_api_insufficient_storage',
   PromptRequestTimeout = 'prompt_request_timeout',
   PromptRequestAborted = 'prompt_request_aborted',
   PromptApiUnavailableProfile = 'prompt_api_unavailable_profile',
@@ -44,6 +45,8 @@ export const APP_ERROR_TEXT = {
   verifierIncompleteJsonOutput: 'Verifier returned incomplete JSON output',
   promptRequestAborted: 'Prompt request aborted',
   promptApiUnavailableProfile: 'Chrome Prompt API is unavailable in this browser profile',
+  promptApiInsufficientStorage:
+    'Not enough disk space to download the on-device model. Free up storage and try again.',
   activeTabNotFound: 'No active tab found',
   interactionSnapshotMainFrameMissing: 'Failed to get interaction snapshot from main frame',
   openUrlEmpty: 'openUrl action received empty URL',
@@ -75,6 +78,8 @@ function resolveMessage(code: AppErrorCode, context: AppErrorContext): string {
       return APP_ERROR_TEXT.sessionNotInitialized;
     case AppErrorCode.PromptApiMultimodalUnavailable:
       return `Image input is currently unavailable in this Chrome profile (Prompt API multimodal session couldn't be created). ${context.detail ?? ''}`.trim();
+    case AppErrorCode.PromptApiInsufficientStorage:
+      return APP_ERROR_TEXT.promptApiInsufficientStorage;
     case AppErrorCode.PromptRequestTimeout:
       return `${context.scope ?? 'Request'} timed out after ${context.timeoutMs ?? 0}ms`;
     case AppErrorCode.PromptRequestAborted:
@@ -163,4 +168,20 @@ export function createAppError(
 export function toError(error: unknown, fallbackCode = AppErrorCode.Unknown): Error {
   if (error instanceof Error) return error;
   return createAppError(fallbackCode, { detail: String(error) });
+}
+
+export function isPromptApiInsufficientStorageError(error: unknown): boolean {
+  const name =
+    typeof error === 'object' && error !== null && 'name' in error
+      ? String((error as { name?: unknown }).name)
+      : '';
+  const message =
+    typeof error === 'object' && error !== null && 'message' in error
+      ? String((error as { message?: unknown }).message).toLowerCase()
+      : String(error).toLowerCase();
+  if (message.includes('not enough space') && message.includes('on-device model')) return true;
+  if (message.includes('does not have enough space') && message.includes('on-device model')) {
+    return true;
+  }
+  return name === 'NotAllowedError' && message.includes('enough space');
 }

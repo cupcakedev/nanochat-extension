@@ -10,6 +10,7 @@ import { DevTracePanel } from '@sidepanel/components/chat/DevTracePanel';
 import { OnboardingScreen } from '@sidepanel/components/status/OnboardingScreen';
 import { MultimodalSupportModal } from '@sidepanel/components/status/MultimodalSupportModal';
 import { ModelSupportModal } from '@sidepanel/components/status/ModelSupportModal';
+import { InsufficientStorageModal } from '@sidepanel/components/status/InsufficientStorageModal';
 import { useMainPageState } from '@sidepanel/hooks/state';
 import { useScrolled } from '@sidepanel/hooks/ui';
 import { useTemporaryNotice } from '@sidepanel/hooks/ui';
@@ -155,6 +156,11 @@ export const MainPage = () => {
       <MultimodalSupportModal
         isOpen={state.multimodalModalOpen}
         onClose={state.closeMultimodalUnsupportedModal}
+      />
+
+      <InsufficientStorageModal
+        isOpen={state.insufficientStorageModalOpen}
+        onClose={state.closeInsufficientStorageModal}
       />
     </div>
   );

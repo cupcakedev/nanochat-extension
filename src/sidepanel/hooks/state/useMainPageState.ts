@@ -59,7 +59,16 @@ export function useMainPageState() {
   const [chatContextSource, setChatContextSource] = useState<PageSource | null>(null);
   const [autoContextWarning, setAutoContextWarning] = useState<string | null>(null);
 
-  const { status, progress, error, retry, download, serviceRef } = usePromptSession();
+  const {
+    status,
+    progress,
+    error,
+    retry,
+    download,
+    serviceRef,
+    insufficientStorageModalOpen,
+    closeInsufficientStorageModal,
+  } = usePromptSession();
 
   const {
     chatSummaries,
@@ -253,6 +262,8 @@ export function useMainPageState() {
     addChatContext,
     autoContextWarning,
     clearAutoContextWarning,
+    insufficientStorageModalOpen,
+    closeInsufficientStorageModal,
     setChatContextSource,
     selectChat,
     deleteChat,

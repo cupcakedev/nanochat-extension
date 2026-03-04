@@ -1,7 +1,7 @@
 import { createLogger } from '@shared/utils';
 import type { ChatMessage, LoadingProgress } from '@shared/types';
 import { TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS, TEXT_LANGUAGE_MODEL_OPTIONS } from '@shared/constants';
-import { AppErrorCode, createAppError } from '@shared/errors';
+import { AppErrorCode, createAppError, isPromptApiInsufficientStorageError } from '@shared/errors';
 import { toLanguageModelMessage, summarizePrompt } from './message-converter';
 
 const logger = createLogger('prompt-api');
@@ -14,6 +14,11 @@ function modeToOptions(mode: SessionMode): LanguageModelCreateCoreOptions {
 function toMultimodalUnsupportedError(err: unknown): Error {
   const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
   return createAppError(AppErrorCode.PromptApiMultimodalUnavailable, { detail }, { cause: err });
+}
+
+function toInsufficientStorageError(err: unknown): Error {
+  const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  return createAppError(AppErrorCode.PromptApiInsufficientStorage, { detail }, { cause: err });
 }
 
 function toErrorPayload(err: unknown) {
@@ -77,6 +82,24 @@ export class PromptAPIService {
     return availability;
   }
 
+  async diagnoseUnavailableReason(
+    mode: SessionMode = 'text',
+  ): Promise<AppErrorCode.PromptApiInsufficientStorage | null> {
+    ensureLanguageModelDefined();
+    let probeSession: LanguageModel | null = null;
+    try {
+      probeSession = await LanguageModel.create(modeToOptions(mode));
+      return null;
+    } catch (err) {
+      if (isPromptApiInsufficientStorageError(err)) {
+        return AppErrorCode.PromptApiInsufficientStorage;
+      }
+      return null;
+    } finally {
+      probeSession?.destroy();
+    }
+  }
+
   async createSession(
     onProgress?: (progress: LoadingProgress) => void,
     signal?: AbortSignal,
@@ -113,6 +136,10 @@ export class PromptAPIService {
         },
       });
     } catch (err) {
+      if (isPromptApiInsufficientStorageError(err)) {
+        throw toInsufficientStorageError(err);
+      }
+
       const multimodalOnlyFailure =
         mode === 'text+image' && !signal?.aborted ? await isMultimodalOnlyFailure() : false;
 
@@ -168,6 +195,10 @@ export class PromptAPIService {
         ...(systemPrompt ? { initialPrompts: [{ role: 'system', content: systemPrompt }] } : {}),
       });
     } catch (err) {
+      if (isPromptApiInsufficientStorageError(err)) {
+        throw toInsufficientStorageError(err);
+      }
+
       const multimodalOnlyFailure =
         mode === 'text+image' && !signal?.aborted ? await isMultimodalOnlyFailure() : false;
 

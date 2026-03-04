@@ -1,6 +1,11 @@
 import { createLogger } from '@shared/utils';
 import { TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS, TEXT_LANGUAGE_MODEL_OPTIONS } from '@shared/constants';
-import { AppErrorCode, createAppError, toError } from '@shared/errors';
+import {
+  AppErrorCode,
+  createAppError,
+  isPromptApiInsufficientStorageError,
+  toError,
+} from '@shared/errors';
 import {
   INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
   INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
@@ -250,6 +255,11 @@ function toMultimodalUnsupportedError(err: unknown): Error {
   return createAppError(AppErrorCode.PromptApiMultimodalUnavailable, { detail }, { cause: err });
 }
 
+function toInsufficientStorageError(err: unknown): Error {
+  const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  return createAppError(AppErrorCode.PromptApiInsufficientStorage, { detail }, { cause: err });
+}
+
 function ensureLanguageModelDefined(): void {
   if (typeof LanguageModel === 'undefined') {
     throw createAppError(AppErrorCode.LanguageModelNotDefined);
@@ -304,6 +314,10 @@ async function isMultimodalOnlyFailure(): Promise<boolean> {
 }
 
 async function throwMappedPlannerSessionError(error: unknown, scope: string): Promise<never> {
+  if (isPromptApiInsufficientStorageError(error)) {
+    throw toInsufficientStorageError(error);
+  }
+
   const multimodalOnlyFailure = await isMultimodalOnlyFailure().catch(() => false);
   logger.error(`${scope}:failed`, {
     multimodalOnlyFailure,
@@ -585,6 +599,21 @@ function buildPromptOptionsWithSchema(schema: unknown, signal?: AbortSignal): Pr
   return { responseConstraint: schema, omitResponseConstraintInput: true, signal };
 }
 
+async function throwUnavailableReasonErrorIfAny(
+  options: LanguageModelCreateCoreOptions,
+): Promise<void> {
+  let probeSession: LanguageModel | null = null;
+  try {
+    probeSession = await LanguageModel.create(options);
+  } catch (error) {
+    if (isPromptApiInsufficientStorageError(error)) {
+      throw toInsufficientStorageError(error);
+    }
+  } finally {
+    probeSession?.destroy();
+  }
+}
+
 export async function runTextPromptWithConstraint(
   prompt: string,
   responseConstraint: unknown,
@@ -602,6 +631,7 @@ export async function runTextPromptWithConstraint(
     'Prompt availability',
   );
   if (availability === 'unavailable') {
+    await throwUnavailableReasonErrorIfAny(TEXT_LANGUAGE_MODEL_OPTIONS);
     throw createAppError(AppErrorCode.PromptApiUnavailableProfile);
   }
 
