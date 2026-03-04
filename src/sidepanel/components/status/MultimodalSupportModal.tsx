@@ -20,7 +20,7 @@ export const MultimodalSupportModal = memo(({ isOpen, onClose }: MultimodalSuppo
       <div className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none">
         <div className="pointer-events-auto w-[320px] rounded-[16px] border border-white/10 bg-neutral-100/95 backdrop-blur-xl overflow-hidden">
           <div className="px-5 pt-5 pb-4 space-y-3">
-            <h3 className="text-sm font-semibold text-neutral-800">Image Input Is Disabled</h3>
+            <h3 className="text-sm font-semibold text-neutral-800">Multimodal Input Is Disabled</h3>
             <p className="text-xs text-neutral-600 leading-relaxed">
               To use image attachments, enable Chrome flag
               <span className="font-medium"> Prompt API for Gemini Nano multimodal input</span>.
