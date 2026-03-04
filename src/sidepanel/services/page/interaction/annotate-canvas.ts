@@ -1,4 +1,5 @@
 import type { InteractiveElementSnapshotItem } from '@shared/types';
+import { AppErrorCode, createAppError } from '@shared/errors';
 
 const HIGHLIGHT_COLORS = [
   '#ef4444',
@@ -42,7 +43,7 @@ function createCanvas(width: number, height: number): HTMLCanvasElement {
 function cloneBaseCanvas(source: HTMLCanvasElement): HTMLCanvasElement {
   const canvas = createCanvas(source.width, source.height);
   const context = canvas.getContext('2d');
-  if (!context) throw new Error('Unable to create screenshot canvas');
+  if (!context) throw createAppError(AppErrorCode.ScreenshotCanvasCreateFailed);
   context.drawImage(source, 0, 0);
   return canvas;
 }
@@ -118,7 +119,7 @@ export function annotateInteractionCanvas(
 ): HTMLCanvasElement {
   const canvas = cloneBaseCanvas(baseCanvas);
   const context = canvas.getContext('2d');
-  if (!context) throw new Error('Unable to draw interaction overlays');
+  if (!context) throw createAppError(AppErrorCode.InteractionOverlayDrawFailed);
 
   const scaleX = resolveScale(canvas.width, viewport.width);
   const scaleY = resolveScale(canvas.height, viewport.height);

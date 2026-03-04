@@ -1,41 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { PromptAPIService } from '@sidepanel/services/prompt';
-import {
-  AgentContextUnavailableError,
-  buildAgentSystemPromptWithContext,
-} from '@sidepanel/services/agent';
-import {
-  createChatMessage,
-  extractErrorMessage,
-  resolveChatContextSendMode,
-  toContextUsage,
-  type ContextUsage,
-} from '@sidepanel/services/chat';
-import { shouldEnableDevTrace } from '@sidepanel/services/chat';
-import { executeChatStream } from '@sidepanel/services/chat';
-import { executeInteractiveStep } from '@sidepanel/services/chat';
+import { shouldEnableDevTrace, toContextUsage } from '@sidepanel/services/chat';
+import type { ContextUsage } from '@sidepanel/types/chat';
+import type {
+  ContextUsageSnapshot,
+  OnMessagesChange,
+  PerChatPageContext,
+} from '@sidepanel/types/chat-hook';
 import type { DevTraceItem } from '@sidepanel/types/dev-trace';
-import { ChatContextSendMode, ChatMode } from '@sidepanel/types/mode';
-import type { ChatSendOptions } from '@sidepanel/types/mode';
-import { createLogger } from '@shared/utils';
-import { MessageRole } from '@shared/types';
+import { ChatMode } from '@sidepanel/types/mode';
 import type { ChatMessage, PageSource, TokenStats } from '@shared/types';
+import { useChatSend } from './useChatSend';
 
 export type { ContextUsage };
-
-const logger = createLogger('useChat');
 
 export function useChat(
   serviceRef: RefObject<PromptAPIService>,
   chatId: string | null,
   initialMessages: ChatMessage[],
-  initialContextUsage?: { used: number; total: number } | null,
-  onMessagesChange?: (
-    messages: ChatMessage[],
-    contextUsage?: { used: number; total: number },
-    pageSource?: PageSource | null,
-  ) => void,
+  initialContextUsage?: ContextUsageSnapshot | null,
+  onMessagesChange?: OnMessagesChange,
   mode: ChatMode = ChatMode.Chat,
   pageSource?: PageSource | null,
   onAgentContextUnavailable?: (message: string) => void,
@@ -51,14 +36,14 @@ export function useChat(
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(
     initialContextUsage ? toContextUsage(initialContextUsage) : null,
   );
+
   const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef(messages);
   const pageSourceRef = useRef(pageSource);
   const chatIdRef = useRef(chatId);
-  const devTraceEnabled = shouldEnableDevTrace(mode);
+  const lockedContextByChatIdRef = useRef<Map<string, PerChatPageContext>>(new Map());
 
-  messagesRef.current = messages;
-  pageSourceRef.current = pageSource;
+  const devTraceEnabled = shouldEnableDevTrace(mode);
 
   const resetState = useCallback(
     (msgs: ChatMessage[], ctx?: { used: number; total: number } | null) => {
@@ -86,101 +71,37 @@ export function useChat(
   useEffect(() => {
     if (chatIdRef.current === chatId) return;
     chatIdRef.current = chatId;
-    resetState(initialMessages, initialContextUsage);
+    queueMicrotask(() => {
+      resetState(initialMessages, initialContextUsage);
+    });
   }, [chatId, initialContextUsage, initialMessages, resetState]);
 
-  const send = useCallback(
-    async (text: string, images?: string[], options?: ChatSendOptions) => {
-      logger.info('send:start', { mode, textLength: text.length, imageCount: images?.length ?? 0 });
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
-      const interactiveRefs = { messagesRef, pageSourceRef };
-      const streamRefs = { serviceRef, messagesRef, pageSourceRef, abortRef };
+  useEffect(() => {
+    pageSourceRef.current = pageSource;
+  }, [pageSource]);
 
-      const userMessage = createChatMessage(MessageRole.User, text, images);
-      const assistantMessage = createChatMessage(MessageRole.Assistant, '');
-
-      if (mode === ChatMode.Agent) {
-        const setters = {
-          setMessages,
-          setStreaming,
-          setDevTraceItems,
-          setContextUsage,
-          setChatContextChipSourceOverride,
-          onMessagesChange,
-          onMultimodalInputUnsupported: showMultimodalUnsupportedModal,
-        };
-        const abortController = new AbortController();
-        abortRef.current = abortController;
-        try {
-          await executeInteractiveStep(
-            text,
-            userMessage,
-            assistantMessage,
-            mode,
-            interactiveRefs,
-            setters,
-            abortController.signal,
-          );
-        } finally {
-          if (abortRef.current === abortController) {
-            abortRef.current = null;
-          }
-        }
-        return;
-      }
-
-      let systemPrompt: string | null = null;
-      let pageSourceOverride: PageSource | null | undefined = null;
-      if (resolveChatContextSendMode(options) === ChatContextSendMode.WithPageContext) {
-        try {
-          const contextPrompt = await buildAgentSystemPromptWithContext();
-          systemPrompt = contextPrompt.systemPrompt;
-          pageSourceOverride = {
-            url: contextPrompt.tab.url,
-            title: contextPrompt.tab.title,
-            faviconUrl: contextPrompt.tab.favIconUrl,
-          };
-          setChatContextChipSourceOverride(pageSourceOverride);
-        } catch (error) {
-          if (error instanceof AgentContextUnavailableError) {
-            onAgentContextUnavailable?.(error.message);
-            return;
-          }
-          const failedMessages = [
-            ...messagesRef.current,
-            userMessage,
-            createChatMessage(MessageRole.Assistant, `Error: ${extractErrorMessage(error)}`),
-          ];
-          setMessages(failedMessages);
-          setStreaming(false);
-          setTokenStats(null);
-          onMessagesChange?.(failedMessages, undefined, pageSourceRef.current ?? undefined);
-          return;
-        }
-      } else {
-        setChatContextChipSourceOverride(null);
-      }
-
-      const setters = {
-        setMessages,
-        setStreaming,
-        setTokenStats,
-        setContextUsage,
-        onMessagesChange,
-        onMultimodalInputUnsupported: showMultimodalUnsupportedModal,
-      };
-      await executeChatStream(
-        userMessage,
-        assistantMessage,
-        systemPrompt,
-        pageSourceOverride,
-        mode,
-        streamRefs,
-        setters,
-      );
-    },
-    [mode, onAgentContextUnavailable, onMessagesChange, serviceRef, showMultimodalUnsupportedModal],
-  );
+  const send = useChatSend({
+    mode,
+    serviceRef,
+    messagesRef,
+    pageSourceRef,
+    chatIdRef,
+    abortRef,
+    lockedContextByChatIdRef,
+    setMessages,
+    setStreaming,
+    setTokenStats,
+    setContextUsage,
+    setDevTraceItems,
+    setChatContextChipSourceOverride,
+    onMessagesChange,
+    onMultimodalInputUnsupported: showMultimodalUnsupportedModal,
+    onAgentContextUnavailable,
+  });
 
   const stop = useCallback(() => {
     abortRef.current?.abort();

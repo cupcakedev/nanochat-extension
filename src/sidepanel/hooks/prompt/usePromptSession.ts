@@ -3,6 +3,7 @@ import { PromptAPIService } from '@sidepanel/services/prompt';
 import { SessionStatus } from '@shared/types';
 import type { LoadingProgress } from '@shared/types';
 import { createLogger } from '@shared/utils';
+import { APP_ERROR_TEXT, AppError, AppErrorCode } from '@shared/errors';
 
 const logger = createLogger('prompt-session');
 
@@ -17,6 +18,24 @@ function toErrorPayload(err: unknown) {
   return { value: String(err) };
 }
 
+function isSessionCreationBlockedError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const message = err.message.toLowerCase();
+  return (
+    err.name === 'InvalidStateError' &&
+    message.includes('unable to create a session') &&
+    message.includes('availability')
+  );
+}
+
+function toErrorMessage(err: unknown): string {
+  if (err instanceof AppError && err.code === AppErrorCode.PromptApiInsufficientStorage) {
+    return APP_ERROR_TEXT.promptApiInsufficientStorage;
+  }
+  if (err instanceof Error) return err.message;
+  return APP_ERROR_TEXT.failedToInitializeModel;
+}
+
 export function usePromptSession() {
   const serviceRef = useRef<PromptAPIService>(new PromptAPIService());
   const initRef = useRef(false);
@@ -24,6 +43,7 @@ export function usePromptSession() {
   const [status, setStatus] = useState<SessionStatus>(SessionStatus.Idle);
   const [progress, setProgress] = useState<LoadingProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [insufficientStorageModalOpen, setInsufficientStorageModalOpen] = useState(false);
 
   const createSession = useCallback(async () => {
     logger.info('createSession:start');
@@ -44,10 +64,20 @@ export function usePromptSession() {
         setStatus(SessionStatus.NeedsDownload);
         return;
       }
-      const message = err instanceof Error ? err.message : 'Failed to initialize model';
+      if (isSessionCreationBlockedError(err)) {
+        logger.info('createSession:blocked-while-downloading');
+        setError(null);
+        setStatus(SessionStatus.NeedsDownload);
+        setProgress(null);
+        return;
+      }
+      const message = toErrorMessage(err);
       logger.error('createSession:failed', {
         error: toErrorPayload(err),
       });
+      if (message === APP_ERROR_TEXT.promptApiInsufficientStorage) {
+        setInsufficientStorageModalOpen(true);
+      }
       setError(message);
       setStatus(SessionStatus.Error);
     } finally {
@@ -62,14 +92,29 @@ export function usePromptSession() {
     setError(null);
     setProgress(null);
 
+    if (typeof LanguageModel === 'undefined') {
+      setError(APP_ERROR_TEXT.languageModelNotDefined);
+      setStatus(SessionStatus.Error);
+      logger.warn('checkAndInit:status=error (language-model-missing)');
+      return;
+    }
+
     try {
       const availability = await serviceRef.current.checkAvailability();
       logger.info('checkAndInit:availability', { availability });
 
       if (availability === 'unavailable') {
-        setError('Gemini Nano is not available in this browser. Chrome 138+ required.');
+        const unavailableReason = await serviceRef.current.diagnoseUnavailableReason();
+        const message =
+          unavailableReason === AppErrorCode.PromptApiInsufficientStorage
+            ? APP_ERROR_TEXT.promptApiInsufficientStorage
+            : APP_ERROR_TEXT.modelUnavailable;
+        if (message === APP_ERROR_TEXT.promptApiInsufficientStorage) {
+          setInsufficientStorageModalOpen(true);
+        }
+        setError(message);
         setStatus(SessionStatus.Error);
-        logger.warn('checkAndInit:status=error (unavailable)');
+        logger.warn('checkAndInit:status=error (unavailable)', { unavailableReason });
         return;
       }
 
@@ -88,10 +133,13 @@ export function usePromptSession() {
       logger.info('checkAndInit:status=available -> createSession');
       await createSession();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to initialize model';
+      const message = toErrorMessage(err);
       logger.error('checkAndInit:failed', {
         error: toErrorPayload(err),
       });
+      if (message === APP_ERROR_TEXT.promptApiInsufficientStorage) {
+        setInsufficientStorageModalOpen(true);
+      }
       setError(message);
       setStatus(SessionStatus.Error);
     }
@@ -99,6 +147,27 @@ export function usePromptSession() {
 
   const download = useCallback(async () => {
     logger.info('download:requested');
+    try {
+      const availability = await serviceRef.current.checkAvailability();
+      if (availability === 'unavailable') {
+        const unavailableReason = await serviceRef.current.diagnoseUnavailableReason();
+        const message =
+          unavailableReason === AppErrorCode.PromptApiInsufficientStorage
+            ? APP_ERROR_TEXT.promptApiInsufficientStorage
+            : APP_ERROR_TEXT.modelUnavailable;
+        if (message === APP_ERROR_TEXT.promptApiInsufficientStorage) {
+          setInsufficientStorageModalOpen(true);
+        }
+        setError(message);
+        setStatus(SessionStatus.Error);
+        logger.warn('download:blocked (unavailable)', { unavailableReason });
+        return;
+      }
+    } catch (err) {
+      logger.error('download:availability-check-failed', {
+        error: toErrorPayload(err),
+      });
+    }
     await createSession();
   }, [createSession]);
 
@@ -122,5 +191,15 @@ export function usePromptSession() {
     };
   }, [checkAndInit]);
 
-  return { status, progress, error, retry, download, cancelDownload, serviceRef };
+  return {
+    status,
+    progress,
+    error,
+    retry,
+    download,
+    cancelDownload,
+    serviceRef,
+    insufficientStorageModalOpen,
+    closeInsufficientStorageModal: () => setInsufficientStorageModalOpen(false),
+  };
 }

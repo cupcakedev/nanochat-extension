@@ -14,6 +14,7 @@ import type {
   InteractionSnapshotPayload,
   PageInteractionStepResult,
 } from '@shared/types';
+import { AppErrorCode, createAppError } from '@shared/errors';
 import { captureStackedViewport } from './capture';
 import { enforceTypingFirst } from './guards';
 import {
@@ -625,7 +626,7 @@ export async function runPageInteractionStep(
     }
 
     if (!lastDecision) {
-      throw new Error('Agent did not produce any planning result');
+      throw createAppError(AppErrorCode.AgentPlanningResultMissing);
     }
 
     const completion = resolveCompletion(

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Sidebar } from '@sidepanel/components/sidebar/Sidebar';
 import { ChatHeader } from '@sidepanel/components/chat/ChatHeader';
 import { InputDock } from '@sidepanel/components/chat/InputDock';
@@ -10,19 +10,29 @@ import { DevTracePanel } from '@sidepanel/components/chat/DevTracePanel';
 import { OnboardingScreen } from '@sidepanel/components/status/OnboardingScreen';
 import { MultimodalSupportModal } from '@sidepanel/components/status/MultimodalSupportModal';
 import { ModelSupportModal } from '@sidepanel/components/status/ModelSupportModal';
+import { InsufficientStorageModal } from '@sidepanel/components/status/InsufficientStorageModal';
 import { useMainPageState } from '@sidepanel/hooks/state';
 import { useScrolled } from '@sidepanel/hooks/ui';
 import { useTemporaryNotice } from '@sidepanel/hooks/ui';
 import { toSendOptions } from '@sidepanel/services/chat';
-import { fetchPageContextSource } from '@sidepanel/services/page';
 import { ChatContextSendMode } from '@sidepanel/types/mode';
 import { SessionStatus } from '@shared/types';
+import { APP_ERROR_TEXT } from '@shared/errors';
+
+const NOOP = () => {};
 
 export const MainPage = () => {
   const state = useMainPageState();
   const { scrolled, scrollRef } = useScrolled();
   const { notice: contextNotice, showNotice: showContextNotice } = useTemporaryNotice();
-  const { send, mode, contextMode, setChatContextSource } = state;
+  const { send, mode, contextMode, addChatContext, autoContextWarning, clearAutoContextWarning } =
+    state;
+
+  useEffect(() => {
+    if (!autoContextWarning) return;
+    showContextNotice(autoContextWarning);
+    clearAutoContextWarning();
+  }, [autoContextWarning, clearAutoContextWarning, showContextNotice]);
 
   const handleSuggestionClick = useCallback(
     async (prompt: string, requiresContext: boolean) => {
@@ -30,17 +40,23 @@ export const MainPage = () => {
         ? ChatContextSendMode.WithPageContext
         : contextMode;
       if (requiresContext) {
-        const source = await fetchPageContextSource();
-        if (!source) {
-          showContextNotice('This feature requires a webpage. Open a website and try again.');
+        const contextWarning = await addChatContext();
+        if (contextWarning) {
+          showContextNotice(contextWarning);
           return;
         }
-        setChatContextSource(source);
       }
       send(prompt, undefined, toSendOptions(mode, resolvedContextMode));
     },
-    [send, mode, contextMode, setChatContextSource, showContextNotice],
+    [addChatContext, send, mode, contextMode, showContextNotice],
   );
+
+  const handleAddChatContext = useCallback(() => {
+    void addChatContext().then((contextWarning) => {
+      if (!contextWarning) return;
+      showContextNotice(contextWarning);
+    });
+  }, [addChatContext, showContextNotice]);
 
   return (
     <div className="relative h-screen flex flex-row bg-neutral-bg overflow-hidden">
@@ -48,10 +64,10 @@ export const MainPage = () => {
         chatSummaries={state.isReady ? state.chatSummaries : []}
         activeChatId={state.isReady ? state.activeChatId : null}
         isOpen={state.isReady && state.isSidebarOpen}
-        onSelectChat={state.isReady ? state.selectChat : state.NOOP}
-        onDeleteChat={state.isReady ? state.deleteChat : state.NOOP}
-        onNewChat={state.isReady ? state.handleNewChat : state.NOOP}
-        onClose={state.isReady ? state.closeSidebar : state.NOOP}
+        onSelectChat={state.isReady ? state.selectChat : NOOP}
+        onDeleteChat={state.isReady ? state.deleteChat : NOOP}
+        onNewChat={state.isReady ? state.handleNewChat : NOOP}
+        onClose={state.isReady ? state.closeSidebar : NOOP}
       />
 
       <main className="flex-1 flex flex-col relative min-w-0">
@@ -111,7 +127,7 @@ export const MainPage = () => {
               disabled={state.status !== SessionStatus.Ready}
               contextMode={state.contextMode}
               onDismissChatContext={state.dismissChatContext}
-              onAddChatContext={state.addChatContext}
+              onAddChatContext={handleAddChatContext}
               isFullScreen={state.isFullScreen}
             />
           </>
@@ -122,17 +138,29 @@ export const MainPage = () => {
                 onDownload={state.download}
                 loading={state.isSessionLoading}
                 progress={state.progress}
+                error={state.error}
               />
             </div>
           )
         )}
       </main>
 
-      <ModelSupportModal isOpen={state.status === SessionStatus.Error} onRetry={state.retry} />
+      <ModelSupportModal
+        isOpen={
+          state.status === SessionStatus.Error &&
+          state.error === APP_ERROR_TEXT.languageModelNotDefined
+        }
+        onRetry={state.retry}
+      />
 
       <MultimodalSupportModal
         isOpen={state.multimodalModalOpen}
         onClose={state.closeMultimodalUnsupportedModal}
+      />
+
+      <InsufficientStorageModal
+        isOpen={state.insufficientStorageModalOpen}
+        onClose={state.closeInsufficientStorageModal}
       />
     </div>
   );

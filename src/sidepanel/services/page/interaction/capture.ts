@@ -1,4 +1,5 @@
 import { captureScreenshot, setInteractionScroll } from '@sidepanel/services/page/tab-bridge';
+import { AppErrorCode, createAppError } from '@shared/errors';
 
 export interface ViewportCaptureResult {
   canvas: HTMLCanvasElement;
@@ -14,7 +15,7 @@ function decodeImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('Failed to decode captured screenshot'));
+    image.onerror = () => reject(createAppError(AppErrorCode.ScreenshotDecodeFailed));
     image.src = dataUrl;
   });
 }
@@ -24,7 +25,7 @@ function drawImageToCanvas(image: HTMLImageElement): HTMLCanvasElement {
   canvas.width = image.width;
   canvas.height = image.height;
   const context = canvas.getContext('2d');
-  if (!context) throw new Error('Unable to create screenshot canvas');
+  if (!context) throw createAppError(AppErrorCode.ScreenshotCanvasCreateFailed);
   context.drawImage(image, 0, 0);
   return canvas;
 }
@@ -40,7 +41,7 @@ export async function captureVisibleViewport(
 }
 
 function stitchVerticalCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElement {
-  if (!canvases.length) throw new Error('No viewport captures available for stitching');
+  if (!canvases.length) throw createAppError(AppErrorCode.ViewportCapturesMissing);
 
   const width = Math.max(...canvases.map((canvas) => canvas.width));
   const height = canvases.reduce((sum, canvas) => sum + canvas.height, 0);
@@ -49,7 +50,7 @@ function stitchVerticalCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElemen
   stitched.height = height;
 
   const context = stitched.getContext('2d');
-  if (!context) throw new Error('Unable to create stitched screenshot canvas');
+  if (!context) throw createAppError(AppErrorCode.StitchedScreenshotCanvasCreateFailed);
 
   let offsetY = 0;
   canvases.forEach((canvas) => {

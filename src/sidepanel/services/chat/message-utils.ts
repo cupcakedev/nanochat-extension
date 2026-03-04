@@ -2,12 +2,13 @@ import type { ChatMessage, PageSource, TokenStats } from '@shared/types';
 import { MessageRole } from '@shared/types';
 import { ChatContextSendMode } from '@sidepanel/types/mode';
 import type { ChatSendOptions } from '@sidepanel/types/mode';
+import type { ContextUsage } from '@sidepanel/types/chat';
 
-export interface ContextUsage {
-  used: number;
-  total: number;
-  percent: number;
-}
+const APPROX_CHARS_PER_TOKEN = 4;
+const BASE_CHAT_ENVELOPE_TOKENS = 24;
+const PER_MESSAGE_ENVELOPE_TOKENS = 10;
+
+export const CHAT_INPUT_TOKEN_LIMIT = 8500;
 
 export function replaceLastMessageContent(prev: ChatMessage[], content: string): ChatMessage[] {
   const updated = [...prev];
@@ -46,12 +47,41 @@ export function extractErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'An error occurred during generation';
 }
 
+function estimateTextTokens(text: string): number {
+  if (!text.trim()) return 0;
+  return Math.ceil(text.length / APPROX_CHARS_PER_TOKEN);
+}
+
+export function estimateChatInputTokens(
+  messages: ChatMessage[],
+  systemPrompt: string | null | undefined,
+): number {
+  const messageTokens = messages.reduce(
+    (sum, message) => sum + estimateTextTokens(message.content),
+    0,
+  );
+  const systemTokens = estimateTextTokens(systemPrompt ?? '');
+  return (
+    BASE_CHAT_ENVELOPE_TOKENS +
+    systemTokens +
+    messageTokens +
+    messages.length * PER_MESSAGE_ENVELOPE_TOKENS
+  );
+}
+
+export function isQuotaExceededError(err: unknown): boolean {
+  if (err instanceof Error && err.name === 'QuotaExceededError') return true;
+  const message = extractErrorMessage(err).toLowerCase();
+  return message.includes('quota exceeded') || message.includes('the input is too large');
+}
+
 export function isMultimodalInputUnsupportedError(err: unknown): boolean {
   const message = extractErrorMessage(err).toLowerCase();
   return (
     message.includes('image input is currently unavailable') ||
     message.includes("multimodal session couldn't be created") ||
     message.includes('model capability is not available') ||
+    message.includes('check the result of availability() first') ||
     message.includes('notallowederror') ||
     (message.includes('unable to create a session') && message.includes('image'))
   );

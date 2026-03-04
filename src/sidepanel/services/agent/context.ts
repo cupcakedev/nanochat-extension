@@ -1,16 +1,16 @@
 import { createLogger } from '@shared/utils';
 import type { InteractiveElementSnapshotItem } from '@shared/types';
+import { AppError, AppErrorCode, APP_ERROR_TEXT } from '@shared/errors';
 import type { ActiveTab, GetPageContentOptions } from '@sidepanel/services/page/tab-bridge';
 import { getActiveTab, getPageContent } from '@sidepanel/services/page/tab-bridge';
 
 const logger = createLogger('agent-context');
 
-export const AGENT_CONTEXT_UNAVAILABLE_MESSAGE =
-  'This feature requires a webpage. Open a website and try again.';
+export const AGENT_CONTEXT_UNAVAILABLE_MESSAGE = APP_ERROR_TEXT.agentContextUnavailable;
 
-export class AgentContextUnavailableError extends Error {
+export class AgentContextUnavailableError extends AppError {
   constructor(message = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) {
-    super(message);
+    super(AppErrorCode.AgentContextUnavailable, { detail: message });
     this.name = 'AgentContextUnavailableError';
   }
 }
@@ -96,11 +96,18 @@ function buildSystemPromptFromPageContext(tab: ActiveTab, content: string): stri
       '',
       `Current tab URL: ${tab.url}`,
       '',
+      'Honesty rule: never claim you inspected page content or found links on the page when content is unavailable.',
+      '',
       'You can help the user by navigating to a web page using the open_url action, or answer general questions.',
     ].join('\n');
   }
   return [
     "You are a helpful AI assistant with access to the user's current web page.",
+    '',
+    'Critical honesty rules:',
+    '1) For page-specific requests, use only the page content below as evidence.',
+    "2) If required evidence is missing, say you can't complete the request from this page and ask for another page or manual details.",
+    '3) Never invent or guess URLs, product matches, prices, or availability.',
     '',
     `Current page:`,
     `URL: ${tab.url}`,
@@ -109,7 +116,7 @@ function buildSystemPromptFromPageContext(tab: ActiveTab, content: string): stri
     'Page content:',
     content,
     '',
-    "Answer the user's questions based on this page content when relevant. If the user asks about something not on the page, you can still help with general knowledge.",
+    "Answer the user's questions based on this page content when relevant. If you answer with general knowledge, clearly state it is not page-grounded.",
   ].join('\n');
 }
 

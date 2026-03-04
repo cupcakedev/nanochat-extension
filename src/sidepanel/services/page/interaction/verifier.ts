@@ -3,6 +3,7 @@ import type {
   InteractionConfidence,
   InteractionExecutionResult,
 } from '@shared/types';
+import { AppErrorCode, createAppError } from '@shared/errors';
 import { runTextPromptWithConstraint } from './prompt-api';
 
 const COMPLETION_VERIFICATION_SCHEMA = {
@@ -18,7 +19,7 @@ const COMPLETION_VERIFICATION_SCHEMA = {
 
 function extractJsonObject(text: string): string {
   const start = text.indexOf('{');
-  if (start === -1) throw new Error('Verifier returned non-JSON output');
+  if (start === -1) throw createAppError(AppErrorCode.VerifierNonJsonOutput);
 
   let depth = 0;
   for (let index = start; index < text.length; index += 1) {
@@ -29,7 +30,7 @@ function extractJsonObject(text: string): string {
     if (depth === 0) return text.slice(start, index + 1);
   }
 
-  throw new Error('Verifier returned incomplete JSON output');
+  throw createAppError(AppErrorCode.VerifierIncompleteJsonOutput);
 }
 
 function normalizeConfidence(value: unknown): InteractionConfidence {

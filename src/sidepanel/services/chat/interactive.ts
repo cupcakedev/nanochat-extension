@@ -1,10 +1,9 @@
-import type { RefObject } from 'react';
+import type { InteractiveRefs, InteractiveSetters } from '@sidepanel/types/execution';
 import {
   extractErrorMessage,
   isMultimodalInputUnsupportedError,
   setAssistantCompletion,
   toContextUsage,
-  type ContextUsage,
 } from '@sidepanel/services/chat/message-utils';
 import {
   shouldEnableDevTrace,
@@ -20,26 +19,7 @@ import {
 } from '@sidepanel/services/page/interaction';
 import type { DevTraceItem } from '@sidepanel/types/dev-trace';
 import type { ChatMode } from '@sidepanel/types/mode';
-import type { ChatMessage, PageSource } from '@shared/types';
-
-export interface InteractiveRefs {
-  messagesRef: RefObject<ChatMessage[]>;
-  pageSourceRef: RefObject<PageSource | null | undefined>;
-}
-
-export interface InteractiveSetters {
-  setMessages: (updater: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
-  setStreaming: (v: boolean) => void;
-  setDevTraceItems: (updater: DevTraceItem[] | ((prev: DevTraceItem[]) => DevTraceItem[])) => void;
-  setContextUsage: (v: ContextUsage | null) => void;
-  setChatContextChipSourceOverride: (v: PageSource | null | undefined) => void;
-  onMessagesChange?: (
-    messages: ChatMessage[],
-    contextUsage?: { used: number; total: number },
-    pageSource?: PageSource | null,
-  ) => void;
-  onMultimodalInputUnsupported?: (message: string) => void;
-}
+import type { ChatMessage } from '@shared/types';
 
 function isAbortError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
