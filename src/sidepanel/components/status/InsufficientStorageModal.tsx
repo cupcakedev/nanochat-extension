@@ -20,7 +20,7 @@ export const InsufficientStorageModal = memo(
                 Your device does not have enough free space to download the on-device model.
               </p>
               <p className="text-[11px] text-neutral-500 leading-relaxed">
-                Free up storage and try again.
+                Free up storage, then restart your browser and try again.
               </p>
             </div>
 
