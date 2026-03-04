@@ -11,18 +11,9 @@ interface OnboardingScreenProps {
 }
 
 export const OnboardingScreen = memo(
-  ({ onDownload, loading, progress, error }: OnboardingScreenProps) => (
+  ({ onDownload, loading, progress, error: _error }: OnboardingScreenProps) => (
     <div className="flex flex-col items-center justify-center flex-1 px-6 py-10">
-      {error && (
-        <div className="mb-4 max-w-[360px] rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-          {error}
-        </div>
-      )}
-      {loading ? (
-        <DownloadProgress progress={progress} />
-      ) : (
-        <DownloadPrompt onDownload={onDownload} />
-      )}
+      {loading ? <DownloadProgress progress={progress} /> : <DownloadPrompt onDownload={onDownload} />}
     </div>
   ),
 );
