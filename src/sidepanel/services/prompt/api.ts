@@ -1,6 +1,7 @@
 import { createLogger } from '@shared/utils';
 import type { ChatMessage, LoadingProgress } from '@shared/types';
 import { TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS, TEXT_LANGUAGE_MODEL_OPTIONS } from '@shared/constants';
+import { AppErrorCode, createAppError } from '@shared/errors';
 import { toLanguageModelMessage, summarizePrompt } from './message-converter';
 
 const logger = createLogger('prompt-api');
@@ -12,9 +13,7 @@ function modeToOptions(mode: SessionMode): LanguageModelCreateCoreOptions {
 
 function toMultimodalUnsupportedError(err: unknown): Error {
   const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-  return new Error(
-    `Image input is currently unavailable in this Chrome profile (Prompt API multimodal session couldn't be created). ${detail}`,
-  );
+  return createAppError(AppErrorCode.PromptApiMultimodalUnavailable, { detail }, { cause: err });
 }
 
 function toErrorPayload(err: unknown) {
@@ -30,7 +29,7 @@ function toErrorPayload(err: unknown) {
 
 function ensureLanguageModelDefined(): void {
   if (typeof LanguageModel === 'undefined') {
-    throw new Error('LanguageModel is not defined');
+    throw createAppError(AppErrorCode.LanguageModelNotDefined);
   }
 }
 
@@ -218,7 +217,7 @@ export class PromptAPIService {
     await this.ensureSession(systemPrompt ?? null, mode, signal);
 
     if (!this.session) {
-      throw new Error('Session not initialized');
+      throw createAppError(AppErrorCode.SessionNotInitialized);
     }
 
     logger.info('streamChat:mode-selected', { mode, hasImageInput });

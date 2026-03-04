@@ -1,4 +1,5 @@
 import { createLogger } from '@shared/utils';
+import { AppErrorCode, createAppError } from '@shared/errors';
 import { buildInteractionPrompt } from './prompt';
 import { parseInteractionDecision } from './parser';
 import { annotateInteractionCanvas } from './annotate-canvas';
@@ -125,5 +126,5 @@ export async function requestPlannerDecision(
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('Prompt API request failed');
+  throw lastError instanceof Error ? lastError : createAppError(AppErrorCode.PromptApiRequestFailed);
 }

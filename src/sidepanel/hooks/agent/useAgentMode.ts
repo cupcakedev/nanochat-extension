@@ -33,7 +33,7 @@ export function useAgentMode(
   }, [clearAgentVisuals]);
 
   const showAgentUnavailable = useCallback(
-    (message = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) => {
+    (message: string = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) => {
       serviceRef.current.destroySession();
       clearAgentVisuals();
       showNotice(message);

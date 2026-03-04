@@ -1,5 +1,6 @@
 import { createLogger } from '@shared/utils';
 import { TEXT_IMAGE_LANGUAGE_MODEL_OPTIONS, TEXT_LANGUAGE_MODEL_OPTIONS } from '@shared/constants';
+import { AppErrorCode, createAppError, toError } from '@shared/errors';
 import {
   INTERACTION_PLANNER_PROMPT_TIMEOUT_MS,
   INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
@@ -200,9 +201,11 @@ interface PromptSessionCache {
 }
 
 function createTimeoutError(scope: string, timeoutMs: number): Error {
-  const error = new Error(`${scope} timed out after ${timeoutMs}ms`);
-  error.name = 'TimeoutError';
-  return error;
+  return createAppError(
+    AppErrorCode.PromptRequestTimeout,
+    { scope, timeoutMs },
+    { name: 'TimeoutError' },
+  );
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, scope: string): Promise<T> {
@@ -244,14 +247,12 @@ function destroyCachedSession(cache: PromptSessionCache): void {
 
 function toMultimodalUnsupportedError(err: unknown): Error {
   const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-  return new Error(
-    `Image input is currently unavailable in this Chrome profile (Prompt API multimodal session couldn't be created). ${detail}`,
-  );
+  return createAppError(AppErrorCode.PromptApiMultimodalUnavailable, { detail }, { cause: err });
 }
 
 function ensureLanguageModelDefined(): void {
   if (typeof LanguageModel === 'undefined') {
-    throw new Error('LanguageModel is not defined');
+    throw createAppError(AppErrorCode.LanguageModelNotDefined);
   }
 }
 
@@ -311,7 +312,7 @@ async function throwMappedPlannerSessionError(error: unknown, scope: string): Pr
   if (multimodalOnlyFailure) {
     throw toMultimodalUnsupportedError(error);
   }
-  throw error instanceof Error ? error : new Error(String(error));
+  throw toError(error);
 }
 
 async function createPlannerSession(): Promise<LanguageModel> {
@@ -524,9 +525,7 @@ export async function runTextImagePrompt(
 ): Promise<TextImagePromptResult> {
   logger.info('[input][text+image]', prompt);
   if (signal?.aborted) {
-    const aborted = new Error('Prompt request aborted');
-    aborted.name = 'AbortError';
-    throw aborted;
+    throw createAppError(AppErrorCode.PromptRequestAborted, {}, { name: 'AbortError' });
   }
 
   const { signal: requestSignal, cleanup } = deriveRequestSignal(
@@ -566,7 +565,7 @@ export async function runTextImagePrompt(
     };
   } catch (error) {
     await throwMappedPlannerSessionError(error, 'planner-session:prompt');
-    throw error instanceof Error ? error : new Error(String(error));
+    throw toError(error);
   } finally {
     cleanup();
     bitmap.close();
@@ -593,18 +592,17 @@ export async function runTextPromptWithConstraint(
 ): Promise<TextImagePromptResult> {
   logger.info('[input][text]', prompt);
   if (signal?.aborted) {
-    const aborted = new Error('Prompt request aborted');
-    aborted.name = 'AbortError';
-    throw aborted;
+    throw createAppError(AppErrorCode.PromptRequestAborted, {}, { name: 'AbortError' });
   }
 
+  ensureLanguageModelDefined();
   const availability = await withTimeout(
     LanguageModel.availability(TEXT_LANGUAGE_MODEL_OPTIONS),
     INTERACTION_VERIFIER_PROMPT_TIMEOUT_MS,
     'Prompt availability',
   );
   if (availability === 'unavailable') {
-    throw new Error('Chrome Prompt API is unavailable in this browser profile');
+    throw createAppError(AppErrorCode.PromptApiUnavailableProfile);
   }
 
   const { signal: requestSignal, cleanup } = deriveRequestSignal(

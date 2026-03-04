@@ -1,5 +1,6 @@
 import { createLogger } from '@shared/utils';
 import { sendMessageToTab, sendMessageToFrame } from '@shared/messaging';
+import { AppErrorCode, createAppError } from '@shared/errors';
 import type {
   InteractionSnapshotPayload,
   InteractiveElementSnapshotItem,
@@ -91,7 +92,7 @@ export async function waitForTabSettled(
 
 export async function getActiveTab(): Promise<ActiveTab> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) throw new Error('No active tab found');
+  if (!tab?.id) throw createAppError(AppErrorCode.ActiveTabNotFound);
   const result = {
     tabId: tab.id,
     windowId: tab.windowId,
@@ -288,7 +289,7 @@ export async function getInteractionSnapshot(
   const childFrames = frames.filter((f) => f.frameId !== 0);
 
   const mainSnapshot = await getFrameSnapshot(tabId, 0, options);
-  if (!mainSnapshot) throw new Error('Failed to get interaction snapshot from main frame');
+  if (!mainSnapshot) throw createAppError(AppErrorCode.InteractionSnapshotMainFrameMissing);
 
   if (childFrames.length === 0) {
     mainSnapshot.interactiveElements.forEach((el) => {
@@ -416,7 +417,7 @@ export async function captureScreenshot(windowId: number): Promise<string> {
 
 function normalizeUrl(url: string): string {
   const trimmed = url.trim();
-  if (!trimmed) throw new Error('openUrl action received empty URL');
+  if (!trimmed) throw createAppError(AppErrorCode.OpenUrlEmpty);
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   return `https://${trimmed}`;
 }
@@ -429,7 +430,7 @@ function waitForTabComplete(
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => {
       chrome.tabs.onUpdated.removeListener(handleUpdate);
-      reject(new Error(`Timed out waiting for page load after ${contextLabel}`));
+      reject(createAppError(AppErrorCode.TabLoadTimeout, { contextLabel }));
     }, timeoutMs);
 
     const handleUpdate = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
@@ -450,7 +451,7 @@ async function updateTabUrlAndWait(
   contextLabel: string,
 ): Promise<{ finalUrl: string }> {
   const updated = await chrome.tabs.update(tabId, { url: targetUrl });
-  if (!updated?.id) throw new Error('Failed to update active tab URL');
+  if (!updated?.id) throw createAppError(AppErrorCode.ActiveTabUrlUpdateFailed);
   await waitForTabComplete(updated.id, 15000, contextLabel);
   const tab = await chrome.tabs.get(updated.id);
   return { finalUrl: tab.url ?? targetUrl };
@@ -469,7 +470,7 @@ export async function openExtensionPageInTab(
   pagePath: string,
 ): Promise<{ finalUrl: string }> {
   const normalizedPath = pagePath.trim().replace(/^\/+/, '');
-  if (!normalizedPath) throw new Error('openExtensionPageInTab received empty pagePath');
+  if (!normalizedPath) throw createAppError(AppErrorCode.ExtensionPagePathEmpty);
   const targetUrl = chrome.runtime.getURL(normalizedPath);
   logger.info('openExtensionPageInTab:request', { tabId, url: targetUrl });
   const result = await updateTabUrlAndWait(tabId, targetUrl, 'openExtensionPage');

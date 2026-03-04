@@ -1,16 +1,16 @@
 import { createLogger } from '@shared/utils';
 import type { InteractiveElementSnapshotItem } from '@shared/types';
+import { AppError, AppErrorCode, APP_ERROR_TEXT } from '@shared/errors';
 import type { ActiveTab, GetPageContentOptions } from '@sidepanel/services/page/tab-bridge';
 import { getActiveTab, getPageContent } from '@sidepanel/services/page/tab-bridge';
 
 const logger = createLogger('agent-context');
 
-export const AGENT_CONTEXT_UNAVAILABLE_MESSAGE =
-  'This feature requires a webpage. Open a website and try again.';
+export const AGENT_CONTEXT_UNAVAILABLE_MESSAGE = APP_ERROR_TEXT.agentContextUnavailable;
 
-export class AgentContextUnavailableError extends Error {
+export class AgentContextUnavailableError extends AppError {
   constructor(message = AGENT_CONTEXT_UNAVAILABLE_MESSAGE) {
-    super(message);
+    super(AppErrorCode.AgentContextUnavailable, { detail: message });
     this.name = 'AgentContextUnavailableError';
   }
 }

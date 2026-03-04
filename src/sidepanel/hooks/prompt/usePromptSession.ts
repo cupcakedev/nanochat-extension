@@ -3,6 +3,7 @@ import { PromptAPIService } from '@sidepanel/services/prompt';
 import { SessionStatus } from '@shared/types';
 import type { LoadingProgress } from '@shared/types';
 import { createLogger } from '@shared/utils';
+import { APP_ERROR_TEXT } from '@shared/errors';
 
 const logger = createLogger('prompt-session');
 
@@ -44,7 +45,7 @@ export function usePromptSession() {
         setStatus(SessionStatus.NeedsDownload);
         return;
       }
-      const message = err instanceof Error ? err.message : 'Failed to initialize model';
+      const message = err instanceof Error ? err.message : APP_ERROR_TEXT.failedToInitializeModel;
       logger.error('createSession:failed', {
         error: toErrorPayload(err),
       });
@@ -63,7 +64,7 @@ export function usePromptSession() {
     setProgress(null);
 
     if (typeof LanguageModel === 'undefined') {
-      setError('LanguageModel is not defined');
+      setError(APP_ERROR_TEXT.languageModelNotDefined);
       setStatus(SessionStatus.Error);
       logger.warn('checkAndInit:status=error (language-model-missing)');
       return;
@@ -74,7 +75,7 @@ export function usePromptSession() {
       logger.info('checkAndInit:availability', { availability });
 
       if (availability === 'unavailable') {
-        setError('Gemini Nano is not available in this browser. Chrome 138+ required.');
+        setError(APP_ERROR_TEXT.modelUnavailable);
         setStatus(SessionStatus.Error);
         logger.warn('checkAndInit:status=error (unavailable)');
         return;
@@ -95,7 +96,7 @@ export function usePromptSession() {
       logger.info('checkAndInit:status=available -> createSession');
       await createSession();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to initialize model';
+      const message = err instanceof Error ? err.message : APP_ERROR_TEXT.failedToInitializeModel;
       logger.error('checkAndInit:failed', {
         error: toErrorPayload(err),
       });

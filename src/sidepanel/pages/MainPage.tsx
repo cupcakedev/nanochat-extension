@@ -17,6 +17,7 @@ import { toSendOptions } from '@sidepanel/services/chat';
 import { fetchPageContextSource } from '@sidepanel/services/page';
 import { ChatContextSendMode } from '@sidepanel/types/mode';
 import { SessionStatus } from '@shared/types';
+import { APP_ERROR_TEXT } from '@shared/errors';
 
 const NOOP = () => {};
 
@@ -34,7 +35,7 @@ export const MainPage = () => {
       if (requiresContext) {
         const source = await fetchPageContextSource();
         if (!source) {
-          showContextNotice('This feature requires a webpage. Open a website and try again.');
+          showContextNotice(APP_ERROR_TEXT.agentContextUnavailable);
           return;
         }
         setChatContextSource(source);
@@ -133,7 +134,7 @@ export const MainPage = () => {
 
       <ModelSupportModal
         isOpen={
-          state.status === SessionStatus.Error && state.error === 'LanguageModel is not defined'
+          state.status === SessionStatus.Error && state.error === APP_ERROR_TEXT.languageModelNotDefined
         }
         onRetry={state.retry}
       />

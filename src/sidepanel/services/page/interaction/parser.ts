@@ -4,6 +4,7 @@ import type {
   InteractionConfidence,
   InteractionRunStatus,
 } from '@shared/types';
+import { AppErrorCode, createAppError } from '@shared/errors';
 
 const MAX_ACTIONS_PER_PLAN = 4;
 
@@ -24,7 +25,7 @@ export interface ParsedInteractionDecision {
 
 function extractJsonObject(text: string): string {
   const start = text.indexOf('{');
-  if (start === -1) throw new Error('Prompt API returned non-JSON output');
+  if (start === -1) throw createAppError(AppErrorCode.PromptApiNonJsonOutput);
 
   let depth = 0;
   for (let index = start; index < text.length; index += 1) {
@@ -35,7 +36,7 @@ function extractJsonObject(text: string): string {
     if (depth === 0) return text.slice(start, index + 1);
   }
 
-  throw new Error('Prompt API returned incomplete JSON output');
+  throw createAppError(AppErrorCode.PromptApiIncompleteJsonOutput);
 }
 
 function normalizeTextValue(value: unknown): string | null {

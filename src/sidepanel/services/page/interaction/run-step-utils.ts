@@ -1,4 +1,5 @@
 import type { InteractionSnapshotPayload } from '@shared/types';
+import { AppErrorCode, createAppError } from '@shared/errors';
 import type { InteractionRunOptions } from './run-step-types';
 
 const CONTENT_CONNECTION_ERROR_MESSAGES = [
@@ -8,7 +9,7 @@ const CONTENT_CONNECTION_ERROR_MESSAGES = [
 
 export function normalizeInstruction(instruction: string): string {
   const normalized = instruction.replace(/\s+/g, ' ').trim();
-  if (!normalized) throw new Error('Enter an instruction first');
+  if (!normalized) throw createAppError(AppErrorCode.InstructionRequired);
   return normalized;
 }
 
@@ -17,9 +18,7 @@ export function extractErrorMessage(error: unknown): string {
 }
 
 export function createAbortError(): Error {
-  const error = new Error('Agent run aborted');
-  error.name = 'AbortError';
-  return error;
+  return createAppError(AppErrorCode.AgentRunAborted, {}, { name: 'AbortError' });
 }
 
 export function isAbortError(error: unknown): boolean {
