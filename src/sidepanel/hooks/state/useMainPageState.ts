@@ -4,7 +4,8 @@ import { useChat } from '@sidepanel/hooks/chat';
 import { useChatContext } from '@sidepanel/hooks/chat';
 import { useAgentMode } from '@sidepanel/hooks/agent';
 import { useFullScreenMode } from '@sidepanel/hooks/ui';
-import { fetchPageContextSource } from '@sidepanel/services/page';
+import { AgentContextUnavailableError, buildAgentSystemPromptWithContext } from '@sidepanel/services/agent';
+import { CHAT_INPUT_TOKEN_LIMIT, estimateChatInputTokens } from '@sidepanel/services/chat';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@sidepanel/types/mode';
 import { SessionStatus } from '@shared/types';
 import type { PageSource } from '@shared/types';
@@ -45,10 +46,15 @@ function toActivePageSource(
   return { url: chip.url, title: chip.title, faviconUrl: chip.faviconUrl };
 }
 
+function buildContextTooLargeWarning(): string {
+  return 'Page context is too large for this chat. Please use a different page or enter the details manually.';
+}
+
 export function useMainPageState() {
   const isFullScreen = useFullScreenMode();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatContextSource, setChatContextSource] = useState<PageSource | null>(null);
+  const [autoContextWarning, setAutoContextWarning] = useState<string | null>(null);
 
   const { status, progress, error, retry, download, serviceRef } = usePromptSession();
 
@@ -66,10 +72,37 @@ export function useMainPageState() {
   const initialMessages = activeChat?.messages ?? [];
   const hasInitialMessages = initialMessages.length > 0;
 
+  const resolveContextSourceWithLimitCheck = useCallback(async () => {
+    try {
+      const context = await buildAgentSystemPromptWithContext();
+      const source: PageSource = {
+        url: context.tab.url,
+        title: context.tab.title,
+        faviconUrl: context.tab.favIconUrl,
+      };
+      const estimatedInputTokens = estimateChatInputTokens([], context.systemPrompt);
+      if (estimatedInputTokens > CHAT_INPUT_TOKEN_LIMIT) {
+        return {
+          source: null,
+          warning: buildContextTooLargeWarning(),
+        };
+      }
+      return { source, warning: null as string | null };
+    } catch (error) {
+      if (error instanceof AgentContextUnavailableError) {
+        return { source: null, warning: error.message };
+      }
+      return { source: null, warning: null as string | null };
+    }
+  }, []);
+
   useEffect(() => {
     if (hasInitialMessages) return;
-    fetchPageContextSource().then(setChatContextSource);
-  }, [activeChatId, hasInitialMessages]);
+    resolveContextSourceWithLimitCheck().then(({ source, warning }) => {
+      setChatContextSource(source);
+      setAutoContextWarning(warning);
+    });
+  }, [activeChatId, hasInitialMessages, resolveContextSourceWithLimitCheck]);
 
   const {
     mode,
@@ -159,8 +192,15 @@ export function useMainPageState() {
     setChatContextSource(null);
   }, []);
 
-  const addChatContext = useCallback(() => {
-    fetchPageContextSource().then(setChatContextSource);
+  const addChatContext = useCallback(async (): Promise<string | null> => {
+    const { source, warning } = await resolveContextSourceWithLimitCheck();
+    if (!source) return warning;
+    setChatContextSource(source);
+    return null;
+  }, [resolveContextSourceWithLimitCheck]);
+
+  const clearAutoContextWarning = useCallback(() => {
+    setAutoContextWarning(null);
   }, []);
 
   return {
@@ -205,6 +245,8 @@ export function useMainPageState() {
     handleClearChat,
     dismissChatContext,
     addChatContext,
+    autoContextWarning,
+    clearAutoContextWarning,
     setChatContextSource,
     selectChat,
     deleteChat,

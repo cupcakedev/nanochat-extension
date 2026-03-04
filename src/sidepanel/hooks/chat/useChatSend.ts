@@ -6,7 +6,9 @@ import {
   buildAgentSystemPromptWithContext,
 } from '@sidepanel/services/agent';
 import {
+  CHAT_INPUT_TOKEN_LIMIT,
   createChatMessage,
+  estimateChatInputTokens,
   executeChatStream,
   executeInteractiveStep,
   extractErrorMessage,
@@ -152,6 +154,24 @@ export function useChatSend({
         setTokenStats(null);
         onMessagesChange?.(errorMessages, undefined, pageSourceRef.current ?? undefined);
         return;
+      }
+
+      if (pageContext) {
+        const estimatedInputTokens = estimateChatInputTokens(
+          [...messagesRef.current, userMessage],
+          pageContext.systemPrompt,
+        );
+        if (estimatedInputTokens > CHAT_INPUT_TOKEN_LIMIT) {
+          logger.warn('send:blocked-context-too-large', {
+            estimatedInputTokens,
+            limit: CHAT_INPUT_TOKEN_LIMIT,
+            chatId: chatIdRef.current,
+          });
+          onAgentContextUnavailable?.(
+            'Page context is too large for this chat. Please use a different page or enter the details manually.',
+          );
+          return;
+        }
       }
 
       const chatRefs: ChatStreamRefs = { serviceRef, messagesRef, pageSourceRef, abortRef };

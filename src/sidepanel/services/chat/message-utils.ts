@@ -4,6 +4,12 @@ import { ChatContextSendMode } from '@sidepanel/types/mode';
 import type { ChatSendOptions } from '@sidepanel/types/mode';
 import type { ContextUsage } from '@sidepanel/types/chat';
 
+const APPROX_CHARS_PER_TOKEN = 4;
+const BASE_CHAT_ENVELOPE_TOKENS = 24;
+const PER_MESSAGE_ENVELOPE_TOKENS = 10;
+
+export const CHAT_INPUT_TOKEN_LIMIT = 8500;
+
 export function replaceLastMessageContent(prev: ChatMessage[], content: string): ChatMessage[] {
   const updated = [...prev];
   const last = updated[updated.length - 1];
@@ -39,6 +45,25 @@ export function createChatMessage(
 
 export function extractErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'An error occurred during generation';
+}
+
+function estimateTextTokens(text: string): number {
+  if (!text.trim()) return 0;
+  return Math.ceil(text.length / APPROX_CHARS_PER_TOKEN);
+}
+
+export function estimateChatInputTokens(
+  messages: ChatMessage[],
+  systemPrompt: string | null | undefined,
+): number {
+  const messageTokens = messages.reduce((sum, message) => sum + estimateTextTokens(message.content), 0);
+  const systemTokens = estimateTextTokens(systemPrompt ?? '');
+  return (
+    BASE_CHAT_ENVELOPE_TOKENS +
+    systemTokens +
+    messageTokens +
+    messages.length * PER_MESSAGE_ENVELOPE_TOKENS
+  );
 }
 
 export function isQuotaExceededError(err: unknown): boolean {
