@@ -6,8 +6,6 @@ import { createLogger } from '@shared/utils';
 import { APP_ERROR_TEXT, AppError, AppErrorCode } from '@shared/errors';
 
 const logger = createLogger('prompt-session');
-const AVAILABILITY_POLL_INTERVAL_MS = 1500;
-const DOWNLOADING_PROGRESS_TEXT = 'Downloading model...';
 
 function toErrorPayload(err: unknown) {
   if (err instanceof Error) {
@@ -45,7 +43,6 @@ export function usePromptSession() {
   const [status, setStatus] = useState<SessionStatus>(SessionStatus.Idle);
   const [progress, setProgress] = useState<LoadingProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [awaitingAvailability, setAwaitingAvailability] = useState(false);
   const [insufficientStorageModalOpen, setInsufficientStorageModalOpen] = useState(false);
 
   const createSession = useCallback(async () => {
@@ -60,28 +57,24 @@ export function usePromptSession() {
     try {
       await serviceRef.current.createSession((p) => setProgress(p), abortController.signal);
       logger.info('createSession:success');
-      setAwaitingAvailability(false);
       setStatus(SessionStatus.Ready);
     } catch (err) {
       if (abortController.signal.aborted) {
         logger.warn('createSession:aborted');
-        setAwaitingAvailability(false);
         setStatus(SessionStatus.NeedsDownload);
         return;
       }
       if (isSessionCreationBlockedError(err)) {
         logger.info('createSession:blocked-while-downloading');
         setError(null);
-        setAwaitingAvailability(true);
-        setStatus(SessionStatus.Loading);
-        setProgress({ progress: 0, text: DOWNLOADING_PROGRESS_TEXT });
+        setStatus(SessionStatus.NeedsDownload);
+        setProgress(null);
         return;
       }
       const message = toErrorMessage(err);
       logger.error('createSession:failed', {
         error: toErrorPayload(err),
       });
-      setAwaitingAvailability(false);
       if (message === APP_ERROR_TEXT.promptApiInsufficientStorage) {
         setInsufficientStorageModalOpen(true);
       }
@@ -126,21 +119,17 @@ export function usePromptSession() {
       }
 
       if (availability === 'downloadable') {
-        setAwaitingAvailability(false);
         setStatus(SessionStatus.NeedsDownload);
         logger.info('checkAndInit:status=needs-download');
         return;
       }
 
       if (availability === 'downloading') {
-        logger.info('checkAndInit:status=downloading');
-        setAwaitingAvailability(true);
-        setStatus(SessionStatus.Loading);
-        setProgress({ progress: 0, text: DOWNLOADING_PROGRESS_TEXT });
+        logger.info('checkAndInit:status=downloading -> createSession');
+        await createSession();
         return;
       }
 
-      setAwaitingAvailability(false);
       logger.info('checkAndInit:status=available -> createSession');
       await createSession();
     } catch (err) {
@@ -148,7 +137,6 @@ export function usePromptSession() {
       logger.error('checkAndInit:failed', {
         error: toErrorPayload(err),
       });
-      setAwaitingAvailability(false);
       if (message === APP_ERROR_TEXT.promptApiInsufficientStorage) {
         setInsufficientStorageModalOpen(true);
       }
@@ -156,16 +144,6 @@ export function usePromptSession() {
       setStatus(SessionStatus.Error);
     }
   }, [createSession]);
-
-  useEffect(() => {
-    if (!awaitingAvailability) return;
-    const timerId = window.setTimeout(() => {
-      checkAndInit();
-    }, AVAILABILITY_POLL_INTERVAL_MS);
-    return () => {
-      window.clearTimeout(timerId);
-    };
-  }, [awaitingAvailability, checkAndInit]);
 
   const download = useCallback(async () => {
     logger.info('download:requested');
