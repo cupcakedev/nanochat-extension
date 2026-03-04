@@ -126,5 +126,7 @@ export async function requestPlannerDecision(
     }
   }
 
-  throw lastError instanceof Error ? lastError : createAppError(AppErrorCode.PromptApiRequestFailed);
+  throw lastError instanceof Error
+    ? lastError
+    : createAppError(AppErrorCode.PromptApiRequestFailed);
 }

@@ -56,7 +56,10 @@ export function estimateChatInputTokens(
   messages: ChatMessage[],
   systemPrompt: string | null | undefined,
 ): number {
-  const messageTokens = messages.reduce((sum, message) => sum + estimateTextTokens(message.content), 0);
+  const messageTokens = messages.reduce(
+    (sum, message) => sum + estimateTextTokens(message.content),
+    0,
+  );
   const systemTokens = estimateTextTokens(systemPrompt ?? '');
   return (
     BASE_CHAT_ENVELOPE_TOKENS +

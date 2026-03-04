@@ -3,7 +3,11 @@ import type { RefObject } from 'react';
 import type { PromptAPIService } from '@sidepanel/services/prompt';
 import { shouldEnableDevTrace, toContextUsage } from '@sidepanel/services/chat';
 import type { ContextUsage } from '@sidepanel/types/chat';
-import type { ContextUsageSnapshot, OnMessagesChange, PerChatPageContext } from '@sidepanel/types/chat-hook';
+import type {
+  ContextUsageSnapshot,
+  OnMessagesChange,
+  PerChatPageContext,
+} from '@sidepanel/types/chat-hook';
 import type { DevTraceItem } from '@sidepanel/types/dev-trace';
 import { ChatMode } from '@sidepanel/types/mode';
 import type { ChatMessage, PageSource, TokenStats } from '@shared/types';

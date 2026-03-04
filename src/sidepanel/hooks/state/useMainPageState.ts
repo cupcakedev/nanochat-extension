@@ -4,7 +4,10 @@ import { useChat } from '@sidepanel/hooks/chat';
 import { useChatContext } from '@sidepanel/hooks/chat';
 import { useAgentMode } from '@sidepanel/hooks/agent';
 import { useFullScreenMode } from '@sidepanel/hooks/ui';
-import { AgentContextUnavailableError, buildAgentSystemPromptWithContext } from '@sidepanel/services/agent';
+import {
+  AgentContextUnavailableError,
+  buildAgentSystemPromptWithContext,
+} from '@sidepanel/services/agent';
 import { CHAT_INPUT_TOKEN_LIMIT, estimateChatInputTokens } from '@sidepanel/services/chat';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@sidepanel/types/mode';
 import { SessionStatus } from '@shared/types';
@@ -141,7 +144,10 @@ export function useMainPageState() {
     showAgentUnavailable,
   );
 
-  const chatPageSource = resolveChatPageSource(activeChat?.pageSource, chatContextChipSourceOverride);
+  const chatPageSource = resolveChatPageSource(
+    activeChat?.pageSource,
+    chatContextChipSourceOverride,
+  );
   const hasMessages = messages.length > 0;
   const chatContextSourceForDock = hasMessages ? null : chatContextSource;
   const effectiveContextSource = hasMessages ? (chatPageSource ?? null) : chatContextSource;

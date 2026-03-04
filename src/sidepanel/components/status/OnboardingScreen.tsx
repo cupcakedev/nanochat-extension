@@ -13,7 +13,11 @@ interface OnboardingScreenProps {
 export const OnboardingScreen = memo(
   ({ onDownload, loading, progress, error: _error }: OnboardingScreenProps) => (
     <div className="flex flex-col items-center justify-center flex-1 px-6 py-10">
-      {loading ? <DownloadProgress progress={progress} /> : <DownloadPrompt onDownload={onDownload} />}
+      {loading ? (
+        <DownloadProgress progress={progress} />
+      ) : (
+        <DownloadPrompt onDownload={onDownload} />
+      )}
     </div>
   ),
 );

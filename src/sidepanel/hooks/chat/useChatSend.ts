@@ -76,7 +76,9 @@ export function useChatSend({
         return null;
       }
 
-      const locked = currentChatId ? lockedContextByChatIdRef.current.get(currentChatId) : undefined;
+      const locked = currentChatId
+        ? lockedContextByChatIdRef.current.get(currentChatId)
+        : undefined;
       if (locked) {
         setChatContextChipSourceOverride(locked.pageSource);
         return locked;

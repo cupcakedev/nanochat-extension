@@ -24,7 +24,8 @@ export const MainPage = () => {
   const state = useMainPageState();
   const { scrolled, scrollRef } = useScrolled();
   const { notice: contextNotice, showNotice: showContextNotice } = useTemporaryNotice();
-  const { send, mode, contextMode, addChatContext, autoContextWarning, clearAutoContextWarning } = state;
+  const { send, mode, contextMode, addChatContext, autoContextWarning, clearAutoContextWarning } =
+    state;
 
   useEffect(() => {
     if (!autoContextWarning) return;
@@ -145,7 +146,8 @@ export const MainPage = () => {
 
       <ModelSupportModal
         isOpen={
-          state.status === SessionStatus.Error && state.error === APP_ERROR_TEXT.languageModelNotDefined
+          state.status === SessionStatus.Error &&
+          state.error === APP_ERROR_TEXT.languageModelNotDefined
         }
         onRetry={state.retry}
       />
