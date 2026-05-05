@@ -15,6 +15,14 @@ import { useChatSend } from './useChatSend';
 
 export type { ContextUsage };
 
+function hasMessageDelta(current: ChatMessage[], next: ChatMessage[]): boolean {
+  if (current.length !== next.length) return true;
+  for (let i = 0; i < current.length; i += 1) {
+    if (current[i]?.id !== next[i]?.id) return true;
+  }
+  return false;
+}
+
 export function useChat(
   serviceRef: RefObject<PromptAPIService>,
   chatId: string | null,
@@ -77,10 +85,8 @@ export function useChat(
   }, [chatId, initialContextUsage, initialMessages, resetState]);
 
   useEffect(() => {
-    if (!chatId) return;
-    if (streaming) return;
-    if (initialMessages.length === 0) return;
-    if (messagesRef.current.length > 0) return;
+    if (!chatId || streaming) return;
+    if (!hasMessageDelta(messagesRef.current, initialMessages)) return;
     queueMicrotask(() => {
       resetState(initialMessages, initialContextUsage);
     });
