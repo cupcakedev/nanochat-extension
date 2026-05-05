@@ -106,7 +106,8 @@ const STYLES = `
   .rcard {
     position: absolute; background: #fff; border-radius: 16px;
     box-shadow: 0 4px 24px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06);
-    width: 380px; max-width: calc(100vw - 24px);
+    width: 380px; max-width: calc(100vw - 24px); max-height: 50vh;
+    display: flex; flex-direction: column;
     pointer-events: auto; overflow: hidden;
     animation: nc-pop 0.16s ease-out;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -139,7 +140,7 @@ const STYLES = `
     font-size: 12px; color: #999; line-height: 1.5;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .rcard-body { padding: 8px 14px 12px; min-height: 44px; max-height: 220px; overflow-y: auto; }
+  .rcard-body { padding: 8px 14px 12px; min-height: 44px; flex: 1 1 auto; overflow-y: auto; }
   .rcard-body::-webkit-scrollbar { width: 4px; }
   .rcard-body::-webkit-scrollbar-thumb { background: #d0d0d0; border-radius: 2px; }
   .rcard-text { font-size: 14px; line-height: 1.65; color: #1a1a1a; white-space: pre-wrap; word-break: break-word; }
@@ -334,14 +335,26 @@ function showResultCard(action: string, text: string, targetLang?: string): void
   rcardDotsEl.style.display = 'flex';
   rcardFooterEl.style.display = 'none';
 
-  // Position card: bottom aligned to where toolbar was
+  // Position card: prefer opening above toolbar, but if there is not enough
+  // space (e.g. near top of page), open below so it can grow up to 50vh.
   const cardBottomY = tbTop + TOOLBAR_H;
+  const viewportHalf = Math.floor(window.innerHeight * 0.5);
+  const margin = 12;
+  const spaceAbove = Math.max(0, tbTop - margin);
+  const spaceBelow = Math.max(0, window.innerHeight - cardBottomY - margin);
+  const openBelow = spaceAbove < viewportHalf && spaceBelow > spaceAbove;
   const RCARD_W = 380;
   const left = Math.max(8, Math.min(tbCenterX - RCARD_W / 2, window.innerWidth - RCARD_W - 8));
   rcardEl.style.left = `${left}px`;
-  rcardEl.style.bottom = `${window.innerHeight - cardBottomY}px`;
-  rcardEl.style.top = 'auto';
-  rcardEl.style.maxHeight = `${Math.max(180, cardBottomY - 12)}px`;
+  if (openBelow) {
+    rcardEl.style.top = `${cardBottomY}px`;
+    rcardEl.style.bottom = 'auto';
+    rcardEl.style.maxHeight = `${Math.max(180, Math.min(viewportHalf, spaceBelow))}px`;
+  } else {
+    rcardEl.style.bottom = `${window.innerHeight - cardBottomY}px`;
+    rcardEl.style.top = 'auto';
+    rcardEl.style.maxHeight = `${Math.max(180, Math.min(viewportHalf, spaceAbove))}px`;
+  }
 
   rcardEl.classList.remove('hidden');
 
