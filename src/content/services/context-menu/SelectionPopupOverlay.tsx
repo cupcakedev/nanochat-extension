@@ -9,6 +9,46 @@ import type { PopupAction } from './types';
 
 interface Anchor { centerX: number; top: number }
 
+function findSelectionFromComposedPath(path: EventTarget[]): Selection | null {
+  for (const node of path) {
+    if (!(node instanceof Node)) continue;
+    const root = node.getRootNode();
+    const shadowRoot = root as ShadowRoot & { getSelection?: () => Selection | null };
+    if (root instanceof ShadowRoot && typeof shadowRoot.getSelection === 'function') {
+      const selection = shadowRoot.getSelection();
+      if (selection?.rangeCount) return selection;
+    }
+  }
+  const docSelection = window.getSelection();
+  if (docSelection?.rangeCount) return docSelection;
+  return null;
+}
+
+function parseRgbColor(value: string): [number, number, number] | null {
+  const match = value.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (!match) return null;
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function resolveSurfaceColor(): [number, number, number] {
+  const candidates = [document.body, document.documentElement].filter(Boolean) as HTMLElement[];
+  for (const el of candidates) {
+    const rgb = parseRgbColor(getComputedStyle(el).backgroundColor);
+    if (!rgb) continue;
+    if (rgb[0] === 0 && rgb[1] === 0 && rgb[2] === 0 && getComputedStyle(el).backgroundColor.includes('0)')) {
+      continue;
+    }
+    return rgb;
+  }
+  return [255, 255, 255];
+}
+
+function isDarkSurface(): boolean {
+  const [r, g, b] = resolveSurfaceColor();
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance < 0.5;
+}
+
 function useShadowHost(): ShadowRoot | null {
   const [shadow, setShadow] = useState<ShadowRoot | null>(null);
   useEffect(() => {
@@ -48,6 +88,7 @@ export function SelectionPopupOverlay() {
   const [resultText, setResultText] = useState('');
   const [errorText, setErrorText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [darkTheme, setDarkTheme] = useState(false);
   const abortRef = useRef<(() => void) | null>(null);
 
   const iconUrl = useMemo(() => chrome.runtime.getURL('icons/icon-48.png'), []);
@@ -91,7 +132,7 @@ export function SelectionPopupOverlay() {
     const onMouseUp = (e: MouseEvent) => {
       if (e.button !== 0) return;
       requestAnimationFrame(() => {
-        const selection = window.getSelection();
+        const selection = findSelectionFromComposedPath(e.composedPath());
         const text = selection?.toString().trim() ?? '';
         if (text.length < 2 || !selection || selection.rangeCount === 0) return;
         const rect = selection.getRangeAt(0).getBoundingClientRect();
@@ -99,6 +140,7 @@ export function SelectionPopupOverlay() {
         if (cardVisible) return;
         setCurrentText(text);
         setAnchor({ centerX: rect.left + rect.width / 2, top: rect.top });
+        setDarkTheme(isDarkSurface());
         setToolbarVisible(true);
       });
     };
@@ -150,6 +192,25 @@ export function SelectionPopupOverlay() {
 
   return createPortal(
     <>
+      <style>
+        {darkTheme
+          ? `
+          .toolbar{background:#16181d;box-shadow:0 6px 26px rgba(0,0,0,.42),0 0 0 1px rgba(255,255,255,.08);}
+          .tool-btn{color:#c8cdd8;}
+          .tool-btn:hover{background:#252a33;color:#f3f5f9;}
+          .tool-btn.active{color:#8ab4ff;background:#1d2a43;}
+          .divider{background:#313845;}
+          .lang-panel,.rcard{background:#16181d;box-shadow:0 8px 30px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.08);}
+          .lang-item:hover,.rcard-lang-wrap:hover,.rcard-hdr-btn:hover{background:#252a33;}
+          .lang-item.active{color:#8ab4ff;}
+          .lang-native,.rcard-source{color:#95a0b1;}
+          .rcard-hdr{border-bottom-color:#2a303c;}
+          .rcard-action,.rcard-text{color:#e8ecf3;}
+          .rcard-footer{border-top-color:#2a303c;}
+          .rcard-continue{background:#1f3a65;color:#b8d0ff;}
+        `
+          : ''}
+      </style>
       <div className={`toolbar ${toolbarVisible ? '' : 'hidden'}`} style={{ left: anchor.centerX, top: toolbarTop }}>
         <button className="tool-btn" onClick={() => runAction('translate', currentText, selectedLang)}>
           <span dangerouslySetInnerHTML={{ __html: ICON_GLOBE }} />
