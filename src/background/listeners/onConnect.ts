@@ -16,9 +16,13 @@ export const onConnect = (port: chrome.runtime.Port) => {
       windowId = msg.windowId;
       sidepanelPorts.set(windowId, port);
 
-      const pendingText = takePendingSelection(windowId);
-      if (pendingText) {
-        port.postMessage({ type: 'SELECTED_TEXT', text: pendingText });
+      const pending = takePendingSelection(windowId);
+      if (pending) {
+        if (pending.prompt) {
+          port.postMessage({ type: 'SELECTED_PROMPT', prompt: pending.prompt });
+        } else {
+          port.postMessage({ type: 'SELECTED_TEXT', text: pending.text });
+        }
       }
     }
   });
