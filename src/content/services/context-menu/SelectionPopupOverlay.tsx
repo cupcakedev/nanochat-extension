@@ -8,6 +8,7 @@ import { POPUP_STYLES } from './styles';
 import type { PopupAction } from './types';
 
 interface Anchor { centerX: number; top: number }
+const STORAGE_KEY_SELECTED_LANG = 'contextMenuSelectedLanguage';
 
 function findSelectionFromComposedPath(path: EventTarget[]): Selection | null {
   for (const node of path) {
@@ -93,6 +94,25 @@ export function SelectionPopupOverlay() {
 
   const iconUrl = useMemo(() => chrome.runtime.getURL('icons/icon-48.png'), []);
   const toolbarTop = anchor.top - TOOLBAR_H - TOOLBAR_GAP;
+  const toolbarLayerVisible = toolbarVisible && !cardVisible;
+
+  useEffect(() => {
+    void chrome.storage.local
+      .get(STORAGE_KEY_SELECTED_LANG)
+      .then((result) => {
+        const value = result[STORAGE_KEY_SELECTED_LANG];
+        if (typeof value === 'string' && value.trim()) {
+          setSelectedLang(value);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void chrome.storage.local
+      .set({ [STORAGE_KEY_SELECTED_LANG]: selectedLang })
+      .catch(() => undefined);
+  }, [selectedLang]);
 
   const hideAll = useCallback(() => {
     setToolbarVisible(false);
@@ -211,7 +231,10 @@ export function SelectionPopupOverlay() {
         `
           : ''}
       </style>
-      <div className={`toolbar ${toolbarVisible ? '' : 'hidden'}`} style={{ left: anchor.centerX, top: toolbarTop }}>
+      <div
+        className={`toolbar ${toolbarLayerVisible ? '' : 'hidden'}`}
+        style={{ left: anchor.centerX, top: toolbarTop }}
+      >
         <button className="tool-btn" onClick={() => runAction('translate', currentText, selectedLang)}>
           <span dangerouslySetInnerHTML={{ __html: ICON_GLOBE }} />
           <span className="trans-label">Translate</span>
@@ -231,7 +254,10 @@ export function SelectionPopupOverlay() {
         </button>
       </div>
 
-      <div className={`lang-panel ${langPanelOpen ? '' : 'hidden'}`} style={{ left: anchor.centerX, top: langTop }}>
+      <div
+        className={`lang-panel ${langPanelOpen && toolbarLayerVisible ? '' : 'hidden'}`}
+        style={{ left: anchor.centerX, top: langTop }}
+      >
         {LANGUAGES.map((lang) => (
           <div
             key={lang.name}
