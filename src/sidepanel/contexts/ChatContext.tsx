@@ -51,6 +51,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     rebuildSummaries();
     setActiveChatId(chat.id);
     setActiveChat(chat);
+    return chat.id;
   }, [rebuildSummaries]);
 
   const selectChat = useCallback((id: string) => {

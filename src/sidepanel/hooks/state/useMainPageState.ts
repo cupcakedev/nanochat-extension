@@ -11,7 +11,7 @@ import {
 } from '@sidepanel/services/agent';
 import { CHAT_INPUT_TOKEN_LIMIT, estimateChatInputTokens, toSendOptions } from '@sidepanel/services/chat';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@sidepanel/types/mode';
-import { SessionStatus } from '@shared/types';
+import { MessageRole, SessionStatus } from '@shared/types';
 import type { PageSource } from '@shared/types';
 
 function resolveChatPageSource(
@@ -61,8 +61,17 @@ export function useMainPageState() {
   const [autoContextWarning, setAutoContextWarning] = useState<string | null>(null);
   const [pendingInputText, setPendingInputText] = useState<string | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [pendingChatSeed, setPendingChatSeed] = useState<{
+    targetChatId: string | null;
+    userMessage: string;
+    assistantMessage: string;
+  } | null>(null);
 
-  useSidepanelConnection(setPendingInputText, setPendingPrompt);
+  useSidepanelConnection(setPendingInputText, setPendingPrompt, ({ userMessage, assistantMessage }) => {
+    setPendingInputText(null);
+    setPendingPrompt(null);
+    setPendingChatSeed({ targetChatId: null, userMessage, assistantMessage });
+  });
 
   const {
     status,
@@ -193,6 +202,37 @@ export function useMainPageState() {
     setPendingPrompt(null);
     void send(prompt, undefined, toSendOptions(mode, contextMode));
   }, [pendingPrompt, status, send, mode, contextMode]);
+
+  useEffect(() => {
+    if (!pendingChatSeed || status !== SessionStatus.Ready) return;
+    if (!pendingChatSeed.targetChatId) {
+      const nextChatId = createChat();
+      setPendingChatSeed((prev) => (prev ? { ...prev, targetChatId: nextChatId } : prev));
+      return;
+    }
+    if (activeChatId !== pendingChatSeed.targetChatId) return;
+
+    const now = Date.now();
+    updateActiveChat(
+      [
+        {
+          id: crypto.randomUUID(),
+          role: MessageRole.User,
+          content: pendingChatSeed.userMessage,
+          timestamp: now,
+        },
+        {
+          id: crypto.randomUUID(),
+          role: MessageRole.Assistant,
+          content: pendingChatSeed.assistantMessage,
+          timestamp: now + 1,
+        },
+      ],
+      undefined,
+      null,
+    );
+    setPendingChatSeed(null);
+  }, [activeChatId, createChat, pendingChatSeed, status, updateActiveChat]);
 
   const toggleSidebar = useCallback(() => setIsSidebarOpen((v) => !v), []);
   const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);

@@ -6,7 +6,7 @@ export interface ChatContextValue {
   activeChatId: string | null;
   activeChat: Chat | null;
   loaded: boolean;
-  createChat: () => void;
+  createChat: () => string;
   selectChat: (id: string) => void;
   deleteChat: (id: string) => void;
   updateActiveChat: (
