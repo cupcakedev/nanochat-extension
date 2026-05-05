@@ -77,6 +77,16 @@ export function useChat(
   }, [chatId, initialContextUsage, initialMessages, resetState]);
 
   useEffect(() => {
+    if (!chatId) return;
+    if (streaming) return;
+    if (initialMessages.length === 0) return;
+    if (messagesRef.current.length > 0) return;
+    queueMicrotask(() => {
+      resetState(initialMessages, initialContextUsage);
+    });
+  }, [chatId, initialContextUsage, initialMessages, resetState, streaming]);
+
+  useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
 
