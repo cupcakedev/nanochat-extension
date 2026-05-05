@@ -178,6 +178,7 @@ let rcardDotsEl: HTMLElement | null = null;
 let rcardFooterEl: HTMLElement | null = null;
 let rcardLangWrapEl: HTMLElement | null = null;
 let rcardActionLabelEl: HTMLElement | null = null;
+let toolbarLangCodeEl: HTMLElement | null = null;
 
 let currentText = '';
 let selectedLang = 'English';
@@ -214,6 +215,27 @@ function buildPrompt(action: string, text: string, targetLang?: string): string 
     default:
       return text;
   }
+}
+
+function getLangCode(name: string): string {
+  const map: Record<string, string> = {
+    English: 'EN',
+    Spanish: 'ES',
+    French: 'FR',
+    German: 'DE',
+    Italian: 'IT',
+    Portuguese: 'PT',
+    Russian: 'RU',
+    Chinese: 'ZH',
+    Japanese: 'JA',
+    Korean: 'KO',
+    Arabic: 'AR',
+    Hindi: 'HI',
+    Dutch: 'NL',
+    Polish: 'PL',
+    Turkish: 'TR',
+  };
+  return map[name] ?? name.slice(0, 2).toUpperCase();
 }
 
 // ── Inference via background port ─────────────────────────────────────────────
@@ -270,6 +292,7 @@ function startInference(
 // ── Lang panel helpers ────────────────────────────────────────────────────────
 function setActiveLang(name: string): void {
   selectedLang = name;
+  if (toolbarLangCodeEl) toolbarLangCodeEl.textContent = getLangCode(name);
   if (!langPanelEl) return;
   langPanelEl.querySelectorAll('.lang-item').forEach((el) => {
     const item = el as HTMLElement;
@@ -296,7 +319,7 @@ function openLangPanel(caller: 'toolbar' | 'rcard'): void {
   langPanelCaller = caller;
   langPanelEl?.classList.remove('hidden');
   if (caller === 'toolbar') {
-    toolbarEl?.querySelector('[data-action="translate"]')?.classList.add('active');
+    toolbarEl?.querySelector('[data-action="translate-lang"]')?.classList.add('active');
   }
   positionLangPanel();
 }
@@ -304,7 +327,7 @@ function openLangPanel(caller: 'toolbar' | 'rcard'): void {
 function closeLangPanel(): void {
   langPanelOpen = false;
   langPanelEl?.classList.add('hidden');
-  toolbarEl?.querySelector('[data-action="translate"]')?.classList.remove('active');
+  toolbarEl?.querySelector('[data-action="translate-lang"]')?.classList.remove('active');
 }
 
 // ── Result card ───────────────────────────────────────────────────────────────
@@ -414,11 +437,18 @@ function buildToolbar(): HTMLElement {
 
   tb.appendChild(
     makeBtn(
-      `${ICON_GLOBE}<span class="trans-label">Translate</span><span class="arrow-icon">${ICON_ARROW_DOWN}</span>`,
+      `${ICON_GLOBE}<span class="trans-label">Translate</span>`,
       'Translate',
       'translate',
     ),
   );
+  const langBtn = makeBtn(
+    `<span class="trans-label" data-lang-code>${getLangCode(selectedLang)}</span><span class="arrow-icon">${ICON_ARROW_DOWN}</span>`,
+    'Language',
+    'translate-lang',
+  );
+  toolbarLangCodeEl = langBtn.querySelector('[data-lang-code]') as HTMLElement | null;
+  tb.appendChild(langBtn);
   tb.appendChild(makeDivider());
   tb.appendChild(makeBtn(ICON_LIST, 'Summarize', 'summarize'));
   tb.appendChild(makeBtn(ICON_PENCIL, 'Rewrite', 'rewrite'));
@@ -436,8 +466,16 @@ function buildToolbar(): HTMLElement {
     if (!btn) return;
     const action = btn.dataset.action!;
 
-    if (action === 'translate') {
+    if (action === 'translate-lang') {
       langPanelOpen ? closeLangPanel() : openLangPanel('toolbar');
+      return;
+    }
+
+    if (action === 'translate') {
+      const text = currentText;
+      toolbarEl?.classList.add('hidden');
+      window.getSelection()?.removeAllRanges();
+      showResultCard('translate', text, selectedLang);
       return;
     }
 
@@ -629,10 +667,16 @@ function buildResultCard(): HTMLElement {
   continueBtn.appendChild(contIcon);
   continueBtn.appendChild(contLabel);
   continueBtn.addEventListener('click', () => {
-    const text = rcardOriginalText;
+    const userMessage = buildPrompt(rcardAction, rcardOriginalText, selectedLang);
+    const assistantMessage = rcardTextEl?.textContent?.trim() ?? '';
     hideResultCard();
     currentText = '';
-    chrome.runtime.sendMessage({ type: 'OPEN_WITH_SELECTION', text, action: 'ask' });
+    if (!assistantMessage) return;
+    chrome.runtime.sendMessage({
+      type: 'OPEN_WITH_CHAT_SEED',
+      userMessage,
+      assistantMessage,
+    });
   });
   footer.appendChild(continueBtn);
 
@@ -737,5 +781,11 @@ export function initSelectionPopup(): void {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hide();
   });
-  document.addEventListener('scroll', () => hide(), { capture: true });
+  document.addEventListener(
+    'scroll',
+    () => {
+      if (langPanelOpen) closeLangPanel();
+    },
+    { capture: true },
+  );
 }
