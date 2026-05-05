@@ -1,3 +1,5 @@
+import { takePendingSelection } from './onRuntimeMessage';
+
 const sidepanelPorts = new Map<number, chrome.runtime.Port>();
 
 export function getSidepanelPort(windowId: number): chrome.runtime.Port | undefined {
@@ -13,6 +15,11 @@ export const onConnect = (port: chrome.runtime.Port) => {
     if (msg.type === 'INIT' && typeof msg.windowId === 'number') {
       windowId = msg.windowId;
       sidepanelPorts.set(windowId, port);
+
+      const pendingText = takePendingSelection(windowId);
+      if (pendingText) {
+        port.postMessage({ type: 'SELECTED_TEXT', text: pendingText });
+      }
     }
   });
 
