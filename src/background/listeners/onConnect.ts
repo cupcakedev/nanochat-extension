@@ -1,4 +1,4 @@
-import { takePendingSelection } from './onRuntimeMessage';
+import { consumeStoredChatSeed, takePendingSelection } from './onRuntimeMessage';
 
 const sidepanelPorts = new Map<number, chrome.runtime.Port>();
 
@@ -18,12 +18,19 @@ export const onConnect = (port: chrome.runtime.Port) => {
 
       const pending = takePendingSelection(windowId);
       if (pending) {
-        if (pending.prompt) {
+        if (pending.chatSeed) {
+          port.postMessage({ type: 'SELECTED_CHAT_SEED', chatSeed: pending.chatSeed });
+        } else if (pending.prompt) {
           port.postMessage({ type: 'SELECTED_PROMPT', prompt: pending.prompt });
         } else {
           port.postMessage({ type: 'SELECTED_TEXT', text: pending.text });
         }
       }
+
+      void consumeStoredChatSeed(windowId).then((chatSeed) => {
+        if (!chatSeed) return;
+        port.postMessage({ type: 'SELECTED_CHAT_SEED', chatSeed });
+      });
     }
   });
 
