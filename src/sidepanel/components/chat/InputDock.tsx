@@ -27,6 +27,8 @@ interface InputDockProps {
   onDismissChatContext: () => void;
   onAddChatContext: () => void;
   isFullScreen?: boolean;
+  initialInputValue?: string | null;
+  onInitialInputValueConsumed?: () => void;
 }
 
 function resolveContextChip(
@@ -74,6 +76,8 @@ export const InputDock = memo(
     onDismissChatContext,
     onAddChatContext,
     isFullScreen,
+    initialInputValue,
+    onInitialInputValueConsumed,
   }: InputDockProps) => {
     const chip = resolveContextChip(
       mode,
@@ -108,6 +112,8 @@ export const InputDock = memo(
           contextMode={contextMode}
           showAddContext={showAddContext}
           onAddContext={onAddChatContext}
+          initialValue={initialInputValue}
+          onInitialValueConsumed={onInitialInputValueConsumed}
         />
       </div>
     );

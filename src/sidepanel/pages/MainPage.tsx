@@ -129,6 +129,8 @@ export const MainPage = () => {
               onDismissChatContext={state.dismissChatContext}
               onAddChatContext={handleAddChatContext}
               isFullScreen={state.isFullScreen}
+              initialInputValue={state.pendingInputText}
+              onInitialInputValueConsumed={state.clearPendingInputText}
             />
           </>
         ) : (

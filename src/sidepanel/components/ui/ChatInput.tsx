@@ -1,6 +1,7 @@
 import {
   memo,
   useCallback,
+  useEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -24,6 +25,8 @@ interface ChatInputProps {
   contextMode: ChatContextSendMode;
   showAddContext: boolean;
   onAddContext: () => void;
+  initialValue?: string | null;
+  onInitialValueConsumed?: () => void;
 }
 
 export const ChatInput = memo(
@@ -37,9 +40,20 @@ export const ChatInput = memo(
     contextMode,
     showAddContext,
     onAddContext,
+    initialValue,
+    onInitialValueConsumed,
   }: ChatInputProps) => {
     const [value, setValue] = useState('');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const onInitialValueConsumedRef = useRef(onInitialValueConsumed);
+    onInitialValueConsumedRef.current = onInitialValueConsumed;
+
+    useEffect(() => {
+      if (!initialValue) return;
+      setValue(initialValue);
+      onInitialValueConsumedRef.current?.();
+      textareaRef.current?.focus();
+    }, [initialValue]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { images, addImages, addImageFromDrop, removeImage, clearImages } = useImageAttachments();
     const composerDisabled = disabled || streaming;

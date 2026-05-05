@@ -4,6 +4,7 @@ import { useChat } from '@sidepanel/hooks/chat';
 import { useChatContext } from '@sidepanel/hooks/chat';
 import { useAgentMode } from '@sidepanel/hooks/agent';
 import { useFullScreenMode } from '@sidepanel/hooks/ui';
+import { useSidepanelConnection } from './useSidepanelConnection';
 import {
   AgentContextUnavailableError,
   buildAgentSystemPromptWithContext,
@@ -58,6 +59,9 @@ export function useMainPageState() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [chatContextSource, setChatContextSource] = useState<PageSource | null>(null);
   const [autoContextWarning, setAutoContextWarning] = useState<string | null>(null);
+  const [pendingInputText, setPendingInputText] = useState<string | null>(null);
+
+  useSidepanelConnection(setPendingInputText);
 
   const {
     status,
@@ -218,6 +222,10 @@ export function useMainPageState() {
     setAutoContextWarning(null);
   }, []);
 
+  const clearPendingInputText = useCallback(() => {
+    setPendingInputText(null);
+  }, []);
+
   return {
     isReady,
     isShowingOnboardingFlow,
@@ -262,6 +270,8 @@ export function useMainPageState() {
     addChatContext,
     autoContextWarning,
     clearAutoContextWarning,
+    pendingInputText,
+    clearPendingInputText,
     insufficientStorageModalOpen,
     closeInsufficientStorageModal,
     setChatContextSource,
