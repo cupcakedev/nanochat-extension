@@ -10,6 +10,7 @@ import {
   pulseAgentConnectionIndicator,
   setAgentIndicatorBottomOffset,
 } from './services/agent-connection-indicator';
+import { initSelectionPopup } from './services/text-selection/selectionPopup';
 
 const logger = createLogger('content');
 
@@ -103,5 +104,6 @@ const handleMessage: MessageHandler = (message, _sender, sendResponse) => {
 };
 
 chrome.runtime.onMessage.addListener(handleMessage);
+initSelectionPopup();
 
 logger.info('Content script loaded');
