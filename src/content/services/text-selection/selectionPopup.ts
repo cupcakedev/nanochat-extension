@@ -353,7 +353,7 @@ function showResultCard(action: string, text: string, targetLang?: string): void
     (chunk) => {
       if (!rcardTextEl) return;
       rcardDotsEl!.style.display = 'none';
-      rcardTextEl.textContent = chunk; // cumulative: replace
+      rcardTextEl.textContent += chunk;
     },
     () => {
       if (!rcardDotsEl || !rcardFooterEl) return;
