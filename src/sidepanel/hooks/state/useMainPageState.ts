@@ -9,7 +9,7 @@ import {
   AgentContextUnavailableError,
   buildAgentSystemPromptWithContext,
 } from '@sidepanel/services/agent';
-import { CHAT_INPUT_TOKEN_LIMIT, estimateChatInputTokens } from '@sidepanel/services/chat';
+import { CHAT_INPUT_TOKEN_LIMIT, estimateChatInputTokens, toSendOptions } from '@sidepanel/services/chat';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@sidepanel/types/mode';
 import { SessionStatus } from '@shared/types';
 import type { PageSource } from '@shared/types';
@@ -60,8 +60,9 @@ export function useMainPageState() {
   const [chatContextSource, setChatContextSource] = useState<PageSource | null>(null);
   const [autoContextWarning, setAutoContextWarning] = useState<string | null>(null);
   const [pendingInputText, setPendingInputText] = useState<string | null>(null);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
 
-  useSidepanelConnection(setPendingInputText);
+  useSidepanelConnection(setPendingInputText, setPendingPrompt);
 
   const {
     status,
@@ -185,6 +186,13 @@ export function useMainPageState() {
     (isSessionLoading && !hasMessages);
   const shouldShowDevTokenStats = import.meta.env.DEV && tokenStats !== null && !streaming;
   const isReady = loaded && !isShowingOnboardingFlow;
+
+  useEffect(() => {
+    if (!pendingPrompt || status !== SessionStatus.Ready) return;
+    const prompt = pendingPrompt;
+    setPendingPrompt(null);
+    void send(prompt, undefined, toSendOptions(mode, contextMode));
+  }, [pendingPrompt, status, send, mode, contextMode]);
 
   const toggleSidebar = useCallback(() => setIsSidebarOpen((v) => !v), []);
   const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
