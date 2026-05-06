@@ -242,21 +242,21 @@ export function SelectionPopupOverlay() {
         className={`toolbar ${toolbarLayerVisible ? '' : 'hidden'}`}
         style={{ left: anchor.centerX, top: toolbarTop }}
       >
-        <button className="tool-btn" onClick={() => runAction('translate', currentText, selectedLang)}>
+        <button data-tooltip="Translate" className="tool-btn" onClick={() => runAction('translate', currentText, selectedLang)}>
           <span dangerouslySetInnerHTML={{ __html: ICON_GLOBE }} />
           <span className="trans-label">Translate</span>
         </button>
-        <button className={`tool-btn ${langPanelOpen ? 'active' : ''}`} onClick={() => { setLangCaller('toolbar'); setLangPanelOpen((v) => !v); }}>
+        <button data-tooltip="Language" className={`tool-btn ${langPanelOpen ? 'active' : ''}`} onClick={() => { setLangCaller('toolbar'); setLangPanelOpen((v) => !v); }}>
           <span className="trans-label">{getLangCode(selectedLang)}</span>
           <span className="arrow-icon" dangerouslySetInnerHTML={{ __html: ICON_ARROW_DOWN }} />
         </button>
         <div className="divider" />
-        <button className="tool-btn" onClick={() => runAction('summarize', currentText)}><span dangerouslySetInnerHTML={{ __html: ICON_LIST }} /></button>
-        <button className="tool-btn" onClick={() => runAction('rewrite', currentText)}><span dangerouslySetInnerHTML={{ __html: ICON_PENCIL }} /></button>
-        <button className="tool-btn" onClick={() => runAction('spellcheck', currentText)}><span className="text-icon">Aa</span></button>
-        <button className="tool-btn" onClick={() => runAction('explain', currentText)}><span className="text-icon">?</span></button>
+        <button data-tooltip="Summarize" className="tool-btn" onClick={() => runAction('summarize', currentText)}><span dangerouslySetInnerHTML={{ __html: ICON_LIST }} /></button>
+        <button data-tooltip="Rewrite" className="tool-btn" onClick={() => runAction('rewrite', currentText)}><span dangerouslySetInnerHTML={{ __html: ICON_PENCIL }} /></button>
+        <button data-tooltip="Spell check" className="tool-btn" onClick={() => runAction('spellcheck', currentText)}><span className="text-icon">Aa</span></button>
+        <button data-tooltip="Explain" className="tool-btn" onClick={() => runAction('explain', currentText)}><span className="text-icon">?</span></button>
         <div className="divider" />
-        <button className="tool-btn" onClick={() => { hideAll(); window.getSelection()?.removeAllRanges(); chrome.runtime.sendMessage({ type: 'OPEN_WITH_SELECTION', text: currentText, action: 'ask' }); }}>
+        <button data-tooltip="Ask NanoChat" className="tool-btn" onClick={() => { hideAll(); window.getSelection()?.removeAllRanges(); chrome.runtime.sendMessage({ type: 'OPEN_WITH_SELECTION', text: currentText, action: 'ask' }); }}>
           <img src={iconUrl} alt="" />
         </button>
       </div>

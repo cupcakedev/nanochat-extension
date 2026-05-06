@@ -34,6 +34,30 @@ export const POPUP_STYLES = `
   .tool-btn img { width: 20px; height: 20px; border-radius: 5px; display: block; }
   .divider { width: 1px; height: 18px; background: #e5e5e5; margin: 0 2px; flex-shrink: 0; }
 
+  .tool-btn[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20,20,24,0.88);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+    z-index: 1;
+  }
+  .tool-btn[data-tooltip]:hover::after {
+    opacity: 1;
+    transition-delay: 0.5s;
+  }
+
   .lang-panel {
     position: absolute; background: #fff; border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06);
