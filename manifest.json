@@ -1,6 +1,6 @@
 {
 	"manifest_version": 3,
-	"name": "NanoChat: Local AI Assistant",
+	"name": "NanoChat: On-device AI Assistant",
 	"version": "0.1.6",
 	"description": "NanoChat Chrome Extension",
 	"permissions": [
