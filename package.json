@@ -27,6 +27,7 @@
 		"dev": "vite build --watch --mode development",
 		"typecheck": "tsc --noEmit",
 		"build": "npm run typecheck && vite build",
+		"release": "npm run build && node scripts/release.js",
 		"lint": "eslint src",
 		"lint:fix": "eslint src --fix",
 		"format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
