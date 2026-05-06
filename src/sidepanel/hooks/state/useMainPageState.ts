@@ -10,6 +10,7 @@ import {
   buildAgentSystemPromptWithContext,
 } from '@sidepanel/services/agent';
 import { CHAT_INPUT_TOKEN_LIMIT, estimateChatInputTokens, toSendOptions } from '@sidepanel/services/chat';
+import { muteSite } from '@sidepanel/services/muted-sites';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@sidepanel/types/mode';
 import { MessageRole, SessionStatus } from '@shared/types';
 import type { PageSource } from '@shared/types';
@@ -274,6 +275,10 @@ export function useMainPageState() {
     setPendingInputText(null);
   }, []);
 
+  const handleMuteSite = useCallback((url: string) => {
+    void muteSite(url, 30);
+  }, []);
+
   return {
     isReady,
     isShowingOnboardingFlow,
@@ -326,5 +331,6 @@ export function useMainPageState() {
     selectChat,
     deleteChat,
     closeMultimodalUnsupportedModal,
+    handleMuteSite,
   };
 }

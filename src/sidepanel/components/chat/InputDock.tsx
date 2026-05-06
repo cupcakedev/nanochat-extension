@@ -26,6 +26,7 @@ interface InputDockProps {
   contextMode: ChatContextSendMode;
   onDismissChatContext: () => void;
   onAddChatContext: () => void;
+  onMuteSite: (url: string) => void;
   isFullScreen?: boolean;
   initialInputValue?: string | null;
   onInitialInputValueConsumed?: () => void;
@@ -37,13 +38,14 @@ function resolveContextChip(
   agentVisible: boolean,
   chatContextSource: PageSource | null,
   chatPageSource?: PageSource,
-): { show: boolean; title: string; favicon: string; dismissable: boolean } {
+): { show: boolean; title: string; favicon: string; url: string; dismissable: boolean } {
   if (mode === ChatMode.Agent) {
     const show = requiresPageContext(mode) && agentChip !== null && agentVisible;
     return {
       show,
       title: agentChip?.title ?? '',
       favicon: agentChip?.faviconUrl ?? '',
+      url: agentChip?.url ?? '',
       dismissable: false,
     };
   }
@@ -52,6 +54,7 @@ function resolveContextChip(
     show: Boolean(source),
     title: source?.title ?? '',
     favicon: source?.faviconUrl ?? '',
+    url: source?.url ?? '',
     dismissable: Boolean(chatContextSource),
   };
 }
@@ -75,6 +78,7 @@ export const InputDock = memo(
     contextMode,
     onDismissChatContext,
     onAddChatContext,
+    onMuteSite,
     isFullScreen,
     initialInputValue,
     onInitialInputValueConsumed,
@@ -96,8 +100,10 @@ export const InputDock = memo(
           <AgentContextChip
             title={chip.title}
             faviconUrl={chip.favicon}
+            url={chip.url}
             animationKey={contextAnimationKey}
             onDismiss={chip.dismissable ? onDismissChatContext : undefined}
+            onMute={chip.url ? () => onMuteSite(chip.url) : undefined}
           />
         )}
         {agentNotice && <AgentNotice message={agentNotice} />}

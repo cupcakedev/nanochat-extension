@@ -128,6 +128,7 @@ export const MainPage = () => {
               contextMode={state.contextMode}
               onDismissChatContext={state.dismissChatContext}
               onAddChatContext={handleAddChatContext}
+              onMuteSite={state.handleMuteSite}
               isFullScreen={state.isFullScreen}
               initialInputValue={state.pendingInputText}
               onInitialInputValueConsumed={state.clearPendingInputText}
