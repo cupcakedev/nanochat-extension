@@ -177,6 +177,13 @@ export function SelectionPopupOverlay() {
 
     const onScroll = () => {
       if (langPanelOpen) setLangPanelOpen(false);
+      if (!toolbarVisible && !cardVisible) return;
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+      const rect = selection.getRangeAt(0).getBoundingClientRect();
+      if (rect.width || rect.height) {
+        setAnchor({ centerX: rect.left + rect.width / 2, top: rect.top });
+      }
     };
 
     document.addEventListener('mouseup', onMouseUp);
@@ -189,7 +196,7 @@ export function SelectionPopupOverlay() {
       document.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('scroll', onScroll, { capture: true });
     };
-  }, [cardVisible, hideAll, langPanelOpen]);
+  }, [cardVisible, hideAll, langPanelOpen, toolbarVisible]);
 
   useEffect(() => () => abortRef.current?.(), []);
 
