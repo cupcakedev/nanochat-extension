@@ -9,4 +9,7 @@ const enableSidePanel = () => {
 export const onInstalled = (details: chrome.runtime.InstalledDetails) => {
   logger.info(`Extension installed: ${details.reason}`);
   enableSidePanel();
+  if (details.reason === 'install') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/welcome.html') });
+  }
 };

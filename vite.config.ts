@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
 			react(),
 			webExtension({
 				disableAutoLaunch: true,
-				additionalInputs: ['src/placeholder.html'],
+				additionalInputs: ['src/placeholder.html', 'src/welcome.html'],
 			}),
 		],
 	build:
@@ -28,6 +28,7 @@ export default defineConfig(({ mode }) => ({
 			'@background': resolve(__dirname, 'src/background'),
 			'@content': resolve(__dirname, 'src/content'),
 			'@shared': resolve(__dirname, 'src/shared'),
+			'@welcome': resolve(__dirname, 'src/welcome'),
 		},
 	},
 }));
