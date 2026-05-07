@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { createPortal } from 'react-dom';
 import { ACTION_LABELS, getLangCode, HOST_ID, LANGUAGES, LANG_PANEL_GAP, LANG_PANEL_H, TOOLBAR_GAP, TOOLBAR_H } from './constants';
 import { ICON_ARROW_DOWN, ICON_CLOSE, ICON_GLOBE, ICON_LIST, ICON_PENCIL } from './icons';
@@ -235,6 +237,13 @@ export function SelectionPopupOverlay() {
           .rcard-action,.rcard-text{color:#e8ecf3;}
           .rcard-footer{border-top-color:#2a303c;}
           .rcard-continue{background:#1f3a65;color:#b8d0ff;}
+          .rcard-text code{background:rgba(255,255,255,0.1);}
+          .rcard-text pre{background:rgba(255,255,255,0.07);}
+          .rcard-text blockquote{border-left-color:#4a5568;}
+          .rcard-text a{color:#8ab4ff;}
+          .rcard-text hr{border-top-color:#2a303c;}
+          .rcard-text th,.rcard-text td{border-color:#2a303c;}
+          .rcard-text th{background:rgba(255,255,255,0.05);}
         `
           : ''}
       </style>
@@ -296,7 +305,7 @@ export function SelectionPopupOverlay() {
         <div className="rcard-source">{sourceText.length > 80 ? `${sourceText.slice(0, 80)}…` : sourceText}</div>
         <div className="rcard-body">
           {loading && !resultText ? <div className="rcard-text">Generating...</div> : null}
-          {resultText ? <div className="rcard-text">{resultText}</div> : null}
+          {resultText ? <div className="rcard-text"><ReactMarkdown remarkPlugins={[remarkGfm]}>{resultText}</ReactMarkdown></div> : null}
           {errorText ? <div className="rcard-error">{errorText}</div> : null}
         </div>
         <div className="rcard-footer">

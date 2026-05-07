@@ -90,7 +90,29 @@ export const POPUP_STYLES = `
   .rcard-hdr-btn { display:flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; border:none; background:transparent; color:#888; cursor:pointer; }
   .rcard-source { padding: 8px 14px 0; font-size:12px; color:#999; line-height:1.5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .rcard-body { padding:8px 14px 12px; min-height:44px; flex:1 1 auto; overflow-y:auto; }
-  .rcard-text { font-size:14px; line-height:1.65; color:#1a1a1a; white-space:pre-wrap; word-break:break-word; }
+  .rcard-text { font-size:14px; line-height:1.65; color:#1a1a1a; word-break:break-word; }
+  .rcard-text p { margin:0 0 8px; }
+  .rcard-text p:last-child { margin-bottom:0; }
+  .rcard-text h1,.rcard-text h2,.rcard-text h3,.rcard-text h4 { font-weight:600; margin:12px 0 4px; }
+  .rcard-text h1:first-child,.rcard-text h2:first-child,.rcard-text h3:first-child,.rcard-text h4:first-child { margin-top:0; }
+  .rcard-text h1 { font-size:15px; }
+  .rcard-text h2 { font-size:14px; }
+  .rcard-text h3,.rcard-text h4 { font-size:13px; }
+  .rcard-text ul,.rcard-text ol { margin:0 0 8px; padding-left:20px; }
+  .rcard-text ul { list-style:disc; }
+  .rcard-text ol { list-style:decimal; }
+  .rcard-text li { margin:2px 0; }
+  .rcard-text code { background:rgba(0,0,0,0.07); border-radius:4px; padding:1px 5px; font-size:12px; font-family:'SF Mono',Consolas,monospace; }
+  .rcard-text pre { background:rgba(0,0,0,0.06); border-radius:8px; padding:10px 12px; margin:8px 0; overflow-x:auto; }
+  .rcard-text pre code { background:transparent; padding:0; }
+  .rcard-text blockquote { border-left:2px solid #d0d0d0; padding-left:10px; margin:8px 0; opacity:0.75; }
+  .rcard-text a { text-decoration:underline; color:#1a73e8; }
+  .rcard-text strong { font-weight:600; }
+  .rcard-text em { font-style:italic; }
+  .rcard-text hr { border:none; border-top:1px solid #e0e0e0; margin:8px 0; }
+  .rcard-text table { width:100%; font-size:12px; border-collapse:collapse; margin:8px 0; }
+  .rcard-text th,.rcard-text td { padding:4px 8px; border:1px solid #e0e0e0; text-align:left; }
+  .rcard-text th { font-weight:600; background:rgba(0,0,0,0.04); }
   .rcard-error { font-size:13px; color:#d93025; line-height:1.5; }
   .rcard-footer { padding:8px 14px 12px; display:flex; justify-content:center; border-top:1px solid #f0f0f0; }
   .rcard-continue { display:flex; align-items:center; gap:8px; padding:8px 22px; background:#eef2ff; border:none; border-radius:20px; cursor:pointer; font-size:13px; font-weight:500; color:#3b6ef8; }
