@@ -114,6 +114,14 @@ export const POPUP_STYLES = `
   .rcard-text th,.rcard-text td { padding:4px 8px; border:1px solid #e0e0e0; text-align:left; }
   .rcard-text th { font-weight:600; background:rgba(0,0,0,0.04); }
   .rcard-error { font-size:13px; color:#d93025; line-height:1.5; }
+  .rcard-dots { display:flex; align-items:center; gap:4px; padding:2px 2px; }
+  .rcard-dot { width:6px; height:6px; border-radius:50%; background:#bbb; animation:nc-bounce 1s ease-in-out infinite; }
+  .rcard-dot:nth-child(2) { animation-delay:0.15s; }
+  .rcard-dot:nth-child(3) { animation-delay:0.3s; }
+  @keyframes nc-bounce {
+    0%,80%,100% { transform:translateY(0); }
+    40% { transform:translateY(-5px); }
+  }
   .rcard-footer { padding:8px 14px 12px; display:flex; justify-content:center; border-top:1px solid #f0f0f0; }
   .rcard-continue { display:flex; align-items:center; gap:8px; padding:8px 22px; background:#eef2ff; border:none; border-radius:20px; cursor:pointer; font-size:13px; font-weight:500; color:#3b6ef8; }
   .rcard-continue img { width:18px; height:18px; border-radius:4px; }

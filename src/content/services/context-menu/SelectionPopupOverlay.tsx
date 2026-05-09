@@ -304,7 +304,7 @@ export function SelectionPopupOverlay() {
         </div>
         <div className="rcard-source">{sourceText.length > 80 ? `${sourceText.slice(0, 80)}…` : sourceText}</div>
         <div className="rcard-body">
-          {loading && !resultText ? <div className="rcard-text">Generating...</div> : null}
+          {loading && !resultText ? <div className="rcard-dots"><span className="rcard-dot" /><span className="rcard-dot" /><span className="rcard-dot" /></div> : null}
           {resultText ? <div className="rcard-text"><ReactMarkdown remarkPlugins={[remarkGfm]}>{resultText}</ReactMarkdown></div> : null}
           {errorText ? <div className="rcard-error">{errorText}</div> : null}
         </div>
