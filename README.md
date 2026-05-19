@@ -1,7 +1,9 @@
 # NanoChat Extension
 
 NanoChat is an on-device Chrome extension with a sidepanel chat UI and an interactive browser-agent mode.
+Private - your data stays local, no servers, no tracking. Check for yourself.
 
+> More info on the website: [chat.cupcakedev.com](https://chat.cupcakedev.com)  
 > Available on Chrome Web Store:  
 > [Install NanoChat](https://chromewebstore.google.com/detail/nanochat/blpleeefgeopjgdgjelpldcabhipkjbd)
 
