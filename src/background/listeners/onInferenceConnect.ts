@@ -39,7 +39,10 @@ export const onInferenceConnect = (port: chrome.runtime.Port) => {
       port.postMessage({ type: 'DONE' });
     } catch (err) {
       try {
-        port.postMessage({ type: 'ERROR', message: err instanceof Error ? err.message : String(err) });
+        port.postMessage({
+          type: 'ERROR',
+          message: err instanceof Error ? err.message : String(err),
+        });
       } catch {
         /* port may be disconnected */
       }

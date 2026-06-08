@@ -46,12 +46,16 @@ export const ChatInput = memo(
     const [value, setValue] = useState('');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const onInitialValueConsumedRef = useRef(onInitialValueConsumed);
-    onInitialValueConsumedRef.current = onInitialValueConsumed;
+    useEffect(() => {
+      onInitialValueConsumedRef.current = onInitialValueConsumed;
+    }, [onInitialValueConsumed]);
 
     useEffect(() => {
       if (!initialValue) return;
-      setValue(initialValue);
-      onInitialValueConsumedRef.current?.();
+      setTimeout(() => {
+        setValue(initialValue);
+        onInitialValueConsumedRef.current?.();
+      }, 0);
       textareaRef.current?.focus();
     }, [initialValue]);
     const fileInputRef = useRef<HTMLInputElement>(null);

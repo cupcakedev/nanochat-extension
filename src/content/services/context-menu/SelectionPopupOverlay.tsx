@@ -2,14 +2,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createPortal } from 'react-dom';
-import { ACTION_LABELS, getLangCode, HOST_ID, LANGUAGES, LANG_PANEL_GAP, LANG_PANEL_H, TOOLBAR_GAP, TOOLBAR_H } from './constants';
+import {
+  ACTION_LABELS,
+  getLangCode,
+  HOST_ID,
+  LANGUAGES,
+  LANG_PANEL_GAP,
+  LANG_PANEL_H,
+  TOOLBAR_GAP,
+  TOOLBAR_H,
+} from './constants';
 import { ICON_ARROW_DOWN, ICON_CLOSE, ICON_GLOBE, ICON_LIST, ICON_PENCIL } from './icons';
 import { startInference } from './inference';
 import { buildPrompt } from './prompt';
 import { POPUP_STYLES } from './styles';
 import type { PopupAction } from './types';
 
-interface Anchor { centerX: number; top: number }
+interface Anchor {
+  centerX: number;
+  top: number;
+}
 const STORAGE_KEY_SELECTED_LANG = 'contextMenuSelectedLanguage';
 
 function findSelectionFromComposedPath(path: EventTarget[]): Selection | null {
@@ -38,7 +50,12 @@ function resolveSurfaceColor(): [number, number, number] {
   for (const el of candidates) {
     const rgb = parseRgbColor(getComputedStyle(el).backgroundColor);
     if (!rgb) continue;
-    if (rgb[0] === 0 && rgb[1] === 0 && rgb[2] === 0 && getComputedStyle(el).backgroundColor.includes('0)')) {
+    if (
+      rgb[0] === 0 &&
+      rgb[1] === 0 &&
+      rgb[2] === 0 &&
+      getComputedStyle(el).backgroundColor.includes('0)')
+    ) {
       continue;
     }
     return rgb;
@@ -59,7 +76,8 @@ function useShadowHost(): ShadowRoot | null {
     if (!host) {
       host = document.createElement('div');
       host.id = HOST_ID;
-      host.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;pointer-events:none;';
+      host.style.cssText =
+        'position:fixed;top:0;left:0;width:100%;height:100%;z-index:2147483647;pointer-events:none;';
       document.body.appendChild(host);
     }
     const root = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
@@ -69,7 +87,9 @@ function useShadowHost(): ShadowRoot | null {
       style.textContent = POPUP_STYLES;
       root.appendChild(style);
     }
-    setShadow(root);
+    setTimeout(() => {
+      setShadow(root);
+    }, 0);
     return () => {
       host?.remove();
     };
@@ -125,30 +145,33 @@ export function SelectionPopupOverlay() {
     abortRef.current = null;
   }, []);
 
-  const runAction = useCallback((nextAction: PopupAction, text: string, lang?: string) => {
-    setAction(nextAction);
-    setSourceText(text);
-    setResultText('');
-    setErrorText('');
-    setLoading(true);
-    setToolbarVisible(false);
-    setCardVisible(true);
-    abortRef.current?.();
-    abortRef.current = startInference(
-      buildPrompt(nextAction, text, lang ?? selectedLang),
-      (chunk) => {
-        setLoading(false);
-        setResultText((prev) => prev + chunk);
-      },
-      () => {
-        setLoading(false);
-      },
-      (msg) => {
-        setLoading(false);
-        setErrorText(msg);
-      },
-    );
-  }, [selectedLang]);
+  const runAction = useCallback(
+    (nextAction: PopupAction, text: string, lang?: string) => {
+      setAction(nextAction);
+      setSourceText(text);
+      setResultText('');
+      setErrorText('');
+      setLoading(true);
+      setToolbarVisible(false);
+      setCardVisible(true);
+      abortRef.current?.();
+      abortRef.current = startInference(
+        buildPrompt(nextAction, text, lang ?? selectedLang),
+        (chunk) => {
+          setLoading(false);
+          setResultText((prev) => prev + chunk);
+        },
+        () => {
+          setLoading(false);
+        },
+        (msg) => {
+          setLoading(false);
+          setErrorText(msg);
+        },
+      );
+    },
+    [selectedLang],
+  );
 
   useEffect(() => {
     const onMouseUp = (e: MouseEvent) => {
@@ -169,7 +192,13 @@ export function SelectionPopupOverlay() {
 
     const onMouseDown = (e: MouseEvent) => {
       const path = e.composedPath() as EventTarget[];
-      const clickedInside = path.some((node) => node instanceof HTMLElement && (node.classList?.contains('toolbar') || node.classList?.contains('lang-panel') || node.classList?.contains('rcard')));
+      const clickedInside = path.some(
+        (node) =>
+          node instanceof HTMLElement &&
+          (node.classList?.contains('toolbar') ||
+            node.classList?.contains('lang-panel') ||
+            node.classList?.contains('rcard')),
+      );
       if (!clickedInside) hideAll();
     };
 
@@ -204,9 +233,10 @@ export function SelectionPopupOverlay() {
 
   if (!shadow) return null;
 
-  const langTop = toolbarTop >= LANG_PANEL_H + LANG_PANEL_GAP
-    ? toolbarTop - LANG_PANEL_H - LANG_PANEL_GAP
-    : toolbarTop + TOOLBAR_H + LANG_PANEL_GAP;
+  const langTop =
+    toolbarTop >= LANG_PANEL_H + LANG_PANEL_GAP
+      ? toolbarTop - LANG_PANEL_H - LANG_PANEL_GAP
+      : toolbarTop + TOOLBAR_H + LANG_PANEL_GAP;
 
   const cardBottomY = toolbarTop + TOOLBAR_H;
   const viewportHalf = Math.floor(window.innerHeight * 0.5);
@@ -217,7 +247,11 @@ export function SelectionPopupOverlay() {
   const left = Math.max(8, Math.min(anchor.centerX - 190, window.innerWidth - 388));
   const cardStyle: React.CSSProperties = openBelow
     ? { left, top: cardBottomY, maxHeight: Math.max(180, Math.min(viewportHalf, spaceBelow)) }
-    : { left, bottom: window.innerHeight - cardBottomY, maxHeight: Math.max(180, Math.min(viewportHalf, spaceAbove)) };
+    : {
+        left,
+        bottom: window.innerHeight - cardBottomY,
+        maxHeight: Math.max(180, Math.min(viewportHalf, spaceAbove)),
+      };
 
   return createPortal(
     <>
@@ -251,21 +285,68 @@ export function SelectionPopupOverlay() {
         className={`toolbar ${toolbarLayerVisible ? '' : 'hidden'}`}
         style={{ left: anchor.centerX, top: toolbarTop }}
       >
-        <button data-tooltip="Translate" className="tool-btn" onClick={() => runAction('translate', currentText, selectedLang)}>
+        <button
+          data-tooltip="Translate"
+          className="tool-btn"
+          onClick={() => runAction('translate', currentText, selectedLang)}
+        >
           <span dangerouslySetInnerHTML={{ __html: ICON_GLOBE }} />
           <span className="trans-label">Translate</span>
         </button>
-        <button data-tooltip="Language" className={`tool-btn ${langPanelOpen ? 'active' : ''}`} onClick={() => { setLangCaller('toolbar'); setLangPanelOpen((v) => !v); }}>
+        <button
+          data-tooltip="Language"
+          className={`tool-btn ${langPanelOpen ? 'active' : ''}`}
+          onClick={() => {
+            setLangCaller('toolbar');
+            setLangPanelOpen((v) => !v);
+          }}
+        >
           <span className="trans-label">{getLangCode(selectedLang)}</span>
           <span className="arrow-icon" dangerouslySetInnerHTML={{ __html: ICON_ARROW_DOWN }} />
         </button>
         <div className="divider" />
-        <button data-tooltip="Summarize" className="tool-btn" onClick={() => runAction('summarize', currentText)}><span dangerouslySetInnerHTML={{ __html: ICON_LIST }} /></button>
-        <button data-tooltip="Rewrite" className="tool-btn" onClick={() => runAction('rewrite', currentText)}><span dangerouslySetInnerHTML={{ __html: ICON_PENCIL }} /></button>
-        <button data-tooltip="Spell check" className="tool-btn" onClick={() => runAction('spellcheck', currentText)}><span className="text-icon">Aa</span></button>
-        <button data-tooltip="Explain" className="tool-btn" onClick={() => runAction('explain', currentText)}><span className="text-icon">?</span></button>
+        <button
+          data-tooltip="Summarize"
+          className="tool-btn"
+          onClick={() => runAction('summarize', currentText)}
+        >
+          <span dangerouslySetInnerHTML={{ __html: ICON_LIST }} />
+        </button>
+        <button
+          data-tooltip="Rewrite"
+          className="tool-btn"
+          onClick={() => runAction('rewrite', currentText)}
+        >
+          <span dangerouslySetInnerHTML={{ __html: ICON_PENCIL }} />
+        </button>
+        <button
+          data-tooltip="Spell check"
+          className="tool-btn"
+          onClick={() => runAction('spellcheck', currentText)}
+        >
+          <span className="text-icon">Aa</span>
+        </button>
+        <button
+          data-tooltip="Explain"
+          className="tool-btn"
+          onClick={() => runAction('explain', currentText)}
+        >
+          <span className="text-icon">?</span>
+        </button>
         <div className="divider" />
-        <button data-tooltip="Ask NanoChat" className="tool-btn" onClick={() => { hideAll(); window.getSelection()?.removeAllRanges(); chrome.runtime.sendMessage({ type: 'OPEN_WITH_SELECTION', text: currentText, action: 'ask' }); }}>
+        <button
+          data-tooltip="Ask NanoChat"
+          className="tool-btn"
+          onClick={() => {
+            hideAll();
+            window.getSelection()?.removeAllRanges();
+            chrome.runtime.sendMessage({
+              type: 'OPEN_WITH_SELECTION',
+              text: currentText,
+              action: 'ask',
+            });
+          }}
+        >
           <img src={iconUrl} alt="" />
         </button>
       </div>
@@ -284,8 +365,16 @@ export function SelectionPopupOverlay() {
               if (langCaller === 'rcard') runAction('translate', sourceText, lang.name);
             }}
           >
-            <div className="lang-info"><span className="lang-name">{lang.name}</span><span className="lang-native">{lang.native}</span></div>
-            <span className="lang-check" style={{ display: selectedLang === lang.name ? '' : 'none' }}>✓</span>
+            <div className="lang-info">
+              <span className="lang-name">{lang.name}</span>
+              <span className="lang-native">{lang.native}</span>
+            </div>
+            <span
+              className="lang-check"
+              style={{ display: selectedLang === lang.name ? '' : 'none' }}
+            >
+              ✓
+            </span>
           </div>
         ))}
       </div>
@@ -296,16 +385,37 @@ export function SelectionPopupOverlay() {
           <div className="rcard-action">{ACTION_LABELS[action]}</div>
           <div className="rcard-spacer" />
           {action === 'translate' && (
-            <div className="rcard-lang-wrap" onClick={() => { setLangCaller('rcard'); setLangPanelOpen((v) => !v); }}>
-              <span>{selectedLang}</span><span className="arrow-icon" dangerouslySetInnerHTML={{ __html: ICON_ARROW_DOWN }} />
+            <div
+              className="rcard-lang-wrap"
+              onClick={() => {
+                setLangCaller('rcard');
+                setLangPanelOpen((v) => !v);
+              }}
+            >
+              <span>{selectedLang}</span>
+              <span className="arrow-icon" dangerouslySetInnerHTML={{ __html: ICON_ARROW_DOWN }} />
             </div>
           )}
-          <button className="rcard-hdr-btn" onClick={hideAll}><span dangerouslySetInnerHTML={{ __html: ICON_CLOSE }} /></button>
+          <button className="rcard-hdr-btn" onClick={hideAll}>
+            <span dangerouslySetInnerHTML={{ __html: ICON_CLOSE }} />
+          </button>
         </div>
-        <div className="rcard-source">{sourceText.length > 80 ? `${sourceText.slice(0, 80)}…` : sourceText}</div>
+        <div className="rcard-source">
+          {sourceText.length > 80 ? `${sourceText.slice(0, 80)}…` : sourceText}
+        </div>
         <div className="rcard-body">
-          {loading && !resultText ? <div className="rcard-dots"><span className="rcard-dot" /><span className="rcard-dot" /><span className="rcard-dot" /></div> : null}
-          {resultText ? <div className="rcard-text"><ReactMarkdown remarkPlugins={[remarkGfm]}>{resultText}</ReactMarkdown></div> : null}
+          {loading && !resultText ? (
+            <div className="rcard-dots">
+              <span className="rcard-dot" />
+              <span className="rcard-dot" />
+              <span className="rcard-dot" />
+            </div>
+          ) : null}
+          {resultText ? (
+            <div className="rcard-text">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{resultText}</ReactMarkdown>
+            </div>
+          ) : null}
           {errorText ? <div className="rcard-error">{errorText}</div> : null}
         </div>
         <div className="rcard-footer">

@@ -9,7 +9,11 @@ import {
   AgentContextUnavailableError,
   buildAgentSystemPromptWithContext,
 } from '@sidepanel/services/agent';
-import { CHAT_INPUT_TOKEN_LIMIT, estimateChatInputTokens, toSendOptions } from '@sidepanel/services/chat';
+import {
+  CHAT_INPUT_TOKEN_LIMIT,
+  estimateChatInputTokens,
+  toSendOptions,
+} from '@sidepanel/services/chat';
 import { muteSite } from '@sidepanel/services/muted-sites';
 import { ChatContextSendMode, ChatMode, requiresPageContext } from '@sidepanel/types/mode';
 import { MessageRole, SessionStatus } from '@shared/types';
@@ -68,11 +72,15 @@ export function useMainPageState() {
     assistantMessage: string;
   } | null>(null);
 
-  useSidepanelConnection(setPendingInputText, setPendingPrompt, ({ userMessage, assistantMessage }) => {
-    setPendingInputText(null);
-    setPendingPrompt(null);
-    setPendingChatSeed({ targetChatId: null, userMessage, assistantMessage });
-  });
+  useSidepanelConnection(
+    setPendingInputText,
+    setPendingPrompt,
+    ({ userMessage, assistantMessage }) => {
+      setPendingInputText(null);
+      setPendingPrompt(null);
+      setPendingChatSeed({ targetChatId: null, userMessage, assistantMessage });
+    },
+  );
 
   const {
     status,
@@ -200,7 +208,9 @@ export function useMainPageState() {
   useEffect(() => {
     if (!pendingPrompt || status !== SessionStatus.Ready) return;
     const prompt = pendingPrompt;
-    setPendingPrompt(null);
+    setTimeout(() => {
+      setPendingPrompt(null);
+    }, 0);
     void send(prompt, undefined, toSendOptions(mode, contextMode));
   }, [pendingPrompt, status, send, mode, contextMode]);
 
@@ -208,7 +218,9 @@ export function useMainPageState() {
     if (!pendingChatSeed || status !== SessionStatus.Ready) return;
     if (!pendingChatSeed.targetChatId) {
       const nextChatId = createChat();
-      setPendingChatSeed((prev) => (prev ? { ...prev, targetChatId: nextChatId } : prev));
+      setTimeout(() => {
+        setPendingChatSeed((prev) => (prev ? { ...prev, targetChatId: nextChatId } : prev));
+      }, 0);
       return;
     }
     if (activeChatId !== pendingChatSeed.targetChatId) return;
@@ -232,7 +244,9 @@ export function useMainPageState() {
       undefined,
       null,
     );
-    setPendingChatSeed(null);
+    setTimeout(() => {
+      setPendingChatSeed(null);
+    }, 0);
   }, [activeChatId, createChat, pendingChatSeed, status, updateActiveChat]);
 
   const toggleSidebar = useCallback(() => setIsSidebarOpen((v) => !v), []);

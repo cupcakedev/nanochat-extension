@@ -20,7 +20,8 @@ export async function muteSite(url: string, durationMinutes: number = 30): Promi
     filtered.push(mutedSite);
 
     await chrome.storage.local.set({ [MUTED_SITES_KEY]: filtered });
-  } catch {
+  } catch (error) {
+    console.error(error);
   }
 }
 
