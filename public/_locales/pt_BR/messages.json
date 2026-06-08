@@ -1,0 +1,14 @@
+{
+  "extensionName": {
+    "message": "NanoChat: Assistente de IA local",
+    "description": "The name of the extension"
+  },
+  "extensionDescription": {
+    "message": "Assistente de IA local e agente web com Chrome Gemini Nano. Converse com páginas, resuma textos e automatize tarefas com privacidade.",
+    "description": "The description of the extension"
+  },
+  "openSidepanel": {
+    "message": "Abrir NanoChat",
+    "description": "Command to open the side panel"
+  }
+}

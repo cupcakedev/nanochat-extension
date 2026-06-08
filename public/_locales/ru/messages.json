@@ -1,0 +1,14 @@
+{
+  "extensionName": {
+    "message": "NanoChat: Локальный ИИ-ассистент",
+    "description": "The name of the extension"
+  },
+  "extensionDescription": {
+    "message": "Локальный ИИ-ассистент на Chrome Gemini Nano. Общайтесь с веб-страницами, суммаризируйте текст и автоматизируйте задачи.",
+    "description": "The description of the extension"
+  },
+  "openSidepanel": {
+    "message": "Открыть NanoChat",
+    "description": "Command to open the side panel"
+  }
+}

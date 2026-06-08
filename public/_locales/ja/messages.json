@@ -1,0 +1,14 @@
+{
+  "extensionName": {
+    "message": "NanoChat: ローカルAIアシスタント",
+    "description": "The name of the extension"
+  },
+  "extensionDescription": {
+    "message": "Chrome Gemini Nano搭載のローカルAIアシスタント。Webページとのチャット、要約、Webタスクの自動化を完全にローカルで実行。",
+    "description": "The description of the extension"
+  },
+  "openSidepanel": {
+    "message": "NanoChatを開く",
+    "description": "Command to open the side panel"
+  }
+}

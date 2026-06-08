@@ -1,0 +1,14 @@
+{
+  "extensionName": {
+    "message": "NanoChat: 本地 AI 助手",
+    "description": "The name of the extension"
+  },
+  "extensionDescription": {
+    "message": "基于 Chrome Gemini Nano 的本地 AI 助手和浏览器 Agent。网页聊天、文本总结、网页自动化，完全本地运行，保护隐私。",
+    "description": "The description of the extension"
+  },
+  "openSidepanel": {
+    "message": "打开 NanoChat",
+    "description": "Command to open the side panel"
+  }
+}

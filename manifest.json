@@ -1,8 +1,9 @@
 {
 	"manifest_version": 3,
-	"name": "NanoChat: On-device AI Assistant",
-	"version": "0.1.6",
-	"description": "NanoChat Chrome Extension",
+	"name": "__MSG_extensionName__",
+	"version": "0.1.7",
+	"description": "__MSG_extensionDescription__",
+	"default_locale": "en",
 	"permissions": [
 		"storage",
 		"unlimitedStorage",
@@ -49,7 +50,7 @@
 				"default": "Ctrl+Shift+Y",
 				"mac": "Command+Shift+Y"
 			},
-			"description": "Open NanoChat"
+			"description": "__MSG_openSidepanel__"
 		}
 	}
 }
