@@ -1,36 +1,29 @@
-NanoChat: Local AI Side Panel & Browser Agent is a browser extension for people who want a private, secure, and fully local AI assistant. Chat with any webpage, automate on-page actions with the AI Agent, instantly process selected text, and summarize articles without any data leaving your device.
+NanoChat is a private, on-device AI sidebar for Chrome. Open it beside the page you are reading to ask questions, summarize an article, explain a passage, rewrite selected text, or work from the page context without copying it into a separate chat.
 
-Whether you use NanoChat for learning, work, research, or productivity, NanoChat helps you summarize information faster and gives you direct control over your on-device AI workflows. You choose which actions to run and how to interact with your pages.
+Built for focused reading, research, writing, and everyday browser productivity, NanoChat pairs webpage chat with a user-controlled AI browser agent. It runs through Chrome's built-in Prompt API and Gemini Nano—no API key, account, subscription, or external AI service is required.
 
-Key features:
-- Chat with AI about any webpage or document you’re viewing
-- AI Browser Agent: let the AI click, type, scroll, and navigate pages for you
-- Smart context menu: select text to Translate, Summarize, Rewrite, Spellcheck, or Explain
-- Attach images or screenshots directly to your messages for multimodal input
-- Full conversation history with search to quickly retrieve past chats
-- Works seamlessly on any webpage in your active browser tab
-- Privacy-first architecture powered by Chrome's built-in Gemini Nano (Prompt API)
-- Zero configuration: install and start chatting locally with no API keys or setups
+What you can do with NanoChat:
+- Chat with the current webpage or document in a dedicated AI side panel
+- Summarize articles, explain complex passages, translate selections, rewrite copy, and check spelling from the context menu
+- Attach images and screenshots for multimodal prompts on supported devices
+- Let the experimental browser agent propose and perform page actions such as clicking, typing, scrolling, and navigation
+- Keep a searchable local history of your conversations
+- Open the AI assistant quickly with a keyboard shortcut
 
-Why users choose NanoChat:
-- 100% private: no cloud APIs, no data sent to external servers
-- Offline capability: runs completely on-device via your browser
-- Instant accessibility: convenient side-panel panel layout
-- Interactive web automation with experimental Agent mode
-- Completely free and open source with no registration or subscriptions
+Privacy by design:
+- NanoChat does not send your prompts, page context, or conversations to an external AI service
+- Your chats are stored locally in the extension
+- Every browser-agent action remains visible and under your control
 
-Great for:
-- Users who value data privacy and want to keep conversations local
-- Professionals and students who need to read, summarize, or analyze web content
-- Developers and tech enthusiasts exploring Chrome's native local AI capabilities
-- Anyone looking for a distraction-free, local AI copilot inside the browser
+Who it is for:
+- Students and researchers who want to understand and summarize web content faster
+- Writers and professionals who need an AI assistant alongside the page they are working on
+- Privacy-conscious users who want local AI instead of cloud-based chat tools
+- Developers exploring Chrome's built-in AI capabilities
 
-Important Requirements:
-To run NanoChat on-device, your system and browser must meet the following:
-- Chrome version 138 or higher
-- GPU: at least 4 GB VRAM
-- CPU/RAM: minimum 4 CPU cores and 16 GB RAM
-- Built-in AI flags enabled in Chrome (see GitHub repository for setup details)
+Requirements:
+- A desktop version of Google Chrome that supports the Prompt API and Gemini Nano
+- A device that meets Chrome's current on-device AI requirements; Chrome currently requires at least 22 GB of free space for the model and sufficient CPU or GPU resources
+- The built-in AI model must be available or downloaded in Chrome before use
 
-NanoChat is open source: https://github.com/cupcakedev/nanochat-extension
-
+NanoChat is free and open source: https://github.com/cupcakedev/nanochat-extension

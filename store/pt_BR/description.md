@@ -1,35 +1,25 @@
-NanoChat: Painel lateral de IA local & Agente de navegação é uma extensão de navegador para pessoas que desejam um assistente de IA privado, seguro e totalmente local. Converse com qualquer página web, automatize ações na página com o Agente de IA, processe instantaneamente o texto selecionado e resuma artigos sem que nenhum dado saia do seu dispositivo.
+NanoChat é uma barra lateral de IA privada e local para o Google Chrome. Abra-a ao lado da página que você está lendo para fazer perguntas, resumir um artigo, explicar um trecho, reescrever o texto selecionado ou trabalhar com o contexto da página sem copiá-lo para outro chat.
 
-Quer você use o NanoChat para aprendizado, trabalho, pesquisa ou produtividade, o NanoChat ajuda a resumir informações mais rapidamente e oferece controle direto sobre seus fluxos de trabalho de IA no dispositivo. Você escolhe quais ações executar e como interagir com suas páginas.
+Criado para leitura, pesquisa, escrita e produtividade no navegador, o NanoChat combina chat sobre páginas web com um agente de navegador de IA controlado por você. Ele funciona com a Prompt API integrada do Chrome e o Gemini Nano: não exige chave de API, conta, assinatura nem serviço de IA externo.
 
-Recursos principais:
-- Converse com a IA sobre qualquer página web ou documento que estiver visualizando
-- Agente de IA do navegador: deixe a IA clicar, digitar, rolar e navegar pelas páginas por você
-- Menu de contexto inteligente: selecione textos para Traduzir (Translate), Resumir (Summarize), Reescrever (Rewrite), Corrigir (Spellcheck) ou Explicar (Explain)
-- Anexe imagens ou capturas de tela diretamente às suas mensagens para entrada multimodal
-- Histórico completo de conversas com pesquisa para recuperar facilmente chats anteriores
-- Funciona perfeitamente em qualquer página web na sua aba ativa do navegador
-- Arquitetura focada na privacidade, alimentada pelo Gemini Nano integrado do Chrome (Prompt API)
-- Configuração zero: instale e comece a conversar localmente sem chaves de API ou configurações complexas
+Com o NanoChat, você pode:
+- Conversar sobre a página web ou documento atual em uma barra lateral de IA dedicada
+- Resumir artigos, explicar trechos complexos, traduzir seleções, reescrever textos e verificar a ortografia pelo menu de contexto
+- Anexar imagens e capturas de tela para prompts multimodais em dispositivos compatíveis
+- Usar o agente de navegador experimental para ações visíveis, como clicar, digitar, rolar e navegar
+- Manter um histórico local e pesquisável das conversas
+- Abrir rapidamente o assistente de IA com um atalho de teclado
 
-Por que os usuários escolhem o NanoChat:
-- 100% privado: sem APIs na nuvem, nenhum dado é enviado para servidores externos
-- Capacidade offline: executa totalmente no dispositivo através do seu navegador
-- Acessibilidade instantânea: layout de painel lateral (Side Panel) conveniente
-- Automação web interativa com modo de Agente experimental
-- Completamente gratuito e de código aberto, sem necessidade de registro ou assinaturas
+Privacidade desde o início:
+- O NanoChat não envia seus prompts, o contexto da página nem suas conversas para um serviço de IA externo
+- As conversas são armazenadas localmente na extensão
+- Todas as ações do agente ficam visíveis e sob seu controle
 
-Ideal para:
-- Usuários que valorizam a privacidade de dados e desejam manter as conversas locais
-- Profissionais e estudantes que precisam ler, resumir ou analisar conteúdo web
-- Desenvolvedores e entusiastas de tecnologia que exploram os recursos de IA local nativa do Chrome
-- Qualquer pessoa que procure um copiloto de IA local e sem distrações dentro do navegador
+Ideal para estudantes, pesquisadores, escritores, profissionais e pessoas que preferem IA local a ferramentas de chat na nuvem. Também é uma forma prática de explorar os recursos de IA integrados ao Chrome.
 
-Requisitos importantes:
-Para executar o NanoChat localmente, seu sistema e navegador devem atender aos seguintes requisitos:
-- Versão do Chrome 138 ou superior
-- GPU: pelo menos 4 GB de VRAM
-- CPU/RAM: mínimo de 4 núcleos de CPU e 16 GB de RAM
-- Flags de IA integradas ativadas no Chrome (consulte o repositório do GitHub para obter detalhes de configuração)
+Requisitos:
+- Google Chrome para computador com suporte a Prompt API e Gemini Nano
+- Um dispositivo que atenda aos requisitos atuais de IA no dispositivo do Chrome; atualmente, são necessários pelo menos 22 GB de espaço livre para o modelo e recursos suficientes de CPU ou GPU
+- O modelo de IA integrado deve estar disponível ou ser baixado no Chrome antes do uso
 
-O NanoChat é de código aberto: https://github.com/cupcakedev/nanochat-extension
+NanoChat é gratuito e de código aberto: https://github.com/cupcakedev/nanochat-extension

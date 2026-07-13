@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "NanoChat: Lokaler KI-Assistent",
+    "message": "NanoChat: Lokale KI in der Seitenleiste",
     "description": "The name of the extension"
   },
   "extensionDescription": {
-    "message": "Lokaler KI-Assistent und Web-Agent powered by Chrome Gemini Nano. Chatten Sie mit Webseiten, fassen Sie Texte zusammen & mehr.",
+    "message": "Private lokale KI in der Seitenleiste: Webseiten-Chat, Texte zusammenfassen und umschreiben, Browser-Aufgaben automatisieren.",
     "description": "The description of the extension"
   },
   "openSidepanel": {

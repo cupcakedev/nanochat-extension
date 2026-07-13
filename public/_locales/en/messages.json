@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "NanoChat: On-device AI Assistant",
+    "message": "NanoChat: Local AI Sidebar Assistant",
     "description": "The name of the extension"
   },
   "extensionDescription": {
-    "message": "Private local AI assistant & browser agent powered by Chrome Gemini Nano. Chat with webpages, summarize text & automate tasks.",
+    "message": "Private on-device AI sidebar: chat with webpages, summarize and rewrite text, and automate browser tasks.",
     "description": "The description of the extension"
   },
   "openSidepanel": {
