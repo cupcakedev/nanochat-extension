@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "NanoChat: Lokale KI in der Seitenleiste",
+    "message": "KI-Assistent, lokal & offline — NanoChat",
     "description": "The name of the extension"
   },
   "extensionDescription": {
-    "message": "Private lokale KI in der Seitenleiste: Webseiten-Chat, Texte zusammenfassen und umschreiben, Browser-Aufgaben automatisieren.",
+    "message": "Kostenloser lokaler KI-Assistent in der Chrome-Seitenleiste: Modell läuft auf dem Gerät. Seiten-Chat, Zusammenfassen, Umschreiben.",
     "description": "The description of the extension"
   },
   "openSidepanel": {

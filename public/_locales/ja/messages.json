@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "NanoChat: ローカルAIサイドバー",
+    "message": "AIアシスタント：端末内ローカル動作 — NanoChat",
     "description": "The name of the extension"
   },
   "extensionDescription": {
-    "message": "プライベートなローカルAIサイドバー。Webページと会話し、テキストを要約・書き換え、ブラウザ作業を自動化。",
+    "message": "無料で使えるローカルAIアシスタント。Chromeサイドバーでモデルが端末内で動作し、ページとの会話・要約・書き換え・翻訳が可能です。",
     "description": "The description of the extension"
   },
   "openSidepanel": {

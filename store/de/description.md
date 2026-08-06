@@ -1,25 +1,31 @@
-NanoChat ist eine private, lokal ausgeführte KI-Seitenleiste für Google Chrome. Öffnen Sie sie neben der aktuellen Seite, um Fragen zu stellen, einen Artikel zusammenzufassen, einen Abschnitt erklären zu lassen, markierten Text umzuschreiben oder mit dem Seitenkontext zu arbeiten – ohne ihn in einen separaten Chat zu kopieren.
+Ein kostenloser lokaler KI-Assistent für Chrome, der auf Ihrem Gerät läuft. Das Modell arbeitet direkt im Browser, sodass Ihre Eingaben, Seiteninhalte und Unterhaltungen den Computer nie verlassen — ohne API-Schlüssel, Konto, Abo oder externen KI-Dienst.
 
-NanoChat wurde für Lesen, Recherche, Schreiben und Produktivität im Browser entwickelt. Es verbindet Webseiten-Chat mit einem nutzergesteuerten KI-Browser-Agenten und verwendet Chromes integrierte Prompt API und Gemini Nano. Es sind weder API-Schlüssel noch Konto, Abonnement oder externer KI-Dienst erforderlich.
+NanoChat öffnet sich in der Chrome-Seitenleiste neben der Seite, die Sie gerade lesen. Stellen Sie Fragen zur aktuellen Seite, fassen Sie Artikel zusammen, lassen Sie Abschnitte erklären, schreiben Sie markierten Text um oder arbeiten Sie mit dem Seitenkontext, ohne ihn in einen separaten Chat zu kopieren. Grundlage sind die integrierte Prompt API von Chrome und Gemini Nano.
 
-Mit NanoChat können Sie:
-- Über die aktuelle Webseite oder ein Dokument in einer eigenen KI-Seitenleiste chatten
-- Artikel zusammenfassen, komplexe Passagen erklären, Markierungen übersetzen, Texte umschreiben und die Rechtschreibung über das Kontextmenü prüfen
-- Bilder und Screenshots für multimodale Eingaben auf unterstützten Geräten anhängen
-- Den experimentellen Browser-Agenten für sichtbare Aktionen wie Klicken, Tippen, Scrollen und Navigation verwenden
-- Einen durchsuchbaren lokalen Gesprächsverlauf behalten
-- Den KI-Assistenten über einen Tastaturkurzbefehl schnell öffnen
-
-Datenschutz von Anfang an:
-- NanoChat sendet Ihre Eingaben, den Seitenkontext und Gespräche nicht an einen externen KI-Dienst
+Warum KI auf dem Gerät:
+- Eingaben, Seitenkontext und Unterhaltungen werden nie an einen externen KI-Dienst gesendet
+- Funktioniert ohne Anmeldung, Konto oder API-Schlüssel
 - Chats werden lokal in der Erweiterung gespeichert
-- Jede Agentenaktion bleibt sichtbar und unter Ihrer Kontrolle
+- Keine Kosten pro Nachricht und keine Cloud-Kontingente
+- Auch auf Seiten mit internen oder sensiblen Inhalten nutzbar
 
-Ideal für Studierende, Forschende, Schreibende, Fachleute und alle, die lokale KI gegenüber Cloud-Chat-Tools bevorzugen. Außerdem eignet sich NanoChat zum Erkunden der integrierten KI-Funktionen von Chrome.
+Funktionen:
+- Chat mit der aktuellen Webseite oder dem Dokument in einer eigenen KI-Seitenleiste
+- Artikel zusammenfassen, komplexe Passagen erklären, Auswahl übersetzen, Texte umschreiben und Rechtschreibung prüfen über das Kontextmenü
+- Bilder und Screenshots für multimodale Prompts auf unterstützten Geräten anhängen
+- Der experimentelle Browser-Agent schlägt Seitenaktionen wie Klicken, Tippen, Scrollen und Navigieren vor und führt sie aus — jede Aktion bleibt sichtbar und unter Ihrer Kontrolle
+- Durchsuchbarer lokaler Verlauf Ihrer Unterhaltungen
+- Den KI-Assistenten sofort per Tastenkürzel öffnen (Strg+Umschalt+Y, unter macOS Command+Umschalt+Y)
+
+Für wen:
+- Studierende und Forschende, die Webinhalte schneller verstehen und zusammenfassen wollen
+- Autorinnen, Autoren und Fachkräfte, die einen KI-Assistenten direkt neben der Arbeitsseite brauchen
+- Datenschutzbewusste Nutzer, die lokale KI statt Cloud-Chatdiensten möchten
+- Entwickler, die die integrierte On-Device-KI von Chrome erkunden
 
 Voraussetzungen:
-- Google Chrome für Desktop mit Unterstützung für Prompt API und Gemini Nano
-- Ein Gerät, das die aktuellen Anforderungen für On-Device-KI in Chrome erfüllt; derzeit sind mindestens 22 GB freier Speicher für das Modell sowie ausreichende CPU- oder GPU-Ressourcen erforderlich
-- Das integrierte KI-Modell muss in Chrome verfügbar sein oder vor der Nutzung heruntergeladen werden
+- Eine Desktop-Version von Google Chrome mit Unterstützung für die integrierte Prompt API und Gemini Nano
+- Ein Gerät, das die Anforderungen von Chrome an lokale KI erfüllt: derzeit mindestens 22 GB freier Speicherplatz für das Modell sowie ausreichend CPU- oder GPU-Ressourcen
+- Das integrierte KI-Modell muss vor der ersten Nutzung in Chrome verfügbar oder heruntergeladen sein
 
-NanoChat ist kostenlos und Open Source: https://github.com/cupcakedev/nanochat-extension
+NanoChat ist kostenlos und quelloffen: https://github.com/cupcakedev/nanochat-extension

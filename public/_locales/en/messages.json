@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "NanoChat: Local AI Sidebar Assistant",
+    "message": "AI Assistant, Local & On-Device — NanoChat",
     "description": "The name of the extension"
   },
   "extensionDescription": {
-    "message": "Private on-device AI sidebar: chat with webpages, summarize and rewrite text, and automate browser tasks.",
+    "message": "Free local on-device AI assistant in your Chrome sidebar: chat with any page, summarize, rewrite, translate and automate tasks.",
     "description": "The description of the extension"
   },
   "openSidepanel": {

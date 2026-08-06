@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "NanoChat: 本地 AI 侧边栏助手",
+    "message": "AI 助手：本地设备端运行 — NanoChat",
     "description": "The name of the extension"
   },
   "extensionDescription": {
-    "message": "私密的本地 AI 侧边栏：与网页对话、总结和改写文本，并自动化浏览器任务。",
+    "message": "Chrome 侧边栏中的免费本地 AI 助手，模型在你的设备上运行：与网页对话、总结、改写、翻译并自动执行任务。",
     "description": "The description of the extension"
   },
   "openSidepanel": {

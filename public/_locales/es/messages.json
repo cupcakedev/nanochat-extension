@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "NanoChat: IA local en panel lateral",
+    "message": "Asistente de IA local y sin nube — NanoChat",
     "description": "The name of the extension"
   },
   "extensionDescription": {
-    "message": "IA privada y local en el panel lateral: chatea con páginas web, resume y reescribe texto, y automatiza tareas del navegador.",
+    "message": "Asistente de IA local y gratuito en el panel lateral de Chrome: el modelo se ejecuta en tu dispositivo. Chatea, resume y reescribe.",
     "description": "The description of the extension"
   },
   "openSidepanel": {

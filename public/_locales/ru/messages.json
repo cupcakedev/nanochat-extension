@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "NanoChat: Локальный ИИ в боковой панели",
+    "message": "AI-ассистент: локальная модель — NanoChat",
     "description": "The name of the extension"
   },
   "extensionDescription": {
-    "message": "Приватный локальный ИИ в боковой панели: чат с веб-страницами, суммаризация и редактирование текста, автоматизация задач.",
+    "message": "Бесплатный локальный AI-ассистент в боковой панели Chrome: модель работает на устройстве. Чат со страницей, пересказ, рерайт.",
     "description": "The description of the extension"
   },
   "openSidepanel": {
